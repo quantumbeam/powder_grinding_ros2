@@ -19,15 +19,17 @@ ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168
 ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur5e launch_rviz:=true
 ```
 
-- You can false use_fake_hardware option when you use real robot.
+- You can choose "false" of  use_fake_hardware option when you use real robot.
 ## トラブルシューティング
 ### on ubuntu
-- RVizが真っ暗で何も表示されない
+**RVizが真っ暗で何も表示されない**
     - https://github.com/ros2/rviz/issues/948
     - `add-apt-repository ppa:kisak/kisak-mesa`して`apt update`と`apt upgrade`で解決
-- moveitでexecuteしているのにUR5eが動かない
+
+**moveitでexecuteしているのにUR5eが動かない**
     - ros2 controlでセグフォがでている...
     - humble branchのros2_controlをunderlayに追加してビルドして通った
+    - **root権限のターミナルでビルドするとエラー解決しなかったので注意**
 
 ### on windows
 ```
@@ -36,4 +38,4 @@ ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur5e launch_rviz:=true
 - どうやらDDSのFastRTPTでトラブルが起こっている模様
   - cyclone DDSが割と動作ましらしいし、この際切り替えてみてそのままエラー解決
     - `export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`
-    - `apt install -y ros-humble-rmw-cyclonedds-cpp`
+    - `apt install -y ros-${ROS_DISTRO}-rmw-cyclonedds-cpp`
