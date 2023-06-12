@@ -65,7 +65,7 @@ def _toKdlPose(pose):
           kdl.Vector(*xyz))
 
 def urdf_joint_to_kdl_joint(jnt):
-
+    print(kdl.Joint)
     fixed = lambda j,F: kdl.Joint(j.name, getattr(kdl.Joint, 'None'))
     rotational = lambda j,F: kdl.Joint(j.name, F.p, F.M * kdl.Vector(*j.axis), kdl.Joint.RotAxis)
     translational = lambda j,F: kdl.Joint(j.name, F.p, F.M * kdl.Vector(*j.axis), kdl.Joint.TransAxis)
@@ -132,10 +132,8 @@ def main():
         usage()
     if len(sys.argv) == 2 and (sys.argv[1] == "-h" or sys.argv[1] == "--help"):
         usage()
-    if (len(sys.argv) == 1):
-        robot = URDF.load_from_parameter_server(verbose=False)
     else:
-        robot = URDF.load_xml_file(sys.argv[1], verbose=False)
+        robot = URDF.from_xml_file(sys.argv[1])
     tree = kdl_tree_from_urdf_model(robot)
     num_non_fixed_joints = 0
     for j in robot.joints:
