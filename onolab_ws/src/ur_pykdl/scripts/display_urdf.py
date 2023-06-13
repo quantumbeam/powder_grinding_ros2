@@ -34,24 +34,35 @@ from urdf_parser_py.urdf import URDF
 
 
 def main():
-    parser = argparse.ArgumentParser(usage='Load an URDF file')
-    parser.add_argument('file', type=argparse.FileType('r'), nargs='?',
-                        default=None, help='File to load. Use - for stdin')
-    parser.add_argument('-o', '--output', type=argparse.FileType('w'),
-                        default=None, help='Dump file to XML')
+    parser = argparse.ArgumentParser(usage="Load an URDF file")
+    parser.add_argument(
+        "file",
+        type=argparse.FileType("r"),
+        nargs="?",
+        default=None,
+        help="File to load. Use - for stdin",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=argparse.FileType("w"),
+        default=None,
+        help="Dump file to XML",
+    )
     args = parser.parse_args()
 
     if args.file is None:
-        print('FROM PARAM SERVER')
-        robot = URDF.from_parameter_server()
+        print("URDF path required on arg1")
+        exit()
     else:
-        print('FROM STRING')
+        print("FROM STRING")
         robot = URDF.from_xml_string(args.file.read())
 
     print(robot)
 
     if args.output is not None:
         args.output.write(robot.to_xml_string())
+
 
 if __name__ == "__main__":
     main()
