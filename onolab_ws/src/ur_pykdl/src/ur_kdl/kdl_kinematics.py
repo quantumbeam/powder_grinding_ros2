@@ -519,7 +519,7 @@ def main():
         num_times = 20
         while not rclpy.ok() and num_times > 0:
             base_link = robot.get_root()
-            end_link = list(robot.links.keys())[random.randint(0, len(robot.links) - 1)]
+            end_link = robot.links[random.randint(1, len(robot.links) - 4)].name
             print(("Root link: %s; Random end link: %s" % (base_link, end_link)))
             kdl_kin = KDLKinematics(robot, base_link, end_link)
             q = kdl_kin.random_joint_angles()
