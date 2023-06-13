@@ -2,7 +2,7 @@
 # Set up the workspace
 source /opt/ros/$ROS_DISTRO/setup.bash
 
-apt update
+sudo apt update
 
 rosdep update
 
