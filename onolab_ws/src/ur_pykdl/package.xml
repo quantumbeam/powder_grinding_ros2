@@ -3,9 +3,9 @@
 <package format="3">
   <name>ur_pykdl</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>KDL packafe for Universal Robot</description>
   <maintainer email="yusaku_nakajima@ap.eng.osaka-u.ac.jp">ubuntu</maintainer>
-  <license>TODO: License declaration</license>
+  <license>BSD</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
