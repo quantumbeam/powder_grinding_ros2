@@ -6,7 +6,3 @@
     uri: https://github.com/ros-controls/ros2_control.git
     local-name: underlay/ros2_control
     version: humble
-# - git:
-#     uri: https://github.com/ros-planning/moveit2_tutorials
-#     local-name: underlay/moveit2_tutorials
-#     version: humble
