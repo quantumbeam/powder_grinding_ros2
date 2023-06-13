@@ -8,11 +8,11 @@ publisher_scaled_joint_trajectory_controller:
     pos1:
       positions: [0.785, -1.57, 0.785, 0.785, 0.785, 0.785]
     pos2:
-      positions: [0.0, -1.57, 0.0, 0.0, 0.0, 0.0]
+      positions: [0.0, -1.57, 0.0, -1.57, 0.0, 0.0]
     pos3:
       positions: [0.0, -1.57, 0.0, 0.0, -0.785, 0.0]
     pos4:
-      positions: [0.0, -1.57, 0.0, 0.0, 0.0, 0.0]
+      positions: [0.0, -1.57, 0.0, -1.57, 0.0, 0.0]
 
     joints:
       - shoulder_pan_joint
@@ -27,7 +27,7 @@ publisher_scaled_joint_trajectory_controller:
       shoulder_pan_joint: [-0.1,0.1]
       shoulder_lift_joint: [-1.6,-1.5]
       elbow_joint: [-0.1,0.1]
-      wrist_1_joint: [-0.1,0.1]
+      wrist_1_joint: [-1.6,-1.5]
       wrist_2_joint: [-0.1,0.1]
       wrist_3_joint: [-0.1,0.1]
 
@@ -41,11 +41,11 @@ publisher_joint_trajectory_controller:
     pos1:
       positions: [0.785, -1.57, 0.785, 0.785, 0.785, 0.785]
     pos2:
-      positions: [0.0, -1.57, 0.0, 0.0, 0.0, 0.0]
+      positions: [0.0, -1.57, 0.0, -1.57, 0.0, 0.0]
     pos3:
       positions: [0.0, -1.57, 0.0, 0.0, -0.785, 0.0]
     pos4:
-      positions: [0.0, -1.57, 0.0, 0.0, 0.0, 0.0]
+      positions: [0.0, -1.57, 0.0, -1.57, 0.0, 0.0]
 
     joints:
       - shoulder_pan_joint
@@ -60,6 +60,6 @@ publisher_joint_trajectory_controller:
       shoulder_pan_joint: [-0.1,0.1]
       shoulder_lift_joint: [-1.6,-1.5]
       elbow_joint: [-0.1,0.1]
-      wrist_1_joint: [-0.1,0.1]
+      wrist_1_joint: [-1.6,-1.5]
       wrist_2_joint: [-0.1,0.1]
       wrist_3_joint: [-0.1,0.1]
