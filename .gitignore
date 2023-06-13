@@ -1,5 +1,8 @@
 core
 
+future/
+
+*/__pycache__/
 
 onolab_ws/build/*
 onolab_ws/install/*

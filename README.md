@@ -5,7 +5,7 @@
 - `docker run -p 6080:80 --shm-size=512m --security-opt seccomp=unconfined tiryoh/ros2-desktop-vnc:humble`
 ## コマンド
 - 
-- ` vcs import src < src/underlay.rosinstall`
+- `vcs import src < src/underlay.rosinstall`
 - `rosdep install -r --from-paths src --ignore-src --rosdistro $ROS_DISTRO -y`
 - `colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release`
     - clean cache option `--cmake-clean-cache`
