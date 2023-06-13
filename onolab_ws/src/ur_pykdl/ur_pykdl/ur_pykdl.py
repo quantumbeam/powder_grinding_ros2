@@ -87,16 +87,15 @@ class ur_kinematics(object):
     """
 
     def __init__(
-        self, base_link=None, ee_link=None, robot=None, prefix=None, rospackage=None
+        self,
+        URDF_path,
+        base_link=None,
+        ee_link=None,
+        robot=None,
+        prefix=None,
+        rospackage=None,
     ):
-        if robot:
-            rospack = rospkg.RosPack()
-            rospackage_ = rospackage if rospackage is not None else "ur_pykdl"
-            pykdl_dir = rospack.get_path(rospackage_)
-            TREE_PATH = pykdl_dir + "/urdf/" + robot + ".urdf"
-            self._ur = URDF.from_xml_file(TREE_PATH)
-        else:
-            self._ur = URDF.from_parameter_server()
+        self._ur = URDF.from_xml_file(URDF_path)
 
         self._kdl_tree = kdl_tree_from_urdf_model(self._ur)
         self._base_link = BASE_LINK if base_link is None else base_link
@@ -138,9 +137,7 @@ class ur_kinematics(object):
 
     def joints_to_kdl(self, type, values):
         kdl_array = PyKDL.JntArray(self._num_jnts)
-
         cur_type_values = values
-
         for idx in range(self._num_jnts):
             kdl_array[idx] = cur_type_values[idx]
         if type == "velocities":
@@ -200,13 +197,13 @@ class ur_kinematics(object):
             for idx, jnt in enumerate(seed):
                 seed_array[idx] = jnt
         else:
-            seed_array = self.joints_to_kdl("positions", None)  # TODO: Fixme
+            seed_array = self.joints_to_kdl("positions", seed_array)  # TODO: Fixme
 
         # Make IK Call
-        if orientation.size != 0:
-            goal_pose = PyKDL.Frame(rot, pos)
-        else:
+        if orientation == None:
             goal_pose = PyKDL.Frame(pos)
+        else:
+            goal_pose = PyKDL.Frame(rot, pos)
         result_angles = PyKDL.JntArray(self._num_jnts)
 
         if self._ik_p_kdl.CartToJnt(seed_array, goal_pose, result_angles) >= 0:
@@ -215,23 +212,23 @@ class ur_kinematics(object):
         else:
             return None
 
-    def jacobian(self, joint_values=None):
+    def jacobian(self, joint_values):
         jacobian = PyKDL.Jacobian(self._num_jnts)
         self._jac_kdl.JntToJac(self.joints_to_kdl("positions", joint_values), jacobian)
         return self.kdl_to_mat(jacobian)
 
-    def jacobian_transpose(self, joint_values=None):
+    def jacobian_transpose(self, joint_values):
         return self.jacobian(joint_values).T
 
-    def jacobian_pseudo_inverse(self, joint_values=None):
+    def jacobian_pseudo_inverse(self, joint_values):
         return np.linalg.pinv(self.jacobian(joint_values))
 
-    def inertia(self, joint_values=None):
+    def inertia(self, joint_values):
         inertia = PyKDL.JntSpaceInertiaMatrix(self._num_jnts)
         self._dyn_kdl.JntToMass(self.joints_to_kdl("positions", joint_values), inertia)
         return self.kdl_to_mat(inertia)
 
-    def cart_inertia(self, joint_values=None):
+    def cart_inertia(self, joint_values):
         js_inertia = self.inertia(joint_values)
         jacobian = self.jacobian(joint_values)
         return np.linalg.inv(jacobian * np.linalg.inv(js_inertia) * jacobian.T)

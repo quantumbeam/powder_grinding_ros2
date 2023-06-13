@@ -28,14 +28,21 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rclpy
+import sys
 from ur_pykdl import ur_kinematics
 
 
 def main():
+    if len(sys.argv) == 1:
+        print("You need to set xml_file file path to arg1")
+        exit()
+    else:
+        URDF_path = sys.argv[1]
+
     rclpy.init()
     rclpy.create_node("ur_kinematics")
     print("*** ur PyKDL Kinematics ***\n")
-    kin = ur_kinematics("right")
+    kin = ur_kinematics(URDF_path, base_link="base_link", ee_link="tool0")
 
     print("\n*** ur Description ***\n")
     kin.print_robot_description()
@@ -43,7 +50,8 @@ def main():
     kin.print_kdl_chain()
     # FK Position
     print("\n*** ur Position FK ***\n")
-    print((kin.forward_position_kinematics()))
+    joints = [0, 0, 0, 0, 0, 0]
+    print((kin.forward_position_kinematics(joints)))
     # FK Velocity
     # print '\n*** ur Velocity FK ***\n'
     # kin.forward_velocity_kinematics()
@@ -56,19 +64,19 @@ def main():
     print((kin.inverse_kinematics(pos, rot)))  # position & orientation
     # Jacobian
     print("\n*** ur Jacobian ***\n")
-    print((kin.jacobian()))
+    print((kin.jacobian(joints)))
     # Jacobian Transpose
     print("\n*** ur Jacobian Tranpose***\n")
-    print((kin.jacobian_transpose()))
+    print((kin.jacobian_transpose(joints)))
     # Jacobian Pseudo-Inverse (Moore-Penrose)
     print("\n*** ur Jacobian Pseudo-Inverse (Moore-Penrose)***\n")
-    print((kin.jacobian_pseudo_inverse()))
+    print((kin.jacobian_pseudo_inverse(joints)))
     # Joint space mass matrix
     print("\n*** ur Joint Inertia ***\n")
-    print((kin.inertia()))
+    print((kin.inertia(joints)))
     # Cartesian space mass matrix
     print("\n*** ur Cartesian Inertia ***\n")
-    print((kin.cart_inertia()))
+    print((kin.cart_inertia(joints)))
 
 
 if __name__ == "__main__":
