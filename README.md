@@ -40,6 +40,10 @@ ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur5e launch_rviz:=true
     - humble branchのros2_controlをunderlayに追加してビルドして通った
     - **root権限のターミナルでビルドするとエラー解決しなかったので注意**
 
+**ビルド時に`SetuptoolsDeprecationWarning`がでる**
+- setuptoolsのバージョンを下げればでなくなるよう
+  - https://answers.ros.org/question/396439/setuptoolsdeprecationwarning-setuppy-install-is-deprecated-use-build-and-pip-and-other-standards-based-tools/
+  - `pip install setuptools==58.2.0`
 
 ### on windows
 ```
