@@ -6,3 +6,7 @@
     uri: https://github.com/ros-controls/ros2_control.git
     local-name: underlay/ros2_control
     version: humble
+- git:
+    uri: https://github.com/cambel/ur_ikfast.git
+    local-name: underlay/ur_ikfast
+    version: master
