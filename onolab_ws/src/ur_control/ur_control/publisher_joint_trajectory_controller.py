@@ -28,6 +28,7 @@ class PublisherJointTrajectory(Node):
     def __init__(self):
         super().__init__("publisher_position_trajectory_controller")
         # Declare all parameters
+        # Advatised parameters and their default values
         self.declare_parameter("controller_name", "position_trajectory_controller")
         self.declare_parameter("wait_sec_between_publish", 6)
         self.declare_parameter("goal_names", ["pos1", "pos2"])
@@ -71,7 +72,7 @@ class PublisherJointTrajectory(Node):
                 name, descriptor=ParameterDescriptor(dynamic_typing=True)
             )
             goal = self.get_parameter(name).value
-
+            self.get_logger().info("Goal pose: %s" % goal)
             # TODO(anyone): remove this "if" part in ROS Iron
             if isinstance(goal, list):
                 self.get_logger().warn(
@@ -171,6 +172,7 @@ class PublisherJointTrajectory(Node):
             traj.joint_names = self.joints
             traj.points.append(self.goals[self.i])
             self.publisher_.publish(traj)
+            self.get_logger().info("Trajectory points: %s" % str(traj.points))
 
             self.i += 1
             self.i %= len(self.goals)
