@@ -73,27 +73,27 @@ def generate_spiral_waypoints(self, num_points):
     radius = 0.3  # 初期半径
     theta = 0.0  # 初期角度
     theta_increment = 2 * np.pi / num_points  # 角度の増分
-
+    scale = np.linspace(0, 1, num_points)
     for num in range(num_points):
         x = radius * np.cos(theta)
         y = radius * np.sin(theta)
-        z = num * 0.01  # 高さ
+        z = scale[num]  # 高さ
         waypoint = Pose()
         waypoint.position.x = x
         waypoint.position.y = y
         waypoint.position.z = z
         waypoints.append(waypoint)
 
-        radius += 0.1  # 半径を増加させて螺旋状にする
+        radius += scale[1]  # 半径を増加させて螺旋状にする
         theta += theta_increment
-        print(x, y, z)
+        print(z)
     return waypoints
 
 
 def main(args=None):
     rclpy.init(args=args)
     marker_display = MarkerDisplay("marker_publisher")
-    waypoints = generate_spiral_waypoints(marker_display, 10)
+    waypoints = generate_spiral_waypoints(marker_display, 100)
     marker_display.display_waypoints(
         waypoints
     )  # replace 'waypoints' with your waypoints data
