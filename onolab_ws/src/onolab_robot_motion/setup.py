@@ -24,6 +24,7 @@ setup(
     entry_points={
         "console_scripts": [
             "marker_display = onolab_robot_motion.marker_display:main",
+            "grinding_demo = onolab_robot_motion.grinding_demo:main",
         ],
     },
 )

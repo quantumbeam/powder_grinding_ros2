@@ -1,0 +1,67 @@
+create_waypoints_node:
+  ros__parameters:
+    experimental_time : 10.0
+
+    moving_vel_scale : 1.0
+    moving_acc_scale : 1.0
+
+    move_group_name: "manipulator"
+    grinding_eef_link: "pestle_tip"
+    gathering_eef_link: "spatula_tip"
+
+    init_joint_angles: [0.4929,-1.2819,1.9723,-2.2612,4.7124,2.0637]
+
+    grinding_ready_joint_angles: [0.4929,-1.192,2.0145,-2.3892,4.7116,2.0635]
+
+    init_joint_angles_of_gathering: [0.4067,-0.9457,1.3242,-0.3785,5.1191,1.5707]
+
+    # grinding params
+    pestle_radius : 10.0
+    minimum_grinding_radius: 5.0
+
+    fixed_grinding: true
+    arm_moving_at_vision: true
+    fixed_vision_threshold: true
+    vision_threshold: 25.0
+
+    grinding_pos_begining: [-8.0, 0.0]
+    grinding_pos_end: [-8.0, 0.0001]
+    grinding_center_pos: [0.0, 0.0]
+    grinding_number_of_rotation: 10
+    grinding_angle_param : 0.5
+    grinding_rz_begining : 38.0
+    grinding_rz_end : 38.0
+    grinding_vel_scale : 1.0
+    grinding_acc_scale : 1.0
+    grinding_waypoints_counts : 60
+    grinding_yaw_angle : 3.14159265359 #pi
+
+    # liner gathering params
+    gathering_theta_begining : 0.0
+    gathering_theta_end : 6.28318530718 # 2pi
+    gathering_length_from_center_begining : 40.0
+    gathering_length_from_center_end : 25.0
+    gathering_rz_begining : 40.0
+    gathering_rz_end : 30.0
+    gathering_yaw_angle : 3.14159265359 #pi
+    gathering_angle_param : -0.2
+    gathering_waypoints_counts : 10
+    gathering_motion_counts : 6
+    gathering_fixed_quaternion : true
+    gathering_vel_scale : 0.02
+    gathering_acc_scale : 0.02
+
+    # circular gathering params 
+    circular_gathering_pos_begining : [-30.0, 0.0]
+    circular_gathering_pos_end : [-22.0, 0.0001]
+    circular_gathering_number_of_rotation : 7
+    circular_gathering_angle_param : 0.0
+    circular_gathering_rz_begining : 58.0
+    circular_gathering_rz_end : 58.0
+    circular_gathering_vel_scale : 0.05
+    circular_gathering_acc_scale : 0.05
+    circular_gathering_waypoints_counts : 100
+    circular_gathering_yaw_angle : 3.14159265359 #pi
+
+    # sound param
+    sound_RMS_threshold : 0.03

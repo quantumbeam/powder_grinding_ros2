@@ -1,0 +1,6 @@
+
+# sound config
+sampling_rate : 40000.0
+cut_off_low : 200.0
+cut_off_high : 10000.0
+welch_segment : 256

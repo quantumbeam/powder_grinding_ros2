@@ -1,0 +1,9 @@
+create_waypoints_node:
+  ros__parameters:
+
+    table_position  :  [0.0,0.0,-0.015] # 0.015 is hight of UR5e base plate
+    table_scale  :  [0.9, 0.9, 0.1]
+
+    mortar_position  : [0.3978,0.3655,0.031]
+    mortar_scale:  [0.04,0.04,0.038] # official infomation says 0.04 * 0.04 * 0.032 but z is more deep actually 
+    mortar_hight: 0.0525
