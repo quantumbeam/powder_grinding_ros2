@@ -13,6 +13,7 @@ if [ -z "${PROJECT}" ]; then
   PROJECT=${USER}
 fi
 CONTAINER="${PROJECT}_onolab_1"
+echo "$0: USER=${USER}"
 echo "$0: PROJECT=${PROJECT}"
 echo "$0: CONTAINER=${CONTAINER}"
 
@@ -28,4 +29,4 @@ xhost +
 ################################################################################
 
 # Enter the Docker container with a Bash shell
-docker exec -i -t ${CONTAINER} bash
+docker exec -ti ${CONTAINER} /bin/bash -c "cd /home/ubuntu/onolab && /bin/bash"
