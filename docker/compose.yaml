@@ -3,7 +3,7 @@ version: "2.4"
 ################################################################################
 
 services:
-  onolab:
+  humble:
     hostname: onolab
     runtime: ${DOCKER_RUNTIME}
     privileged: true
@@ -15,9 +15,8 @@ services:
       # Display X Server GUI.
       - DISPLAY
       - QT_X11_NO_MITSHM=1
-    image: tiryoh/ros2-desktop-vnc:humble
+    image: osrf/ros:humble-desktop
     build:
-      context: ../
       dockerfile: ./Dockerfile
     volumes:
       # Map ROS workspace folders.

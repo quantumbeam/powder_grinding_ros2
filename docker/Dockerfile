@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM tiryoh/ubuntu-desktop-lxde-vnc:jammy
-LABEL maintainer="Tiryoh<tiryoh@gmail.com>"
+FROM osrf/ros:humble-desktop
+LABEL maintainer="YusakuNakajima<yusaku_nakajima@ap.eng.osaka-u.ac.jp>"
 
 SHELL ["/bin/bash", "-c"]
 
