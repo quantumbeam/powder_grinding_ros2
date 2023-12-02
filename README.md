@@ -25,6 +25,11 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
   - Fast RTPSに戻す場合は以下
     - `export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`
 
+## メモ
+2023/12/02
+- grinding_descriptionsとgrinding_motion_routinesを移植している途中です
+  - まだ、どちらも動きません
+  - とりあえず、descriptionsでmoveti planning scene表示して、motion_routinesでgrinding motionできるところまで確認するのが目標です
 
 
 ## トラブルシューティング
