@@ -1,14 +1,6 @@
-## 環境
-- ROS2 humble on docker
-
-## dockerの立ち上げ
-- `docker run -p 6080:80 --shm-size=512m --security-opt seccomp=unconfined tiryoh/ros2-desktop-vnc:humble`
-## コマンド
-- 
-- `vcs import src < src/underlay.rosinstall`
-- `rosdep install -r --from-paths src --ignore-src --rosdistro $ROS_DISTRO -y`
-- `colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release`
-    - clean cache option `--cmake-clean-cache`
+## ROS2 enviroments
+**ROS2 humble on docker
+**
 ## PC内環境でのURデモコマンド
 demo1
 ```
@@ -51,6 +43,7 @@ ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur5e launch_rviz:=true
 ```
 - どうやらDDSのFastRTPTでトラブルが起こっている模様
   - cyclone DDSが割と動作ましらしいし、切り替えてみてそのままエラー解決
+    - `export RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
     - `export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`
     - `apt install -y ros-${ROS_DISTRO}-rmw-cyclonedds-cpp`
   - ただ、humbleのデフォルトはFastRTPSだし、ubuntuでcycloneDDSで実機動かそうと思ったらros2_controlの一部のパッケージが未対応で事故ったので、注意
