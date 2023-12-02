@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>onolab_robot_motion</name>
+  <name>grinding_motion_routines</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="yusaku_nakajima@ap.eng.osaka-u.ac.jp">ubuntu</maintainer>

@@ -5,7 +5,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
-pkg_name = "onolab_robot_motion"
+pkg_name = "grinding_motion_routines"
 
 
 def generate_launch_description():

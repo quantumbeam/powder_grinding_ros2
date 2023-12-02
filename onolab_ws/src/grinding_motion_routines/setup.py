@@ -2,7 +2,7 @@ from setuptools import setup
 import os
 from glob import glob
 
-package_name = "onolab_robot_motion"
+package_name = "grinding_motion_routines"
 
 setup(
     name=package_name,
@@ -23,8 +23,8 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "marker_display = onolab_robot_motion.marker_display:main",
-            "grinding_demo = onolab_robot_motion.grinding_demo:main",
+            "marker_display = grinding_motion_routines.marker_display:main",
+            "grinding_demo = grinding_motion_routines.grinding_demo:main",
         ],
     },
 )

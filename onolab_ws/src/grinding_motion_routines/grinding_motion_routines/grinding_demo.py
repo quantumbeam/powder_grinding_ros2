@@ -12,8 +12,8 @@ import copy
 import numpy as np
 
 # from ur_pykdl import ur_kinematics
-from onolab_robot_motion.helpers import *
-from onolab_robot_motion.marker_display import MarkerDisplay
+from grinding_motion_routines.helpers import *
+from grinding_motion_routines.marker_display import MarkerDisplay
 
 
 class GrindingWaypoints(Node):
