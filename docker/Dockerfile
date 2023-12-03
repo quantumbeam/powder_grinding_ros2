@@ -33,11 +33,6 @@ RUN apt-get update -q && \
     && apt-get clean \ 
     && rm -rf /var/lib/apt/lists/*
 
-RUN gosu ubuntu rosdep update && \
-    grep -F "source /opt/ros/humble/setup.bash" /home/ubuntu/.bashrc || echo "source /opt/ros/humble/setup.bash" >> /home/ubuntu/.bashrc && \
-    grep -F "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" /home/ubuntu/.bashrc || echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /home/ubuntu/.bashrc && \
-    sudo chown ubuntu:ubuntu /home/ubuntu/.bashrc
-
 # Setup ROS enviroments
 RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 RUN echo "source /home/ubuntu/onolab/onolab_ws/install/setup.bash" >> /root/.bashrc
