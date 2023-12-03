@@ -1,21 +1,18 @@
-#include <rclcpp/rclcpp.hpp>
-#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
-#include <moveit_msgs/msg/collision_object.hpp>
 
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <rclcpp/rclcpp.hpp>
 
+#if 0
 class PlanningScene
 {
 public:
   PlanningScene(const std::shared_ptr<rclcpp::Node>& node, const std::string& move_group_name)
     : node_(node)
   {
-    // move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(move_group_name);
-    using moveit::planning_interface::MoveGroupInterface;
-    auto move_group_ = MoveGroupInterface(node, move_group_name);
-    // planning_scene_interface_ = std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
-    moveit::planning_interface::PlanningSceneInterface planning_scene_interface_;
+    move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(&node,&move_group_name);
+    planning_scene_interface_ = std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
 
     planning_frame_ = move_group_->getPlanningFrame();
 
@@ -149,14 +146,34 @@ private:
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("load_planning_scene");
-
-  std::string move_group_name;
-  move_group_name = "ur_manipulator";
-
-  PlanningScene planning_scene(node, move_group_name);
+  auto const node = std::make_shared<rclcpp::Node>(
+      "load_planning_scene", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
+  PlanningScene planning_scene(node, "ur_manipulator");
 //   planning_scene.initPlanningScene();
 
   rclcpp::shutdown();
   return 0;
+}
+#endif
+
+int main(int argc, char* argv[])
+{
+   // Initialize ROS and create the Node
+  rclcpp::init(argc, argv);
+  auto const node = std::make_shared<rclcpp::Node>(
+      "hello_moveit", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
+
+  // Create a ROS logger
+  auto const logger = rclcpp::get_logger("hello_moveit");
+
+  // We spin up a SingleThreadedExecutor for the current state monitor to get
+  // information about the robot's state.
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(node);
+  auto spinner = std::thread([&executor]() { executor.spin(); });
+
+  // Create the MoveIt MoveGroup Interface
+  using moveit::planning_interface::MoveGroupInterface;
+  auto move_group_interface = MoveGroupInterface(node, "panda_arm");
+
 }
