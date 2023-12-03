@@ -26,12 +26,11 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
     - `export RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
 
 ## メモ
-2023/12/02
+2023/12/03時点でのメモ
 - grinding_descriptionsとgrinding_motion_routinesを移植している途中です
   - まだ、どちらも動きません
   - とりあえず、descriptionsでmoveti planning scene表示して、motion_routinesでgrinding motionできるところまで確認するのが目標です
-- URの実機がcyclonDDSで動かない
-  - 2023/12/02時点では、cyclonDDSで動かないので、fastRTPSに戻しています
+  - 現状だと、descriptionsでparameterをdeclareしているところでエラーがでているので、それを解決する必要があります
 
 ## トラブルシューティング
 **ビルド中に固まる**
@@ -40,6 +39,9 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
   - `--parallel-workers 8`がビルドの並列数
   - デフォルトだとCPUのコア数に設定されているが、WSLを使っていたり他にリソースがさかれている場合はジョブがコンフリクトする可能性があるので、下げたほうが良い
   - 1だと最も安全(ビルドの時間が非常に長くなるけど)
+
+**URの実機がcyclonDDSで動かない**
+  - 2023/12/02時点では、cyclonDDSで動かないので、fastRTPSに戻しています
 
 **URをMoveItで動かそうとコードを書いてみたけど`Could not find parameter robot_description_semantic and did not receive robot_description_semantic `のエラーがでる**
 - ココらへんで議論がある
