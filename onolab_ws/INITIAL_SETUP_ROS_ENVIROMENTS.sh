@@ -16,7 +16,7 @@ vcs import src/third_party/MoveIt2 < src/third_party/MoveIt2/moveit2_tutorials/m
 rosdep install --from-paths src --ignore-src --rosdistro=$ROS_DISTRO -y
 
 # Build
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --parallel-workers 8 --cmake-clean-cache
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --parallel-workers 1 --cmake-clean-cache
 
 # Update enviromental veriables
 source /opt/ros/$ROS_DISTRO/setup.bash
