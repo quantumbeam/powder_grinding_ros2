@@ -8,6 +8,18 @@ services:
     runtime: ${DOCKER_RUNTIME}
     privileged: true
     network_mode: host # Use host network(IP and ports).
+    extra_hosts:
+      - "onolab:192.168.56.5" # The host PC
+      - "ur5e:192.168.56.42" # UR5e
+      - "cobotta:192.168.56.11" # cobotta
+      - "sound_sensor:192.168.56.100" #
+    expose:
+      - "50000" # sound sensor
+      - "50001" # send commnad to UR
+      - "50002" # external control of UR
+      - "50003" # recerve commnad from UR
+      - "50004" # script_command_port of UR
+      - "5007" # cobotta
     environment:
       # Pass host user information.
       - HOST_USER=${USER}
@@ -22,7 +34,7 @@ services:
       - ROS_PYTHON_VERSION=3
       - ROS_DISTRO=humble
       - ROS_LOCALHOST_ONLY=1
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
     image: onolab_ros2_humble
     build:
