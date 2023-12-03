@@ -1,4 +1,4 @@
-load_planing_scene:
+/**:
   ros__parameters:
     move_group_name: "ur_manipulator"
 
