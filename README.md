@@ -33,7 +33,14 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 
 
 ## トラブルシューティング
-**2023/12/2時点では解決しています**
+**ビルド中に固まる**
+- colcon buildの引数で並列化数を明示的に設定する
+  - `colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --parallel-workers 8 --cmake-clean-cache`
+  - `--parallel-workers 8`がビルドの並列数
+  - デフォルトだとCPUのコア数に設定されているが、WSLを使っていたり他にリソースがさかれている場合はジョブがコンフリクトする可能性があるので、下げたほうが良い
+  - 1だと最も安全(ビルドの時間が非常に長くなるけど)
+
+**以下は2023/12/2時点では解決しています**
 ### on ubuntu
 **RVizが真っ暗で何も表示されない**
     - https://github.com/ros2/rviz/issues/948
