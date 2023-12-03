@@ -30,7 +30,8 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 - grinding_descriptionsとgrinding_motion_routinesを移植している途中です
   - まだ、どちらも動きません
   - とりあえず、descriptionsでmoveti planning scene表示して、motion_routinesでgrinding motionできるところまで確認するのが目標です
-
+- URの実機がcyclonDDSで動かない
+  - 2023/12/02時点では、cyclonDDSで動かないので、fastRTPSに戻しています
 
 ## トラブルシューティング
 **ビルド中に固まる**
