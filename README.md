@@ -41,6 +41,15 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
   - デフォルトだとCPUのコア数に設定されているが、WSLを使っていたり他にリソースがさかれている場合はジョブがコンフリクトする可能性があるので、下げたほうが良い
   - 1だと最も安全(ビルドの時間が非常に長くなるけど)
 
+**URをMoveItで動かそうとコードを書いてみたけど`Could not find parameter robot_description_semantic and did not receive robot_description_semantic `のエラーがでる**
+- ココらへんで議論がある
+  - https://github.com/UniversalRobots/Universal_Robots_ROS2_Driver/issues/457
+  - https://forum.universal-robots.com/t/move-ur-with-a-moveit2-script/24497
+- 多分、PlanningSceneなどを実行したノードのパラメータにrobot_description_semanticとかがないので、読めないエラーがでている
+  - 明示的に指定するか、UR Driverの修正を待つ(もしくは修正する)か
+- 明示的に指定する場合、このlaunchの書き方を参考にするとよい(上のissueで議論する中で作ったpkg)
+  - https://github.com/LucaBross/simple_moveit2_universal_robots_movement/tree/main
+
 **以下は2023/12/2時点では解決しています**
 ### on ubuntu
 **RVizが真っ暗で何も表示されない**
