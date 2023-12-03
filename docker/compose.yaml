@@ -15,7 +15,7 @@ services:
       # Display X Server GUI.
       - DISPLAY
       - QT_X11_NO_MITSHM=1
-    image: osrf/ros:humble-desktop
+    image: onolab_ros2_humble
     build:
       dockerfile: ./Dockerfile
     volumes:
