@@ -89,67 +89,67 @@
       ratio = 0.5
       type = VPaned
     [[[terminal10]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 1
       parent = child8
       profile = default
       type = Terminal
     [[[terminal13]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 0
       parent = child12
       profile = default
       type = Terminal
     [[[terminal14]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 1
       parent = child12
       profile = default
       type = Terminal
     [[[terminal17]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 0
       parent = child16
       profile = default
       type = Terminal
     [[[terminal18]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 1
       parent = child16
       profile = default
       type = Terminal
     [[[terminal20]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 0
       parent = child19
       profile = default
       type = Terminal
     [[[terminal21]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 1
       parent = child19
       profile = default
       type = Terminal
     [[[terminal3]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 0
       parent = child2
       profile = default
       type = Terminal
     [[[terminal6]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 0
       parent = child5
       profile = default
       type = Terminal
     [[[terminal7]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 1
       parent = child5
       profile = default
       type = Terminal
     [[[terminal9]]]
-      command = source ~/.bashrc && sh ./RUN-DOCKER-CONTAINER.sh
+      command = sh ./RUN-DOCKER-CONTAINER.sh
       order = 0
       parent = child8
       profile = default
@@ -253,40 +253,39 @@
       order = 0
       profile = default
       title = rqt
-      command = sh ./RUN-DOCKER-CONTAINER.sh ${USER} rqt
+      command = sh ./RUN-DOCKER-CONTAINER.sh
     [[[terminal14]]]
       type = Terminal
       parent = child12
       order = 1
       profile = default
       title = UR_driver
-      command = sh ./RUN-DOCKER-CONTAINER.sh ${USER} ur_control ur5e_moveit.launch
+      command = sh ./RUN-DOCKER-CONTAINER.sh
     [[[terminal17]]]
       type = Terminal
       parent = child16
       order = 0
       profile = default
       title = UR_moveit
-      command = sh ./RUN-DOCKER-CONTAINER.sh ${USER} kek_moveit_config ur5e_moveit_planning_execution.launch
+      command = sh ./RUN-DOCKER-CONTAINER.sh
     [[[terminal18]]]
       type = Terminal
       parent = child16
       order = 1
       profile = default
       title = UR_RViz
-      command = sh ./RUN-DOCKER-CONTAINER.sh ${USER} kek_moveit_config moveit_rviz.launch
+      command = sh ./RUN-DOCKER-CONTAINER.sh
     [[[terminal20]]]
       type = Terminal
       parent = child19
       order = 0
       profile = default
       title = camera_driver
-      command = sh ./RUN-DOCKER-CONTAINER.sh ${USER} kek_vision diagonal_vision.launch
+      command = sh ./RUN-DOCKER-CONTAINER.sh
     [[[terminal21]]]
       type = Terminal
       parent = child19
       order = 1
       profile = default
-      title = roscore (NEEDS TO RUN FIRST)
-      command = sh ./RUN-DOCKER-CONTAINER.sh ${USER} --run-immediately roscore
+      command = sh ./RUN-DOCKER-CONTAINER.sh
 [plugins]
