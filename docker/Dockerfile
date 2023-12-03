@@ -36,9 +36,3 @@ RUN apt-get update -q && \
 # Setup ROS enviroments
 RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 RUN echo "source /home/ubuntu/onolab/onolab_ws/install/setup.bash" >> /root/.bashrc
-
-# Setup ROS2 DDS
-RUN echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /root/.bashrc
-
-# Set ROS2 network ID
-RUN echo "export ROS_DOMAIN_ID=1225" >> /root/.bashrc

@@ -7,6 +7,7 @@ services:
     hostname: onolab
     runtime: ${DOCKER_RUNTIME}
     privileged: true
+    network_mode: host # Use host network(IP and ports).
     environment:
       # Pass host user information.
       - HOST_USER=${USER}
@@ -15,8 +16,14 @@ services:
       # Display X Server GUI.
       - DISPLAY
       - QT_X11_NO_MITSHM=1
-      # Set ROS environment variables.
-      - ROS_DOMAIN_ID=100
+      # Set ROS environment variables. It is instead of writing them in .bashrc.
+      - ROS_DOMAIN_ID=1
+      - ROS_VERSION=2
+      - ROS_PYTHON_VERSION=3
+      - ROS_DISTRO=humble
+      - ROS_LOCALHOST_ONLY=1
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
     image: onolab_ros2_humble
     build:
       dockerfile: ./Dockerfile
@@ -27,14 +34,4 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       # Grant access to usb ports
       - /dev/:/dev/
-    extra_hosts:
-      - "onolab:127.0.0.1" # Seems that this might be needed for ROS networking
-      - "onolab:192.168.56.5" # The host PC
-      - "ur5e_ono:192.168.56.42" # UR5e
-    expose:
-      - "50001" # send commnad to UR
-      - "50002" # external control of UR
-      - "50003" # recerve commnad from UR
-      - "50004" # script_command_port of UR
-    ipc: host
     tty: true
