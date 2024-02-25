@@ -9,11 +9,12 @@ sudo pip install --upgrade pip
 # pip3 install -r src/requirements.txt
 
 vcs import src < src/third_party.repos
+# vcs import src --skip-existing --input src/third_party/third_party/Universal_Robots_ROS2_Driver/Universal_Robots_ROS2_Driver-not-released.${ROS_DISTRO}.repos
 vcs import src/third_party/Universal_Robots < src/third_party/Universal_Robots/Universal_Robots_ROS2_Driver/Universal_Robots_ROS2_Driver.humble.repos
 vcs pull src
 
 rosdep update
-rosdep install --from-paths src --ignore-src --rosdistro=$ROS_DISTRO -y
+rosdep install -r -y -i --from-paths src --rosdistro $ROS_DISTRO
 
 # Build
 colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --cmake-clean-cache
