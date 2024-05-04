@@ -1,4 +1,5 @@
-FROM osrf/ros:humble-desktop
+ARG ROS_DISTRO=humble
+FROM osrf/ros:${ROS_DISTRO}-desktop-full
 LABEL maintainer="YusakuNakajima<yusaku_nakajima@ap.eng.osaka-u.ac.jp>"
 
 # Ignore keybourd layout seting
@@ -30,6 +31,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update -q && \
     apt-get install -y \
     ros-humble-rmw-cyclonedds-cpp \
+    apt-get install ros-${ROS_DISTRO}-ur
     && apt-get clean \ 
     && rm -rf /var/lib/apt/lists/*
 
