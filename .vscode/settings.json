@@ -7,5 +7,6 @@
         "deque": "cpp",
         "string": "cpp",
         "vector": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "/home/user/onolab_ros2/onolab_ws/build/control_msgs/control_msgs__py"
 }
