@@ -1,7 +1,3 @@
-version: "3.8"
-
-################################################################################
-
 services:
   humble:
     hostname: onolab
@@ -9,10 +5,9 @@ services:
     privileged: true
     network_mode: host # Use host network(IP and ports).
     extra_hosts:
-      - "onolab:192.168.56.5" # The host PC
-      - "ur5e:192.168.56.42" # UR5e
-      - "cobotta:192.168.56.11" # cobotta
-      - "sound_sensor:192.168.56.100" #
+      - "onolab:192.168.58.5" # The host PC
+      - "ur5e:192.168.58.42" # UR5e
+      - "cobotta:192.168.58.11" # cobotta
     expose:
       - "50000" # sound sensor
       - "50001" # send commnad to UR

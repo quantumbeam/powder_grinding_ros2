@@ -32,6 +32,7 @@ RUN apt-get update -q && \
     apt-get install -y \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
     ros-${ROS_DISTRO}-ur \
+    ros-${ROS_DISTRO}-moveit-visual-tools \
     && apt-get clean \ 
     && rm -rf /var/lib/apt/lists/*
 
