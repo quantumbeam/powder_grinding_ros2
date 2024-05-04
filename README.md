@@ -34,6 +34,8 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 
 ## トラブルシューティング
 **ビルド中に固まる**
+- WSL2を使っていたり、性能低いPCだとビルド中に固まることがある
+  - その場合は、ビルドの並列化数を下げると解決することがある
 - colcon buildの引数で並列化数を明示的に設定する
   - `colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --parallel-workers 8 --cmake-clean-cache`
   - `--parallel-workers 8`がビルドの並列数
