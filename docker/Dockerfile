@@ -30,8 +30,8 @@ RUN apt-get update && apt-get install -y \
 # Install ROS packages
 RUN apt-get update -q && \
     apt-get install -y \
-    ros-humble-rmw-cyclonedds-cpp \
-    apt-get install ros-${ROS_DISTRO}-ur \
+    ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
+    ros-${ROS_DISTRO}-ur \
     && apt-get clean \ 
     && rm -rf /var/lib/apt/lists/*
 
