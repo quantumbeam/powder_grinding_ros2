@@ -11,7 +11,7 @@ vcs pull src
 
 # Updating rosdep and installing dependencies
 rosdep update
-rosdep install --from-paths src --ignore-src --rosdistro=$ROS_DISTRO -y
+rosdep install -r -y -i --from-paths src --rosdistro $ROS_DISTRO
 
 # Build
 colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release

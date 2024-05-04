@@ -13,7 +13,8 @@ rosdep update
 # vcs import src/third_party/Universal_Robots < src/third_party/Universal_Robots/Universal_Robots_ROS2_Driver/Universal_Robots_ROS2_Driver.humble.repos
 # vcs import src/third_party/MoveIt2 < src/third_party/MoveIt2/moveit2_tutorials/moveit2_tutorials.repos
 
-rosdep install --from-paths src --ignore-src --rosdistro=$ROS_DISTRO -y
+rosdep update
+rosdep install -r -y -i --from-paths src --rosdistro $ROS_DISTRO
 
 # Build
 colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --cmake-clean-cache
