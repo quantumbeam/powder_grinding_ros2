@@ -125,8 +125,8 @@ def generate_launch_description():
         output="screen",
         parameters=[
             planning_scene_config,
-            robot_description,
-            robot_description_semantic,
+            # robot_description,
+            # robot_description_semantic,
         ],
     )
 

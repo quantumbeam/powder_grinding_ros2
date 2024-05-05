@@ -35,11 +35,11 @@ public:
     auto funnel_scale = node->get_parameter("funnel_scale").as_double_array();
     auto MasterSizer_pos = node->get_parameter("MasterSizer_position").as_double_array();
     auto MasterSizer_scale = node->get_parameter("MasterSizer_scale").as_double_array();
-    std::cout << "table_pos: ";
-    for (auto value : table_pos) {
-        std::cout << value << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "table_pos: ";
+    // for (auto value : table_pos) {
+    //     std::cout << value << " ";
+    // }
+    // std::cout << std::endl;
   }
 
   void initPlanningScene()

@@ -2,42 +2,15 @@
   ros__parameters:
     move_group_name: "ur_manipulator"
 
-    table_position:
-      x: 0
-      y: 0
-      z: -0.015 # 0.015 is height of UR5e base plate
-    table_scale:
-      x: 0.9
-      y: 1.5
-      z: 0.1
+    table_position: [0.0, 0.0, -0.015] # 0.015 is height of UR5e base plate
+    table_scale: [0.9, 1.5, 0.1]
 
-    mortar_top_position:
-      x: 0.39436323098562737
-      y: 0.3668537939641375
-      z: 0.04253480790823799
-    mortar_inner_scale:
-      x: 0.04
-      y: 0.04
-      z: 0.035 # official information says 0.04 * 0.04 * 0.032 but z is more deep actually
+    mortar_top_position: [0.39436323098562737, 0.3668537939641375, 0.04253480790823799]
+    mortar_inner_scale: [0.04, 0.04, 0.035] # official information says 0.04 * 0.04 * 0.032 but z is more deep actually
 
-    funnel_position:
-      x: 0.06693
-      y: 0.323
-      z: 0
-    funnel_scale:
-      x: 0.015
-      y: 0.015
-      z: 0.15
+    funnel_position: [0.06693, 0.323, 0.0]
+    funnel_scale: [0.015, 0.015, 0.15]
 
-    MasterSizer_position:
-      x: 0.073414
-      y: -0.5184
-      z: 0
-    MasterSizer_scale:
-      x: 0.1
-      y: 0.1
-      z: 0.3
-    MasterSizer_relay_position:
-      x: 0.073414
-      y: -0.5184
-      z: 0
+    MasterSizer_position: [0.073414, -0.5184, 0.0]
+    MasterSizer_scale: [0.1, 0.1, 0.3]
+    MasterSizer_relay_position: [0.073414, -0.5184, 0.0]
