@@ -1,16 +1,9 @@
-/**:
+load_planning_scene:
   ros__parameters:
     move_group_name: "ur_manipulator"
 
-    table_position: [0.0, 0.0, -0.015] # 0.015 is height of UR5e base plate
+    table_position: [0.0, 0.0, 0.0] # 0.015 is height of UR5e base plate
     table_scale: [0.9, 1.5, 0.1]
 
     mortar_top_position: [0.39436323098562737, 0.3668537939641375, 0.04253480790823799]
     mortar_inner_scale: [0.04, 0.04, 0.035] # official information says 0.04 * 0.04 * 0.032 but z is more deep actually
-
-    funnel_position: [0.06693, 0.323, 0.0]
-    funnel_scale: [0.015, 0.015, 0.15]
-
-    MasterSizer_position: [0.073414, -0.5184, 0.0]
-    MasterSizer_scale: [0.1, 0.1, 0.3]
-    MasterSizer_relay_position: [0.073414, -0.5184, 0.0]

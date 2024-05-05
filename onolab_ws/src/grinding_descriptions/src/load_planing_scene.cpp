@@ -6,163 +6,126 @@
 #include <rclcpp/rclcpp.hpp>
 
 
-class PlanningScene
-{
-public:
-  PlanningScene(const std::shared_ptr<rclcpp::Node> &node, const std::string &move_group_name)
-      : node_(node)
-  {
-    move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node, move_group_name);
-    planning_scene_interface_ = std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
+// class PlanningScene
+// {
+// public:
+//   PlanningScene(const std::shared_ptr<rclcpp::Node> &node, const std::string &move_group_name)
+//       : node_(node)
+//   {
+//     move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node, move_group_name);
+//     planning_frame_ = move_group_->getPlanningFrame();
+//     planning_scene_interface_ = std::make_shared<moveit::planning_interface::PlanningSceneInterface>(node);
 
-    planning_frame_ = move_group_->getPlanningFrame();
+//     // node -> declare_parameter("table_position", std::vector<double>(3, 0));
+//     // node -> declare_parameter("table_scale", std::vector<double>(3, 0));
+//     // node -> declare_parameter("mortar_top_position", std::vector<double>(3, 0));
+//     // node -> declare_parameter("mortar_inner_scale", std::vector<double>(3, 0));
 
-    // パラメータを宣言
-    node -> declare_parameter("table_position", std::vector<double>(3, 0));
-    node -> declare_parameter("table_scale", std::vector<double>(3, 0));
-    node -> declare_parameter("mortar_top_position", std::vector<double>(3, 0));
-    node -> declare_parameter("mortar_inner_scale", std::vector<double>(3, 0));
-    node -> declare_parameter("funnel_position", std::vector<double>(3, 0));
-    node -> declare_parameter("funnel_scale", std::vector<double>(3, 0));
-    node -> declare_parameter("MasterSizer_position", std::vector<double>(3, 0));
-    node -> declare_parameter("MasterSizer_scale", std::vector<double>(3, 0));
+//     table_pos = node->get_parameter("table_position").as_double_array();
+//     table_scale = node->get_parameter("table_scale").as_double_array();
+//     mortar_top_pos = node->get_parameter("mortar_top_position").as_double_array();
+//     mortar_inner_scale = node->get_parameter("mortar_inner_scale").as_double_array();
+//   }
 
-    auto table_pos = node->get_parameter("table_position").as_double_array();
-    auto table_scale = node->get_parameter("table_scale").as_double_array();
-    auto mortar_top_pos = node->get_parameter("mortar_top_position").as_double_array();
-    auto mortar_inner_scale = node->get_parameter("mortar_inner_scale").as_double_array();
-    auto funnel_pos = node->get_parameter("funnel_position").as_double_array();
-    auto funnel_scale = node->get_parameter("funnel_scale").as_double_array();
-    auto MasterSizer_pos = node->get_parameter("MasterSizer_position").as_double_array();
-    auto MasterSizer_scale = node->get_parameter("MasterSizer_scale").as_double_array();
-    // std::cout << "table_pos: ";
-    // for (auto value : table_pos) {
-    //     std::cout << value << " ";
-    // }
-    // std::cout << std::endl;
-  }
+//   void initPlanningScene()
+//   {
+//     std::string mortar_mesh_file_path = "package://grinding_descriptions/mesh/moveit_scene_object/mortar_40mm.stl";
+//     rclcpp::Parameter param;
 
-  void initPlanningScene()
-  {
-    std::string mortar_mesh_file_path = "package://grinding_descriptions/mesh/moveit_scene_object/mortar_40mm.stl";
-    rclcpp::Parameter param;
+//     addTable(table_pos, table_scale);
+//     // addMortar(mortar_mesh_file_path, mortar_pos);
+  
+//   }
 
-    // Add table if parameters are provided
-    // if (!table_pos.x && !table_pos.y && !table_pos.z && !table_scale.x && !table_scale.y && !table_scale.z)
-    // {
+//   void addTable(std::vector<double> &table_pos, std::vector<double> &table_scale)
+//     {
+//       moveit_msgs::msg::CollisionObject table;
+//       table.id = "Table";
+//       table.header.frame_id = planning_frame_;
 
-    //   addTable(table_pos, table_scale);
-    // }
+//       shape_msgs::msg::SolidPrimitive primitive;
+//       primitive.type = primitive.BOX;
+//       primitive.dimensions.resize(3);
+//       std::cout << "table_scale[0]: " << table_scale[0] << std::endl;
+//       primitive.dimensions[primitive.BOX_X] = table_scale[0];
+//       primitive.dimensions[primitive.BOX_Y] = table_scale[1];
+//       primitive.dimensions[primitive.BOX_Z] = table_scale[2];
+//       geometry_msgs::msg::Pose box_pose;
+//       box_pose.orientation.w = 1.0;
+//       box_pose.position.x = table_pos[0];
+//       box_pose.position.y = table_pos[1];
+//       box_pose.position.z = table_pos[2];
+//       box_pose.position.z -= table_scale[2] / 2.0;
 
-    // Add mortar if parameters are provided
-    // if (!mortar_pos.x && !mortar_pos.y && !mortar_pos.z)
-    // {
-    //   addMortar(mortar_mesh_file_path, mortar_pos);
-    // }
+//       table.primitives.push_back(primitive);
+//       table.primitive_poses.push_back(box_pose);
+//       table.operation = table.ADD;
 
-    // Add funnel if parameters are provided
-    // if (!funnel_pos.x && !funnel_pos.y && !funnel_pos.z && !funnel_scale.x && !funnel_scale.y && !funnel_scale.z)
-    // {
-    //   addFunnel(funnel_pos, funnel_scale);
-    // }
+//       // moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+//       planning_scene_interface_->applyCollisionObject(table);
+//     }
 
-    // Add MasterSizer if parameters are provided
-    // if (!MasterSizer_pos.x && !MasterSizer_pos.y && !MasterSizer_pos.z && !MasterSizer_scale.x && !MasterSizer_scale.y && !MasterSizer_scale.z)
-    // {
-    //   addMasterSizer(MasterSizer_pos, MasterSizer_scale);
-    // }
-  }
+// private:
+//   std::shared_ptr<rclcpp::Node> node_;
+//   std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
+//   std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
+//   std::string planning_frame_;
+//   std::vector<double> table_pos;
+//   std::vector<double> table_scale;
+//   std::vector<double> mortar_top_pos;
+//   std::vector<double> mortar_inner_scale;
+//   std::string mortar_mesh_file_path;
 
-  // private:
-  //   void addTable(const geometry_msgs::msg::Point &table_pos, const geometry_msgs::msg::Vector3 &table_scale)
-  //   {
-  //     moveit_msgs::msg::CollisionObject table;
-  //     table.id = "Table";
-  //     table.header.frame_id = planning_frame_;
-  //     table.primitives.resize(1);
-  //     table.primitives[0].type = table.primitives[0].BOX;
-  //     table.primitives[0].dimensions.resize(3);
-  //     table.primitives[0].dimensions[0] = table_scale.x;
-  //     table.primitives[0].dimensions[1] = table_scale.y;
-  //     table.primitives[0].dimensions[2] = table_scale.z;
-  //     table.primitive_poses.resize(1);
-  //     table.primitive_poses[0].position = table_pos;
-  //     table.primitive_poses[0].position.z -= table_scale.z / 2.0;
-  //     table.operation = table.ADD;
-
-  //     planning_scene_interface_->applyCollisionObject(table);
-  //   }
-
-  //   void addMortar(const std::string &file_path, const geometry_msgs::msg::Point &mortar_pos)
-  //   {
-  //     moveit_msgs::msg::CollisionObject mortar;
-  //     mortar.id = "Mortar";
-  //     mortar.header.frame_id = planning_frame_;
-  //     mortar.meshes.resize(1);
-  //     mortar.meshes[0].triangles.clear();
-  //     mortar.meshes[0].vertices.clear();
-  //     mortar.mesh_poses.resize(1);
-  //     mortar.mesh_poses[0].position = mortar_pos;
-  //     mortar.operation = mortar.ADD;
-
-  //     planning_scene_interface_->applyCollisionObject(mortar);
-  //   }
-
-  //   void addFunnel(const geometry_msgs::msg::Point &funnel_pos, const geometry_msgs::msg::Vector3 &funnel_scale)
-  //   {
-  //     moveit_msgs::msg::CollisionObject funnel;
-  //     funnel.id = "Funnel";
-  //     funnel.header.frame_id = planning_frame_;
-  //     funnel.primitives.resize(1);
-  //     funnel.primitives[0].type = funnel.primitives[0].CYLINDER;
-  //     funnel.primitives[0].dimensions.resize(2);
-  //     funnel.primitives[0].dimensions[0] = funnel_scale.x;
-  //     funnel.primitives[0].dimensions[1] = funnel_scale.z;
-  //     funnel.primitive_poses.resize(1);
-  //     funnel.primitive_poses[0].position = funnel_pos;
-  //     funnel.operation = funnel.ADD;
-
-  //     planning_scene_interface_->applyCollisionObject(funnel);
-  //   }
-
-  //   void addMasterSizer(const geometry_msgs::msg::Point &MasterSizer_pos, const geometry_msgs::msg::Vector3 &MasterSizer_scale)
-  // {
-  //   moveit_msgs::msg::CollisionObject MasterSizer;
-  //   MasterSizer.id = "MasterSizer";
-  //   MasterSizer.header.frame_id = planning_frame_;
-  //   MasterSizer.primitives.resize(1);
-  //   MasterSizer.primitives[0].type = MasterSizer.primitives[0].CYLINDER;
-  //   MasterSizer.primitives[0].dimensions.resize(2);
-  //   MasterSizer.primitives[0].dimensions[0] = MasterSizer_scale.x;
-  //   MasterSizer.primitives[0].dimensions[1] = MasterSizer_scale.z;
-  //   MasterSizer.primitive_poses.resize(1);
-  //   MasterSizer.primitive_poses[0].position = MasterSizer_pos;
-  //   MasterSizer.operation = MasterSizer.ADD;
-
-  //   planning_scene_interface_->applyCollisionObject(MasterSizer);
-  // }
-
-private:
-  std::shared_ptr<rclcpp::Node> node_;
-  std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
-  std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
-  std::string planning_frame_;
-};
+// };
 
 int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
-  auto const node = std::make_shared<rclcpp::Node>(
-      "load_planning_scene", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
-  rclcpp::executors::SingleThreadedExecutor executor;
-  executor.add_node(node);
-  auto spinner = std::thread([&executor]()
-                             { executor.spin(); });
-  PlanningScene planning_scene(node, "ur_manipulator");
-  planning_scene.initPlanningScene();
+  rclcpp::NodeOptions node_options;
+  
+  node_options.allow_undeclared_parameters(true);
+  node_options.automatically_declare_parameters_from_overrides(true);
+  std::shared_ptr<TestNode> node = nullptr;
+  node = std::make_shared<LoadingPlanningScene>("test_topic", "test_node", node_options);
+
+  moveit::planning_interface::MoveGroupInterface move_group(node, "ur_manipulator");
+  planning_frame = move_group.getPlanningFrame();
+  table_pos = node->get_parameter("table_position");
+  table_scale = node->get_parameter("table_scale");
+  mortar_top_pos = node->get_parameter("mortar_top_position");
+  mortar_inner_scale = node->get_parameter("mortar_inner_scale");
+
+  moveit_msgs::msg::CollisionObject table;
+  table.id = "Table";
+  table.header.frame_id = planning_frame;
+
+  shape_msgs::msg::SolidPrimitive primitive;
+  primitive.type = primitive.BOX;
+  primitive.dimensions.resize(3);
+  std::cout << "table_scale[0]: " << table_scale[0] << std::endl;
+  primitive.dimensions[primitive.BOX_X] = table_scale[0];
+  primitive.dimensions[primitive.BOX_Y] = table_scale[1];
+  primitive.dimensions[primitive.BOX_Z] = table_scale[2];
+  geometry_msgs::msg::Pose box_pose;
+  box_pose.orientation.w = 1.0;
+  box_pose.position.x = table_pos[0];
+  box_pose.position.y = table_pos[1];
+  box_pose.position.z = table_pos[2];
+  box_pose.position.z -= table_scale[2] / 2.0;
+
+  table.primitives.push_back(primitive);
+  table.primitive_poses.push_back(box_pose);
+  table.operation = table.ADD;
+
+  moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+  planning_scene_interface.applyCollisionObject(table);
+
+
+  // PlanningScene planning_scene(node, "ur_manipulator");
+  // planning_scene.initPlanningScene();
 
   // // Shutdown ROS
   rclcpp::shutdown();
-  spinner.join();
+
   return 0;
 }
