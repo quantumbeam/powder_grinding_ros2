@@ -18,12 +18,14 @@ Test scaled_joint_trajectory_controller
 ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 ```
 ## Default DDSの変更
-- humbleでデフォルトのfast RTPSよりもcyclone DDSが良いらしいので、切り替えて使っている
-  - cyclone DDSのインストールと変更は以下
-    - `export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`
-    - `apt install -y ros-${ROS_DISTRO}-rmw-cyclonedds-cpp`
-  - Fast RTPSに戻す場合は以下
-    - `export RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
+- humbleでデフォルトのfast RTPSよりもcyclone DDSが良いらしい
+  - https://research.reazon.jp/blog/2023-01-15-DDS-performance.html
+- 切り替えたDDSが使えるのかはパッケージ依存なので、確認してから使ってください
+- cyclone DDSのインストールと変更は以下
+  - `apt install -y ros-${ROS_DISTRO}-rmw-cyclonedds-cpp`
+  - `export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`
+- Fast RTPSに戻す場合は以下
+  - `export RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
 
 ## メモ
 2024/05/04
