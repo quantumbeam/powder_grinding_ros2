@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(grinding_descriptions)
+project(grinding_scene_description)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
@@ -35,9 +35,9 @@ function(custom_executable target)
 endfunction()
 
 include_directories(include)
-custom_executable(load_planing_scene)
+# custom_executable(load_planning_scene_cpp)
 
-target_link_libraries(load_planing_scene
+target_link_libraries(#load_planning_scene_cpp
   moveit_visual_tools::moveit_visual_tools
   ${catkin_LIBRARIES}
 )
@@ -47,6 +47,7 @@ target_link_libraries(load_planing_scene
 ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
+  scripts/load_planning_scene.py
   DESTINATION lib/${PROJECT_NAME}
 )
 #--- end Python

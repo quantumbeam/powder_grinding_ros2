@@ -4,7 +4,7 @@ future/
 
 __pycache__/
 
-onolab_ws/build/
-onolab_ws/install/
-onolab_ws/log/
-onolab_ws/src/underlay/
+**/build/
+**/install/
+**/log/
+**/src/underlay/

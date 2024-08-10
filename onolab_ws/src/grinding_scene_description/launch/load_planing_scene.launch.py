@@ -8,7 +8,7 @@ from launch import LaunchDescription
 from ament_index_python.packages import get_package_share_directory
 
 
-pkg_name = "grinding_descriptions"
+pkg_name = "grinding_scene_description"
 
 
 def get_robot_description():
@@ -118,16 +118,16 @@ def generate_launch_description():
     robot_description = get_robot_description()
     robot_description_semantic = get_robot_description_semantic()
 
-    load_planing_scene_node = Node(
+    load_planning_scene_node = Node(
         package=pkg_name,
-        executable="load_planing_scene",
-        name="load_planing_scene",
+        executable="load_planning_scene",
+        name="load_planning_scene",
         output="screen",
         parameters=[
             planning_scene_config,
             robot_description,
-            robot_description_semantic,
+            robot_description_semantic, 
         ],
     )
 
-    return LaunchDescription([load_planing_scene_node])
+    return LaunchDescription([load_planning_scene_node])

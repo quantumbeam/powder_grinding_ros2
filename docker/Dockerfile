@@ -41,3 +41,5 @@ RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 RUN echo "source /home/ubuntu/onolab/onolab_ws/install/setup.bash" >> /root/.bashrc
 # Argcomplete for colcon
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /root/.bashrc
+# Add alias for easy build
+RUN echo "alias b='cd /home/ubuntu/onolab/onolab_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release; source /home/ubuntu/onolab/onolab_ws/install/setup.bash'" >> /root/.bashrc
