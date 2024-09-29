@@ -11,7 +11,7 @@ def generate_launch_description():
     ur_type = LaunchConfiguration('ur_type', default='ur5e')
     robot_ip = LaunchConfiguration('robot_ip', default='192.168.58.42')
     use_fake_hardware = LaunchConfiguration('use_fake_hardware', default='true')
-    launch_rviz = LaunchConfiguration('launch_rviz', default='true')
+    launch_rviz = LaunchConfiguration('launch_rviz', default='false')
     use_moveit = LaunchConfiguration('use_moveit', default='true')
     launch_rviz_with_moveit = LaunchConfiguration('launch_rviz_with_moveit', default='true')
 
@@ -20,7 +20,7 @@ def generate_launch_description():
         launch_arguments={'ur_type': ur_type,
                           'robot_ip': robot_ip,
                           'use_fake_hardware': use_fake_hardware,
-                          'launch_rviz': AndSubstitution( NotSubstitution(use_moveit), launch_rviz) }.items()
+                          'launch_rviz': launch_rviz}.items()
     )
 
 
