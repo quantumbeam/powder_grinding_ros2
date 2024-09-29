@@ -28,6 +28,12 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
   - `export RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
 
 ## メモ
+2024/9/29
+- joint trajectory controllerとcontroller managerのrqtを追加しました
+- moveItのpython対応はhumbleでは行われないようなので、cppで書きます
+- moveti planning sceneでboxを追加するところまで書きました
+  - 続きはrosparamを読んで乳鉢等を追加するように変更します
+- grinding motionの実装はまだです
 2024/05/04
 - URのドライバもMoveIt2もバイナリインストールで動くようになったので、Dockerfileを修正しました
   - ビルド負荷が減ってかなり楽
