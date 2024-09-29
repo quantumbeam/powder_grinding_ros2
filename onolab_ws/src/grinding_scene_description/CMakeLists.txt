@@ -9,59 +9,45 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-#-- Dependencies
-find_package(ament_cmake REQUIRED)
-find_package(ament_cmake_python REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclpy REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(moveit_visual_tools REQUIRED)
-set(THIS_PACKAGE_INCLUDE_DEPENDS
-  rclcpp
-  rclpy
-  geometry_msgs
-  moveit_ros_planning_interface
-  tf2_geometry_msgs
-  moveit_visual_tools
-)
 
-#--- for C++
-function(custom_executable target)
-  add_executable(${target} src/${target}.cpp)
-  ament_target_dependencies(${target} rclcpp geometry_msgs moveit_ros_planning_interface tf2_geometry_msgs )
-  install(TARGETS ${target} DESTINATION lib/${PROJECT_NAME})
-endfunction()
 
-include_directories(include)
-# custom_executable(load_planning_scene_cpp)
+# Find package from package.xml
+ament_auto_find_build_dependencies()
 
-target_link_libraries(#load_planning_scene_cpp
-  moveit_visual_tools::moveit_visual_tools
-  ${catkin_LIBRARIES}
-)
-#--- end C++
+# Add library
+# Execute add_library, target_include_directories, target_link_libraries, and ament_target_dependencies together
+# ament_auto_add_library(${PROJECT_NAME} SHARED
+#  src/example.cpp include/example.hpp)
 
-#-- for Python
+# Add executable
+# Execute add_executable, target_include_directories, target_link_libraries, and ament_target_dependencies together
+ament_auto_add_executable(load_planning_scene_cpp src/load_planning_scene.cpp)
+# ament_auto_add_executable(load_planning_scene_py scripts/load_planning_scene.py)
+
+# Add message and service
+ament_auto_generate_code()
+
+# For testing
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+# Install Python modules
 ament_python_install_package(${PROJECT_NAME})
 
-install(PROGRAMS
-  scripts/load_planning_scene.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-#--- end Python
-
-# Install launch files
+# Install files
 install(DIRECTORY
   launch
-  DESTINATION share/${PROJECT_NAME}/
-)
-
-# Install config files
-install(DIRECTORY
   config
+  # scripts/load_planning_scene.py
   DESTINATION share/${PROJECT_NAME}/
 )
 
-ament_package()
+ament_auto_package()
