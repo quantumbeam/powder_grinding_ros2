@@ -30,6 +30,11 @@ RUN apt-get update && apt-get install -y \
 # Install ROS packages
 RUN apt-get update -q && \
     apt-get install -y \
+    ros-${ROS_DISTRO}-ros2-control \
+    ros-${ROS_DISTRO}-ros2-controllers \
+    ros-${ROS_DISTRO}-rqt-controller-manager \
+    ros-${ROS_DISTRO}-rqt-joint-trajectory-controller \
+    ros-${ROS_DISTRO}-rviz-visual-tools \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
     ros-${ROS_DISTRO}-ur \
     ros-${ROS_DISTRO}-moveit-visual-tools \
