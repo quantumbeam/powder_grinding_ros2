@@ -1,7 +1,6 @@
 services:
   humble:
     hostname: onolab
-    runtime: ${DOCKER_RUNTIME}
     privileged: true
     network_mode: host # Use host network(IP and ports).
     extra_hosts:
