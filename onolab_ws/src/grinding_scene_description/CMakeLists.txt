@@ -28,6 +28,7 @@ ament_auto_find_build_dependencies()
 # Add executable
 # Execute add_executable, target_include_directories, target_link_libraries, and ament_target_dependencies together
 ament_auto_add_executable(load_planning_scene src/load_planning_scene.cpp)
+ament_auto_add_executable(new_load_planning_scene src/new_load_planning_scene.cpp)
 # ament_auto_add_executable(load_planning_scene_py scripts/load_planning_scene.py)
 
 # Add message and service
