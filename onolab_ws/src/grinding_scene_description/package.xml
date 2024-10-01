@@ -7,14 +7,26 @@
   <maintainer email="yusaku_nakajima@ap.eng.osaka-u.ac.jp">root</maintainer>
   <license>TODO: License declaration</license>
 
+  <!-- ビルドツールとしてament_cmakeを指定 -->
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <buildtool_depend>ament_cmake_python</buildtool_depend>
-  <depend>rclcpp</depend>
-  <depend>rclpy</depend>
+
+  <!-- 依存関係の定義 (ビルド時) -->
+  <build_depend>rclcpp</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>shape_msgs</build_depend>
+  <build_depend>moveit_ros_planning_interface</build_depend>
+  <build_depend>tf2_ros</build_depend>
+
+  <!-- 実行時の依存関係 -->
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>shape_msgs</exec_depend>
+  <exec_depend>moveit_ros_planning_interface</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <!-- テスト用依存関係 -->
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-
-  <depend>moveit_visual_tools</depend>
 
   <exec_depend>ros2launch</exec_depend>
   <export>
