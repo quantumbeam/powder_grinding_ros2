@@ -1,0 +1,49 @@
+services:
+  onolab-ros-humble-nvidia:
+    hostname: onolab_ros
+    privileged: true
+    image: onolab_ros_humble_nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    network_mode: host # Use host network(IP and ports).
+    extra_hosts:
+      - "onolab:192.168.58.5" # The host PC
+      - "ur5e:192.168.58.42" # UR5e
+      - "cobotta:192.168.58.11" # cobotta
+    expose:
+      - "50000" # sound sensor
+      - "50001" # send commnad to UR
+      - "50002" # external control of UR
+      - "50003" # recerve commnad from UR
+      - "50004" # script_command_port of UR
+      - "5007" # cobotta
+    environment:
+      # Pass host user information.
+      - HOST_USER=${USER}
+      - HOST_UID=1000
+      - HOST_GID=1000
+      # Display X Server GUI.
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      # Set ROS environment variables. It is instead of writing them in .bashrc.
+      - ROS_DOMAIN_ID=1
+      - ROS_VERSION=2
+      - ROS_PYTHON_VERSION=3
+      - ROS_DISTRO=humble
+      - ROS_LOCALHOST_ONLY=1
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    build:
+      dockerfile: ./Dockerfile
+    volumes:
+      # Map ROS workspace folders.
+      - ../:/home/ubuntu/onolab/
+      # Grant display access to X Server.
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # Grant access to usb ports
+      - /dev/:/dev/
+    tty: true
