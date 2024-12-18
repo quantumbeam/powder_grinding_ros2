@@ -11,9 +11,9 @@
 PROJECT=${USER}
 NVIDIA_OPTION=$1
 if [[ $NVIDIA_OPTION == *"nvidia"* ]]; then
-  CONTAINER="${PROJECT}-onolab-ros-humble-nvidia-1"
+  CONTAINER="${PROJECT}-humble-nvidia-1"
 else
-  CONTAINER="${PROJECT}-onolab-ros-humble-1"
+  CONTAINER="${PROJECT}-humble-1"
 fi
 echo "$0: PROJECT=${PROJECT}"
 echo "$0: CONTAINER=${CONTAINER}"
