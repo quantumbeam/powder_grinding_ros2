@@ -19,7 +19,7 @@ setup(
     maintainer="ubuntu",
     maintainer_email="yusaku_nakajima@ap.eng.osaka-u.ac.jp",
     description="TODO: Package description",
-    license="TODO: License declaration",
+    license="MIT",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
