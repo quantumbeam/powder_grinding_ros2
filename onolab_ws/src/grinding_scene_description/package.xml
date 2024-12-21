@@ -7,7 +7,6 @@
   <maintainer email="yusaku_nakajima@ap.eng.osaka-u.ac.jp">root</maintainer>
   <license>TODO: License declaration</license>
 
-  <!-- ビルドツールとしてament_cmakeを指定 -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <!-- 依存関係の定義 (ビルド時) -->

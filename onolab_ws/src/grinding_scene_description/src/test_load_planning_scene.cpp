@@ -27,7 +27,8 @@ int main(int argc, char **argv)
   std::thread([&executor]()
               { executor.spin(); })
       .detach();
-  // You can use topic to unsynchronized load of the planning scene (requires enough waiting time to load in the script)
+
+  // // You can use topic to unsynchronized load of the planning scene (requires enough waiting time to load in the script)
   // rclcpp::Publisher<moveit_msgs::msg::PlanningScene>::SharedPtr planning_scene_diff_publisher =
   //       node->create_publisher<moveit_msgs::msg::PlanningScene>("planning_scene", 1);
   // while (planning_scene_diff_publisher->get_subscription_count() < 1)
