@@ -26,7 +26,7 @@ ament_auto_add_library(planning_scene_loader SHARED src/load_planning_scene.cpp)
 rclcpp_components_register_nodes(planning_scene_loader "grinding_scene_description::PlanningSceneLoader")
 
 # Install files
-install(DIRECTORY config launch mesh
+install(DIRECTORY config launch meshes
   DESTINATION share/${PROJECT_NAME}
 )
 

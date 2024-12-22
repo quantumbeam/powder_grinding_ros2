@@ -4,6 +4,7 @@ load_planning_scene:
 
     table_position: [0.0, 0.0, 0.0] # 0.015 is height of UR5e base plate
     table_scale: [0.9, 1.5, 0.1]
-
-    mortar_top_position: [0.39436323098562737, 0.3668537939641375, 0.04253480790823799]
+    
+    mortar_mesh_file_name: "asone_agate_mortar_80x100x36.stl"
+    mortar_top_position: [0.39, 0.366, 0.042]
     mortar_inner_scale: [0.04, 0.04, 0.035] # official information says 0.04 * 0.04 * 0.032 but z is more deep actually
