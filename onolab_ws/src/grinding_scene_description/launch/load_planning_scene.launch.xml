@@ -1,0 +1,6 @@
+<launch>
+  <node_container pkg="rclcpp_components" exec="component_container_mt" name="pub_sub_container" namespace="pub_sub" args="">
+    <composable_node pkg="grinding_scene_description" plugin="grinding_scene_description::PlanningSceneLoader" name="load_planning_scene">
+    </composable_node>
+  </node_container>
+</launch>

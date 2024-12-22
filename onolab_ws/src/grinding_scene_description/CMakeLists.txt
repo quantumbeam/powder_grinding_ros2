@@ -20,18 +20,19 @@ find_package(moveit_visual_tools REQUIRED)
 # Find package from package.xml
 ament_auto_find_build_dependencies()
 
-# For shared library
-# The shared library load_planning_scene is created from the # source file load_planning_scene.cpp
-# ament_auto_add_library(load_planning_scene src/load_planning_scene.cpp)
+# The shared library load_planning_scene is created from the source file load_planning_scene.cpp
+ament_auto_add_library(planning_scene_loader SHARED src/load_planning_scene.cpp)
 # The shared library load_planning_scene in 
-# rclcpp_components_register_nodes(load_planning_scene "load_planning_scene::LoadPlanningScene")
+rclcpp_components_register_nodes(planning_scene_loader "grinding_scene_description::PlanningSceneLoader")
+
+# Install the launch file
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
 
 # Add executable
 # Execute add_executable, target_include_directories, target_link_libraries, and ament_target_dependencies together
-ament_auto_add_executable(test_load_planning_scene src/test_load_planning_scene.cpp)
-# ament_auto_add_executable(load_planning_scene src/main.cpp)
-# ament_auto_add_executable(new_load_planning_scene src/new_load_planning_scene.cpp)
-# ament_auto_add_executable(load_planning_scene_py scripts/load_planning_scene.py)
+ament_auto_add_executable(test_load_planning_scene_node src/test_load_planning_scene_node.cpp)
 
 # Add message and service
 ament_auto_generate_code()
@@ -39,18 +40,9 @@ ament_auto_generate_code()
 # For testing
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  set(ament_cmake_copyright_FOUND TRUE)
+  set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
-
-# Install Python modules
-ament_python_install_package(${PROJECT_NAME})
-
-# Install files
-install(DIRECTORY
-  launch
-  config
-  # scripts/load_planning_scene.py
-  DESTINATION share/${PROJECT_NAME}/
-)
 
 ament_auto_package()
