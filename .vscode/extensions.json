@@ -1,0 +1,18 @@
+{
+    "recommendations": [
+        "njpwerner.autodocstring",
+        "ms-vscode-remote.remote-containers",
+        "ms-vscode.cpptools",
+        "mhutchie.git-graph",
+        "yzhang.markdown-all-in-one",
+        "davidanson.vscode-markdownlint",
+        "platformio.platformio-ide",
+        "ms-python.python",
+        "mechatroner.rainbow-csv",
+        "ms-iot.vscode-ros",
+        "ms-vscode.vscode-serial-monitor",
+        "ms-toolsai.tensorboard",
+        "github.copilot",
+        "charliermarsh.ruff"
+    ]
+}
