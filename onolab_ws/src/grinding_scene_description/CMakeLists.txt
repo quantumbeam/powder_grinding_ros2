@@ -20,10 +20,11 @@ find_package(moveit_visual_tools REQUIRED)
 # Find package from package.xml
 ament_auto_find_build_dependencies()
 
-# Add library
-# Execute add_library, target_include_directories, target_link_libraries, and ament_target_dependencies together
-# ament_auto_add_library(${PROJECT_NAME} SHARED
-#  src/example.cpp include/example.hpp)
+# For shared library
+# The shared library load_planning_scene is created from the # source file load_planning_scene.cpp
+ament_auto_add_library(load_planning_scene src/load_planning_scene.cpp)
+# The shared library load_planning_scene in 
+rclcpp_components_register_nodes(load_planning_scene "load_planning_scene::LoadPlanningScene")
 
 # Add executable
 # Execute add_executable, target_include_directories, target_link_libraries, and ament_target_dependencies together
