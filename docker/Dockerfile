@@ -1,4 +1,4 @@
-ARG ROS_DISTRO=humble
+ARG ROS_DISTRO=jazzy
 FROM osrf/ros:${ROS_DISTRO}-desktop-full
 LABEL maintainer="YusakuNakajima<yusaku_nakajima@ap.eng.osaka-u.ac.jp>"
 
@@ -42,9 +42,9 @@ RUN apt-get update -q && \
     && rm -rf /var/lib/apt/lists/*
 
 # Setup ROS enviroments
-RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
+RUN echo "source /opt/ros/jazzy/setup.bash" >> /root/.bashrc
 RUN echo "source /home/ubuntu/onolab/onolab_ws/install/setup.bash" >> /root/.bashrc
 # Argcomplete for colcon
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /root/.bashrc
 # Add alias for easy build
-RUN echo "alias b='cd /home/ubuntu/onolab/onolab_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release; source /home/ubuntu/onolab/onolab_ws/install/setup.bash'" >> /root/.bashrc
+RUN echo "alias b='cd /home/ubuntu/onolab/onolab_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source /home/ubuntu/onolab/onolab_ws/install/setup.bash'" >> /root/.bashrc

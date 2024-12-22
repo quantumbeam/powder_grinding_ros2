@@ -22,14 +22,14 @@ ament_auto_find_build_dependencies()
 
 # For shared library
 # The shared library load_planning_scene is created from the # source file load_planning_scene.cpp
-ament_auto_add_library(load_planning_scene src/load_planning_scene.cpp)
+# ament_auto_add_library(load_planning_scene src/load_planning_scene.cpp)
 # The shared library load_planning_scene in 
-rclcpp_components_register_nodes(load_planning_scene "load_planning_scene::LoadPlanningScene")
+# rclcpp_components_register_nodes(load_planning_scene "load_planning_scene::LoadPlanningScene")
 
 # Add executable
 # Execute add_executable, target_include_directories, target_link_libraries, and ament_target_dependencies together
 ament_auto_add_executable(test_load_planning_scene src/test_load_planning_scene.cpp)
-ament_auto_add_executable(load_planning_scene src/main.cpp)
+# ament_auto_add_executable(load_planning_scene src/main.cpp)
 # ament_auto_add_executable(new_load_planning_scene src/new_load_planning_scene.cpp)
 # ament_auto_add_executable(load_planning_scene_py scripts/load_planning_scene.py)
 

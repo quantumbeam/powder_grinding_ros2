@@ -1,8 +1,8 @@
 services:
-  onolab-ros-humble-nvidia:
+  onolab-ros-jazzy-nvidia:
     hostname: onolab_ros
     privileged: true
-    image: onolab_ros_humble_nvidia
+    image: onolab_ros_jazzy_nvidia
     deploy:
       resources:
         reservations:
@@ -34,7 +34,7 @@ services:
       - ROS_DOMAIN_ID=1
       - ROS_VERSION=2
       - ROS_PYTHON_VERSION=3
-      - ROS_DISTRO=humble
+      - ROS_DISTRO=jazzy
       - ROS_LOCALHOST_ONLY=1
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
     build:

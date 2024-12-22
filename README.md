@@ -1,5 +1,5 @@
 ## ROS2 enviroments
-**ROS2 humble on docker
+**ROS2 jazzy on docker
 **
 ## PC内環境でのURデモコマンド
 Launch UR model on Rviz
@@ -18,7 +18,7 @@ Test scaled_joint_trajectory_controller
 ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 ```
 ## Default DDSの変更
-- humbleでデフォルトのfast RTPSよりもcyclone DDSが良いらしい
+- デフォルトのfast RTPSよりもcyclone DDSが良いらしい
   - https://research.reazon.jp/blog/2023-01-15-DDS-performance.html
 - 切り替えたDDSが使えるのかはパッケージ依存なので、確認してから使ってください
 - cyclone DDSのインストールと変更は以下
@@ -30,7 +30,6 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 ## メモ
 2024/9/29
 - joint trajectory controllerとcontroller managerのrqtを追加しました
-- moveItのpython対応はhumbleでは行われないようなので、cppで書きます
 - moveti planning sceneでboxを追加するところまで書きました
   - 続きはrosparamを読んで乳鉢等を追加するように変更します
 - grinding motionの実装はまだです

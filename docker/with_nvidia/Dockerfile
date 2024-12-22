@@ -3,7 +3,7 @@
 # Add OpenGL and ROS install bellow
 FROM nvidia/cuda:12.6.2-cudnn-devel-ubuntu22.04
 LABEL maintainer="YusakuNakajima<yusaku_nakajima@ap.eng.osaka-u.ac.jp>"
-ARG ROS_DISTRO=humble
+ARG ROS_DISTRO=jazzy
 
 # Ignore keybourd layout seting
 ENV DEBIAN_FRONTEND=noninteractive
@@ -85,5 +85,5 @@ RUN echo "source /home/ubuntu/onolab/onolab_ws/install/setup.bash" >> /root/.bas
 # Argcomplete for colcon
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /root/.bashrc
 # Add alias for easy build
-RUN echo "alias b='cd /home/ubuntu/onolab/onolab_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release; source /home/ubuntu/onolab/onolab_ws/install/setup.bash'" >> /root/.bashrc
+RUN echo "alias b='cd /home/ubuntu/onolab/onolab_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source /home/ubuntu/onolab/onolab_ws/install/setup.bash'" >> /root/.bashrc
 

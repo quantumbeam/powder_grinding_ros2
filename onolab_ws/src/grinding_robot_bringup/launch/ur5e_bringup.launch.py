@@ -10,7 +10,8 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
     ur_type = LaunchConfiguration('ur_type', default='ur5e')
     robot_ip = LaunchConfiguration('robot_ip', default='192.168.58.42')
-    use_fake_hardware = LaunchConfiguration('use_fake_hardware', default='true')
+    use_mock_hardware  = LaunchConfiguration('use_mock_hardware', default='true')
+    mock_sensor_commands = LaunchConfiguration("mock_sensor_commands",default='true')
     launch_rviz = LaunchConfiguration('launch_rviz', default='false')
     use_moveit = LaunchConfiguration('use_moveit', default='true')
     launch_rviz_with_moveit = LaunchConfiguration('launch_rviz_with_moveit', default='true')
@@ -19,7 +20,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource([get_package_share_directory('ur_robot_driver'), '/launch','/ur_control.launch.py']),
         launch_arguments={'ur_type': ur_type,
                           'robot_ip': robot_ip,
-                          'use_fake_hardware': use_fake_hardware,
+                          'use_mock_hardware': use_mock_hardware,
+                          'mock_sensor_commands': mock_sensor_commands,   
                           'launch_rviz': launch_rviz}.items()
     )
 
