@@ -14,7 +14,7 @@ rosdep update
 rosdep install -r -y -i --from-paths src --rosdistro $ROS_DISTRO
 
 # Build
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install --cmake-clean-cache
 
 # Update enviromental veriables
 source /opt/ros/$ROS_DISTRO/setup.bash
