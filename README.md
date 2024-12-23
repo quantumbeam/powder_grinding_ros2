@@ -1,8 +1,13 @@
 ## ROS2 enviroments
-**ROS2 jazzy on docker
-**
-## PC内環境でのURデモコマンド
-Launch UR model on Rviz
+**ROS2 jazzy on docker**
+
+## 環境
+- ROS2 jazzy
+  - ros2 hubmleでもいいんだけど、MoveIt2のpython実装がhumbleまで対応しないようなのでjazzyを採用
+- Ubuntu 24.04
+
+## Quick Start
+Launch UR demo
 ```
 ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.58.42 use_fake_hardware:=true launch_rviz:=true
 ```
@@ -21,13 +26,21 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 - デフォルトのfast RTPSよりもcyclone DDSが良いらしい
   - https://research.reazon.jp/blog/2023-01-15-DDS-performance.html
 - 切り替えたDDSが使えるのかはパッケージ依存なので、確認してから使ってください
+  - ちなみに、2023/12/02時点では、URの実機がcyclonDDSで動かないので、実機ではfastRTPSを使っています
 - cyclone DDSのインストールと変更は以下
   - `apt install -y ros-${ROS_DISTRO}-rmw-cyclonedds-cpp`
   - `export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`
 - Fast RTPSに戻す場合は以下
   - `export RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
+- 最近はDDSではなくZenohが良いという話も
+  - [ROS 2 RMW alternateのメモ](https://zenn.dev/tasada038/articles/e84e57ff52bd6c)
 
-## メモ
+## 開発メモ
+2024/12/23
+- これまでROS2のコンポーネント指向を理解せずに書いていたので、コンポーネント指向をだいぶ理解しました
+- moveti planning sceneはコンポーネント指向で書き直し、rosparamを呼んでテーブルと乳鉢の追加まで書いて、bringupに追加しました
+  - なぜか.pyのlaunchでパラメータのyamlが読めずはまっていますが、XMLのlaunchは動いたのでよしとします
+- 次はgrinding motionを実装していきます
 2024/9/29
 - joint trajectory controllerとcontroller managerのrqtを追加しました
 - moveti planning sceneでboxを追加するところまで書きました
@@ -52,5 +65,4 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
   - デフォルトだとCPUのコア数に設定されているが、WSLを使っていたり他にリソースがさかれている場合はジョブがコンフリクトする可能性があるので、下げたほうが良い
   - 1だと最も安全(ビルドの時間が非常に長くなるけど)
 
-**URの実機がcyclonDDSで動かない**
-  - 2023/12/02時点では、cyclonDDSで動かないので、実機ではfastRTPSに戻しています
+
