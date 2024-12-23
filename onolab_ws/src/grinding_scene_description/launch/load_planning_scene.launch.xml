@@ -1,6 +1,9 @@
 <launch>
+  <arg name="planning_scene_config" default="$(find-pkg-share grinding_scene_description)/config/planning_scene_config.yaml" />
+
   <node_container pkg="rclcpp_components" exec="component_container_mt" name="pub_sub_container" namespace="pub_sub" args="">
     <composable_node pkg="grinding_scene_description" plugin="grinding_scene_description::PlanningSceneLoader" name="load_planning_scene">
+       <param from="$(var planning_scene_config)"/>
     </composable_node>
   </node_container>
 </launch>
