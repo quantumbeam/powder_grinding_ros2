@@ -32,7 +32,7 @@ install(DIRECTORY config launch meshes
 
 # Add executable
 # Execute add_executable, target_include_directories, target_link_libraries, and ament_target_dependencies together
-ament_auto_add_executable(test_load_planning_scene_node src/test_load_planning_scene_node.cpp)
+ament_auto_add_executable(load_planning_scene_node src/load_planning_scene_node.cpp)
 
 # Add message and service
 ament_auto_generate_code()
