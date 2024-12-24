@@ -1,19 +1,18 @@
-
 # Parent image is nvidia/cuda
-# Add OpenGL and ROS install bellow
-FROM nvidia/cuda:12.6.2-cudnn-devel-ubuntu22.04
+# Add OpenGL and ROS install below
+FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04
 LABEL maintainer="YusakuNakajima<yusaku_nakajima@ap.eng.osaka-u.ac.jp>"
 ARG ROS_DISTRO=jazzy
 
-# Ignore keybourd layout seting
+# Ignore keyboard layout setting
 ENV DEBIAN_FRONTEND=noninteractive
 ENV __NV_PRIME_RENDER_OFFLOAD=1
 ENV __GLX_VENDOR_LIBRARY_NAME=nvidia
 
-# set timezone and locale
+
+# Set timezone and locale
 RUN ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
-RUN apt-get update \
-    && apt-get install -y \ 
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     locales-all \
     && apt-get clean \
@@ -23,8 +22,8 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 
 # Install apt packages
-RUN apt-get update && apt-get install -y \
-    locales-all \    
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales-all \
     git \
     vim \
     nano \
@@ -32,28 +31,30 @@ RUN apt-get update && apt-get install -y \
     tmux \
     curl \
     terminator \
-    iputils-ping net-tools \
+    iputils-ping \
+    net-tools \
     libglib2.0-0 \
-    libxmlrpcpp-dev \
     gnupg \
     lsb-release \
     software-properties-common \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Add opneGL
+# Add OpenGL
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libglvnd-dev \
     libgl1-mesa-dev \
     libegl1-mesa-dev \
-    libgles2-mesa-dev && \
-    rm -rf /var/lib/apt/lists/*
+    libgles2-mesa-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Add ROS repository and install ROS
 RUN add-apt-repository universe
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-RUN sh -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null'
+RUN sh -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" > /etc/apt/sources.list.d/ros2.list'
+
 RUN apt-get update && apt-get install -y \
     ros-${ROS_DISTRO}-desktop \
     && apt-get clean \

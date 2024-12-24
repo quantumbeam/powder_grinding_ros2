@@ -7,10 +7,10 @@ NVIDIA_OPTION=$1
 echo "$1: NVIDIA_OPTION=${NVIDIA_OPTION}"
 echo "$0: USER=${DOCKER_PROJECT}"
 if [[ $NVIDIA_OPTION == *"nvidia"* ]]; then
-  DOCKER_CONTAINER="${DOCKER_PROJECT}_onolab_ros_jazzy_nvidia_1"
+  DOCKER_CONTAINER="${DOCKER_PROJECT}_onolab_ros2_jazzy_nvidia_1"
   echo "$0: DOCKER_CONTAINER=${DOCKER_CONTAINER}"
 else
-  DOCKER_CONTAINER="${DOCKER_PROJECT}_onolab_ros_jazzy_1"
+  DOCKER_CONTAINER="${DOCKER_PROJECT}_onolab_ros2_jazzy_1"
   echo "$0: DOCKER_CONTAINER=${DOCKER_CONTAINER}"
 fi
 

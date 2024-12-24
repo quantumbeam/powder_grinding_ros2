@@ -2,14 +2,14 @@ services:
   onolab-ros-jazzy-nvidia:
     hostname: onolab_ros
     privileged: true
-    image: onolab_ros_jazzy_nvidia
+    image: onolab_ros2_jazzy_nvidia
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
     network_mode: host # Use host network(IP and ports).
     extra_hosts:
       - "onolab:192.168.58.5" # The host PC
