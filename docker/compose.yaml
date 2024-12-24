@@ -1,5 +1,5 @@
 services:
-  jazzy:
+  ros2-jazzy:
     hostname: onolab
     privileged: true
     network_mode: host # Use host network(IP and ports).

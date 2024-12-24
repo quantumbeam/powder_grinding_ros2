@@ -1,5 +1,5 @@
 services:
-  onolab-ros-jazzy-nvidia:
+  ros2-jazzy-nvidia:
     hostname: onolab_ros
     privileged: true
     image: onolab_ros2_jazzy_nvidia
@@ -41,7 +41,7 @@ services:
       dockerfile: ./Dockerfile
     volumes:
       # Map ROS workspace folders.
-      - ../:/home/ubuntu/onolab/
+      - ../../:/home/ubuntu/onolab/
       # Grant display access to X Server.
       - /tmp/.X11-unix:/tmp/.X11-unix
       # Grant access to usb ports
