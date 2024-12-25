@@ -1,0 +1,31 @@
+# for calculation
+inputimeout
+numpy
+scipy
+pandas
+quaternion
+numpy-quaternion
+pyquaternion
+
+# for device
+# pyrealsense2
+dynamixel-sdk
+
+# for deep learning
+opencv-python
+torch
+torchvision
+torchaudio
+h5py
+
+# for display
+tqdm
+ipython
+ipywidgets
+matplotlib
+plotly
+tyro
+termcolor
+
+# for simulation
+genesis-world

@@ -8,3 +8,5 @@ __pycache__/
 **/install/
 **/log/
 **/src/underlay/
+
+venv/

@@ -9,6 +9,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV __NV_PRIME_RENDER_OFFLOAD=1
 ENV __GLX_VENDOR_LIBRARY_NAME=nvidia
 
+# Install software-properties-common for add-apt-repository
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add universe repository
+RUN add-apt-repository universe
 
 # Set timezone and locale
 RUN ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
@@ -36,7 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     gnupg \
     lsb-release \
-    software-properties-common \
+    sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -51,7 +59,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Add ROS repository and install ROS
-RUN add-apt-repository universe
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
 RUN sh -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" > /etc/apt/sources.list.d/ros2.list'
 
@@ -80,7 +87,23 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Setup ROS enviroments
+# Install rosdep
+RUN apt-get update && apt-get install -y \
+    python3-rosdep \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Initialize rosdep
+RUN rosdep init && rosdep update
+
+# Install colcon
+RUN apt-get update && apt-get install -y \
+    python3-colcon-common-extensions \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Setup ROS environments
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc
 RUN echo "source /home/ubuntu/onolab/onolab_ws/install/setup.bash" >> /root/.bashrc
 # Argcomplete for colcon
