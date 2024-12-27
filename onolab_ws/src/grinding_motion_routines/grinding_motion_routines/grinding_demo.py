@@ -13,7 +13,7 @@ import numpy as np
 
 # from ur_pykdl import ur_kinematics
 from grinding_motion_routines.helpers import *
-from grinding_motion_routines.marker_display import MarkerDisplay
+from onolab_ws.src.grinding_motion_routines.grinding_motion_routines.display_marker import MarkerDisplay
 
 
 class GrindingDemo(Node):
