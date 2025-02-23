@@ -9,15 +9,8 @@
 ## Quick Start
 Launch UR demo
 ```
-ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.58.42 use_fake_hardware:=true launch_rviz:=true
+ros2 launch grinding_robot_bringup ur5e_bringup.launch.xml 
 ```
-Launch UR model and MoveIt
-- You can choose "false" of  use_fake_hardware option when you use real robot.
-```
-ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.58.42 use_fake_hardware:=true launch_rviz:=false
-ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur5e launch_rviz:=true
-```
-
 Test scaled_joint_trajectory_controller
 ```
 ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
