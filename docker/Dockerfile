@@ -26,7 +26,11 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-
+# Install Node.js (v18) and Node-RED
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g --unsafe-perm node-red
+    
 # Install ROS packages
 RUN apt-get update -q && \
     apt-get install -y \
