@@ -20,7 +20,7 @@
     </include>
 
     <!-- Include ur_moveit_config launch file -->
-    <include file="$(find-pkg-share ur_moveit_config)/launch/ur_moveit.launch.py">
+    <include file="$(find-pkg-share grinding_moveit_config)/launch/ur_moveit.launch.py">
         <arg name="ur_type" value="$(var ur_type)" />
         <arg name="launch_rviz" value="$(var launch_rviz_with_moveit)" />
     </include>
@@ -29,4 +29,5 @@
     <include file="$(find-pkg-share grinding_scene_description)/launch/load_planning_scene.launch.xml">
         <arg name="planning_scene_config" value="$(var planning_scene_config)" />
     </include>
+
 </launch>
