@@ -2,6 +2,7 @@
 # Set up the workspace
 
 sudo apt update
+# pip3 install -r src/requirements.txt
 
 # Downloading packages
 # vcs import src < src/third_party.repos
