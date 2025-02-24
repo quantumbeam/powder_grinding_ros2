@@ -29,6 +29,15 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
   - [ROS 2 RMW alternateのメモ](https://zenn.dev/tasada038/articles/e84e57ff52bd6c)
 
 ## 開発メモ
+2025/2/24
+- 粉砕用のURDFを追加、モデル表示までは確認
+- 粉砕用の乳棒を持ったモデルだと、MoveItが動いていない
+  - 多分、descriptoonはいいんだけど、MoveIt関連の設定で乳棒持った場合の設定をいれていないから(そんなんあったっけ？って気がするけど)
+  - RobotDriver周りは、コピーしてきてdescriptionだけ入れ替えて表示できているけど、MoveItConfigはまったくいじっていない(UR公式をそのまま使用)なので、このあたりが良くない気がしている
+  - とりあえず、URDFの確認までできたので、次はMoveItConfigをいじっていく
+- MoveItまで確認出来たら、次にMotionの作成と確認
+  - moveit_pyは以前のCommanderと比べて面倒そうなので、調べつつ
+  - https://hara-jp.com/_default/ja/Topics/moveit_py%E3%82%92%E4%BD%BF%E3%81%86.html
 2024/12/23
 - これまでROS2のコンポーネント指向を理解せずに書いていたので、コンポーネント指向をだいぶ理解しました
 - moveti planning sceneはコンポーネント指向で書き直し、rosparamを呼んでテーブルと乳鉢の追加まで書いて、bringupに追加しました
