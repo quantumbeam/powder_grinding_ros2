@@ -11,7 +11,7 @@
     <arg name="planning_scene_config" default="$(find-pkg-share grinding_scene_description)/config/planning_scene_config.yaml" />
 
     <!-- Include ur_robot_driver launch file -->
-    <include file="$(find-pkg-share ur_robot_driver)/launch/ur_control.launch.py">
+    <include file="$(find-pkg-share grinding_robot_bringup)/launch/include/ur_control.launch.py">
         <arg name="ur_type" value="$(var ur_type)" />
         <arg name="robot_ip" value="$(var robot_ip)" />
         <arg name="use_mock_hardware" value="$(var use_mock_hardware)" />
