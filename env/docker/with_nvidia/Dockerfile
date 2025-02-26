@@ -102,12 +102,18 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Setup catkin workspace
+RUN mkdir -p /home/ubuntu/user/grinding_ws/src
+COPY BUILD_ROS_WORKSPACE.sh /home/ubuntu/user/grinding_ws
+RUN chmod +x ~/catkin_ws/BUILD_ROS_WORKSPACE.sh
+COPY INITIAL_SETUP_ROS_ENVIROMENTS.sh /home/ubuntu/user/grinding_ws
+RUN chmod +x ~/catkin_ws/INITIAL_SETUP_ROS_ENVIROMENTS.sh
 
 # Setup ROS environments
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc
-RUN echo "source /home/ubuntu/onolab/onolab_ws/install/setup.bash" >> /root/.bashrc
+RUN echo "source /home/ubuntu/user/grinding_ws/install/setup.bash" >> /root/.bashrc
 # Argcomplete for colcon
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /root/.bashrc
 # Add alias for easy build
-RUN echo "alias b='cd /home/ubuntu/onolab/onolab_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source /home/ubuntu/onolab/onolab_ws/install/setup.bash'" >> /root/.bashrc
+RUN echo "alias b='cd /home/ubuntu/user/grinding_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source /home/ubuntu/user/grinding_ws/install/setup.bash'" >> /root/.bashrc
 

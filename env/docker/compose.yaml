@@ -1,21 +1,18 @@
 services:
   ros2-jazzy:
-    hostname: onolab
+    hostname: user
     privileged: true
     network_mode: host # Use host network(IP and ports).
     extra_hosts:
-      - "onolab:192.168.58.5" # The host PC
+      - "user:192.168.58.5" # The host PC
       - "ur5e:192.168.58.42" # UR5e
       - "cobotta:192.168.58.11" # cobotta
     expose:
-      - "50000" # sound sensor
       - "50001" # send commnad to UR
       - "50002" # external control of UR
       - "50003" # recerve commnad from UR
       - "50004" # script_command_port of UR
       - "5007" # cobotta
-    ports:
-      - "1880:1880" # Node-RED
     environment:
       # Pass host user information.
       - HOST_USER=${USER}
@@ -31,13 +28,12 @@ services:
       - ROS_DISTRO=jazzy
       - ROS_AUTOMATIC_DISCOVERY_RANGE=localhost
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-
-    image: onolab_ros2_jazzy
+    image: powder_grinding_ros2_jazzy
     build:
       dockerfile: ./Dockerfile
     volumes:
       # Map ROS workspace folders.
-      - ../:/home/ubuntu/onolab/
+      - ../:/home/ubuntu/user/src/powder_grinding
       # Grant display access to X Server.
       - /tmp/.X11-unix:/tmp/.X11-unix
       # Grant access to usb ports

@@ -20,4 +20,4 @@ colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --cmake-clean-cache
 
 # Update enviromental veriables
 source /opt/ros/$ROS_DISTRO/setup.bash
-source /home/ubuntu/onolab/onolab_ws/install/setup.bash
+source /home/ubuntu/user/grinding_ws/install/setup.bash

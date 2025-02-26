@@ -1,8 +1,8 @@
 services:
   ros2-jazzy-nvidia:
-    hostname: onolab_ros
+    hostname: user
     privileged: true
-    image: onolab_ros2_jazzy_nvidia
+    image: powder_grinding_ros2_jazzy_nvidia
     deploy:
       resources:
         reservations:
@@ -12,7 +12,7 @@ services:
               capabilities: [ gpu ]
     network_mode: host # Use host network(IP and ports).
     extra_hosts:
-      - "onolab:192.168.58.5" # The host PC
+      - "user:192.168.58.5" # The host PC
       - "ur5e:192.168.58.42" # UR5e
       - "cobotta:192.168.58.11" # cobotta
     expose:
@@ -44,7 +44,7 @@ services:
       dockerfile: ./Dockerfile
     volumes:
       # Map ROS workspace folders.
-      - ../../:/home/ubuntu/onolab/
+      - ../:/home/ubuntu/user/src/powder_grinding
       # Grant display access to X Server.
       - /tmp/.X11-unix:/tmp/.X11-unix
       # Grant access to usb ports
