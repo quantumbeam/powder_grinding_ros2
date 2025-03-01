@@ -18,6 +18,6 @@ rosdep install -r -y -i --from-paths src --rosdistro $ROS_DISTRO
 
 colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --cmake-clean-cache
 
-# Update enviromental veriables
+# Update environmental variables
 source /opt/ros/$ROS_DISTRO/setup.bash
 source /home/ubuntu/user/grinding_ws/install/setup.bash
