@@ -1,4 +1,6 @@
 ## Powder Grinding Package for ROS2
+## Contributer
+- Ryusei Takamoto
 ## 環境
 - ROS2 jazzy
   - ros2 hubmleでもいいんだけど、MoveIt2のpython実装がjazzyから公式対応なのでjazzyを採用
