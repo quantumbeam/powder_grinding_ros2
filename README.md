@@ -1,15 +1,43 @@
 ## Powder Grinding Package for ROS2
 
-## 環境
-- ROS2 jazzy
-  - ros2 hubmleでもいいんだけど、MoveIt2のpython実装がjazzyから公式対応なのでjazzyを採用
-- Ubuntu 24.04
+
+## 対応ロボット
+- 実装済み
+  - UR5e (Universal Robot社)
+- 今後実装予定
+   - UR3e (Universal Robot社)
+   - Cobotta (DENSOWAVE社)
+   - Cobotta PRO 900 (DENSOWAVE社)
+   - FR3 (FAIRINO 社)
+
 
 ## Quick Start
-Launch UR demo
+### PCとロボットとDocker環境のセットアップ
+- [環境セットアップの資料](./env/docker/README_jp.md)を読んで環境セットアップし、終わったらこちらに戻ってきて以下の続きを実行してください。
+
+### Dockerコンテナの立ち上げ
+- ターミナル内でのDockerコンテナの立ち上げ
+   - `cd ./env && ./RUN-DOCKER-CONTAINER.sh`
+- Terminatorによる複数ターミナルの起動とDockerコンテナの立ち上げ
+   - `cd ./env && ./LAUNCH-TERMINATOR-TERMINAL.sh`
+      - 立ち上げられた複数ターミナルでは`RUN-DOCKER-CONTAINER.sh`が自動実行されている。
+
+### Dockerコンテナ内でのROS環境のビルド
+- 初回のみ実行
+  - `./INITIAL_SETUP_ROS_ENVIROMENTS.sh`  
+  -  以上のコマンドは`grinding_ws` のディレクトリ内で実行すること
+- サードパーティ及び依存パッケージのアップデート+自作パッケージのビルド
+  - `./BUILD_ROS_WORKSPACE.sh`
+  -  以上のコマンドは`grinding_ws` のディレクトリ内で実行すること
+- 自作パッケージのビルドのみ
+  - `b` コマンドで実行できるようにエイリアスを組んである
+
+## Demo
+Launch UR5e
 ```
 ros2 launch grinding_robot_bringup ur5e_bringup.launch.xml 
 ```
+
 Test scaled_joint_trajectory_controller
 ```
 ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
