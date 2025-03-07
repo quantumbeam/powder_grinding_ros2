@@ -1,5 +1,6 @@
 ## Powder Grinding Package for ROS2
 
+<!-- test kawasaki -->
 
 ## 対応ロボット
 - 実装済み
