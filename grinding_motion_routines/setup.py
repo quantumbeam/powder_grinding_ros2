@@ -23,7 +23,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "marker_display = grinding_motion_routines.marker_display:main",
+            "display_marker = grinding_motion_routines.display_marker:main",
             "grinding_demo = grinding_motion_routines.grinding_demo:main",
             "JTC_helper = grinding_motion_routines.JTC_helper:main",
             
