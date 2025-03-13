@@ -16,6 +16,11 @@
 ### PCとロボットとDocker環境のセットアップ
 - [環境セットアップの資料](./env/docker/README_jp.md)を読んで環境セットアップし、終わったらこちらに戻ってきて以下の続きを実行してください。
 
+### Dockerイメージの作成
+```
+cd ./env && ./BUILD-DOCKER-IMAGE.sh
+```
+
 ### Dockerコンテナの立ち上げ
 - ターミナル内でのDockerコンテナの立ち上げ
    - `cd ./env && ./RUN-DOCKER-CONTAINER.sh`
