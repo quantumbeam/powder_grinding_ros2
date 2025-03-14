@@ -17,35 +17,47 @@
 - [環境セットアップの資料](./env/docker/README_jp.md)を読んで環境セットアップし、終わったらこちらに戻ってきて以下の続きを実行してください。
 
 ### Dockerイメージの作成
-```
+```bash
 cd ./env && ./BUILD-DOCKER-IMAGE.sh
 ```
 
 ### Dockerコンテナの立ち上げ
 - ターミナル内でのDockerコンテナの立ち上げ
-   - `cd ./env && ./RUN-DOCKER-CONTAINER.sh`
+   ```bash
+   cd ./env && ./RUN-DOCKER-CONTAINER.sh
+   ```
 - Terminatorによる複数ターミナルの起動とDockerコンテナの立ち上げ
-   - `cd ./env && ./LAUNCH-TERMINATOR-TERMINAL.sh`
-      - 立ち上げられた複数ターミナルでは`RUN-DOCKER-CONTAINER.sh`が自動実行されている。
+   ```bash
+   cd ./env && ./LAUNCH-TERMINATOR-TERMINAL.sh
+   ```
+   - 立ち上げられた複数ターミナルでは`RUN-DOCKER-CONTAINER.sh`が自動実行されているので、すでにDockerの中にいる
 
 ### Dockerコンテナ内でのROS環境のビルド
-- 初回のみ実行
-  - `./INITIAL_SETUP_ROS_ENVIROMENTS.sh`  
-  -  以上のコマンドは`grinding_ws` のディレクトリ内で実行すること
-- サードパーティ及び依存パッケージのアップデート+自作パッケージのビルド
-  - `./BUILD_ROS_WORKSPACE.sh`
-  -  以上のコマンドは`grinding_ws` のディレクトリ内で実行すること
-- 自作パッケージのビルドのみ
+3種類の手法を用意している
+1. OSのシステムアップデートとROSのクリーンビルド
+  - Dockerコンテナ内の`grinding_ws` のディレクトリ内で初回のみ実行
+  ```bash
+  ./INITIAL_SETUP_ROS_ENVIROMENTS.sh  
+  ```
+2. ROSのワークスペース全体のビルド
+  - 以上のコマンドはDockerコンテナ内の`grinding_ws` のディレクトリ内で実行
+  ```bash
+  ./BUILD_ROS_WORKSPACE.sh
+  ```
+3. 自作パッケージのビルドのみ
   - `b` コマンドで実行できるようにエイリアスを組んである
+  ```bash
+  b
+  ```
 
 ## Demo
 Launch UR5e
-```
+```bash
 ros2 launch grinding_robot_bringup ur5e_bringup.launch.xml 
 ```
 
 Test scaled_joint_trajectory_controller
-```
+```bash
 ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 ```
 
@@ -100,7 +112,9 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 - WSL2を使っていたり、性能低いPCだとビルド中に固まることがある
   - その場合は、ビルドの並列化数を下げると解決することがある
 - colcon buildの引数で並列化数を明示的に設定する
-  - `colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --parallel-workers 8 --cmake-clean-cache`
+  ```bash
+  colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --parallel-workers 8 --cmake-clean-cache
+  ```
   - `--parallel-workers 8`がビルドの並列数
   - デフォルトだとCPUのコア数に設定されているが、WSLを使っていたり他にリソースがさかれている場合はジョブがコンフリクトする可能性があるので、下げたほうが良い
   - 1だと最も安全(ビルドの時間が非常に長くなるけど)
