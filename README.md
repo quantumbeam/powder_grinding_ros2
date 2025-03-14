@@ -21,6 +21,10 @@
 cd ./env && ./BUILD-DOCKER-IMAGE.sh
 ```
 
+### Dockerコンテナのビルド
+- Dockerコンテナのビルド
+   - `cd ./env && ./BUILD-DOCKER-IMAGE.sh`
+
 ### Dockerコンテナの立ち上げ
 - ターミナル内でのDockerコンテナの立ち上げ
    - `cd ./env && ./RUN-DOCKER-CONTAINER.sh`
