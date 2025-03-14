@@ -9,6 +9,35 @@ from geometry_msgs.msg import Quaternion, Pose
 from builtin_interfaces.msg import Duration
 import numpy as np
 
+class PointDisplay(Node):
+    def __init__(self, point_publisher_name):
+        super().__init__("point_display")
+        self.publisher = self.create_publisher(Marker, point_publisher_name, 10)
+        self.rate = self.create_rate(10)
+        self.index = 0
+    def display_point(self, point, scale=0.02):
+        type = Marker().SPHERE
+        marker = Marker()
+        marker.header.frame_id = "world"
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = "point"
+        marker.action = Marker.ADD
+
+        marker.pose.position = point.position
+        marker.pose.orientation = point.orientation
+
+        marker.color.r = 1.0
+        marker.color.g = 0.0
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+        
+        marker.scale.x = scale
+        marker.scale.y = scale
+        marker.scale.z = scale
+        marker.type = type
+        marker.lifetime = Duration() 
+        self.publisher.publish(marker)
+        print("Published!")
 
 class MarkerDisplay(Node):
     def __init__(self, marker_publisher_name):
@@ -16,7 +45,7 @@ class MarkerDisplay(Node):
         self.publisher = self.create_publisher(MarkerArray, marker_publisher_name, 10)
         self.rate = self.create_rate(10)
         self.index = 0
-
+        
     def display_waypoints(self, waypoints, scale=0.02, type=None):
         marker_array = MarkerArray()
         if type is None:
@@ -66,6 +95,7 @@ class MarkerDisplay(Node):
             marker_array.markers.append(marker)
 
         self.publisher.publish(marker_array)
+        # print("Published!")
 
 
 def generate_spiral_waypoints(self, num_points):
@@ -90,17 +120,28 @@ def generate_spiral_waypoints(self, num_points):
     return waypoints
 
 
+# def main(args=None):
+#     rclpy.init(args=args)
+#     marker_display = MarkerDisplay("marker_publisher")
+#     waypoints = generate_spiral_waypoints(marker_display, 100)
+#     marker_display.display_waypoints(
+#         waypoints
+#     )  # replace 'waypoints' with your waypoints data
+#     rclpy.spin(marker_display)
+#     marker_display.destroy_node()
+#     rclpy.shutdown()
 def main(args=None):
     rclpy.init(args=args)
-    marker_display = MarkerDisplay("marker_publisher")
-    waypoints = generate_spiral_waypoints(marker_display, 100)
-    marker_display.display_waypoints(
-        waypoints
-    )  # replace 'waypoints' with your waypoints data
-    rclpy.spin(marker_display)
-    marker_display.destroy_node()
+    point=Pose()  
+    point.position.x=0.5
+    point.position.y=0.5
+    point.position.z=0.5
+    point_display = PointDisplay("point_publisher")
+    point_display.display_point(point)
+    rclpy.spin(point_display)  
+    point_display.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == "__main__":
     main()
+    
