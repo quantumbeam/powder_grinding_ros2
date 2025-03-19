@@ -57,7 +57,7 @@ cd ./env && ./BUILD-DOCKER-IMAGE.sh
 ## Demo
 Launch UR5e
 ```bash
-ros2 launch grinding_robot_bringup ur5e_bringup.launch.xml 
+ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.xml
 ```
 
 Test scaled_joint_trajectory_controller
