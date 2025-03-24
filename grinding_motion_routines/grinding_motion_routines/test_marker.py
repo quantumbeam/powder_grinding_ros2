@@ -10,6 +10,7 @@ from builtin_interfaces.msg import Duration
 import numpy as np
 
 def main():
+    rclpy.init()
     print("Hello")
     point=Pose()
     point.position.x=1.0
@@ -17,7 +18,7 @@ def main():
     point.position.z=1.0
     print(point)
     marker=Marker()
-    marker.header.frame_id = "world"
+    marker.header.frame_id =  "map"
     marker.header.stamp = rclpy.clock.Clock().now().to_msg()
     marker.ns = "point"
     marker.id=1
@@ -32,14 +33,15 @@ def main():
     marker.scale.y = 0.02
     marker.scale.z = 0.02
     marker.type = Marker.SPHERE
-    marker.lifetime = Duration()
+    marker.lifetime = Duration(sec=100, nanosec=0)
     print(marker)
+
     # publisher wo tukuru
-    rclpy.init()
+
     node=Node("test_point")
     pub=node.create_publisher(Marker, "test_point", 10)
     pub.publish(marker)
     print("Published!")
-    rclpy.spin(pub)
-    pub.destroy_node()
+    rclpy.spin(node)
+    node.destroy_node()
     rclpy.shutdown()
