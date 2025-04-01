@@ -26,6 +26,7 @@ setup(
             "display_marker = grinding_motion_routines.display_marker:main",
             "grinding_demo = grinding_motion_routines.grinding_demo:main",
             "JTC_helper = grinding_motion_routines.JTC_helper:main",
+            "test_marker = grinding_motion_routines.test_marker:main",
             
         ],
     },
