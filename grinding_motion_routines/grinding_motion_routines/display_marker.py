@@ -17,7 +17,17 @@ class MarkerDisplay(Node):
         # self.rate = self.create_rate(10)  
         self.index = 0
         self.waypoints = waypoints
-        self.timer = self.create_timer(1.0, self.executer)  # 1秒ごとに送信
+        # self.timer = self.create_timer(1.0, self.executer)  # 1秒ごとに送信
+    def wait_for_connection(self):
+        self.get_logger().info('Waiting for publisher to connect...')
+        while(self.publisher.get_subscription_count() == 0):
+        #   rclpy.spin_once(self)
+          time.sleep(1)
+          counter=self.publisher.get_subscription_count()
+          print(counter)
+        self.get_logger().info('Publisher connected!')
+
+
         
     def display_waypoints(self, waypoints, scale=0.02, type=None):
         marker_array = MarkerArray()
@@ -66,6 +76,7 @@ class MarkerDisplay(Node):
             marker.type = type
             marker.lifetime = Duration(sec=10)  # existing marker for ever
             marker_array.markers.append(marker)
+        self.wait_for_connection()
         self.publisher.publish(marker_array)
         self.get_logger().info("Published!")
         # print("Published!")
