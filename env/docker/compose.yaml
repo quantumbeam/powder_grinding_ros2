@@ -26,7 +26,7 @@ services:
       - ROS_VERSION=2
       - ROS_PYTHON_VERSION=3
       - ROS_DISTRO=jazzy
-      - ROS_AUTOMATIC_DISCOVERY_RANGE=localhost
+      - ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
     image: powder_grinding_ros2_jazzy
     build:

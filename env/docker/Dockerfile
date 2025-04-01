@@ -42,6 +42,7 @@ RUN apt-get update -q && \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
     ros-${ROS_DISTRO}-ur \
     ros-${ROS_DISTRO}-moveit-visual-tools \
+    ros-${ROS_DISTRO}-tf-transformations \
     && apt-get clean \ 
     && rm -rf /var/lib/apt/lists/*
 
