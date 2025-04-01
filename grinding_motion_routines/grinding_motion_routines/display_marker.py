@@ -8,43 +8,16 @@ from tf_transformations import quaternion_from_euler, quaternion_multiply
 from geometry_msgs.msg import Quaternion, Pose
 from builtin_interfaces.msg import Duration
 import numpy as np
-
-class PointDisplay(Node):
-    def __init__(self, point_publisher_name):
-        super().__init__("point_display")
-        self.publisher = self.create_publisher(Marker, point_publisher_name, 10)
-        self.rate = self.create_rate(10)
-        self.index = 0
-    def display_point(self, point, scale=0.02):
-        type = Marker().SPHERE
-        marker = Marker()
-        marker.header.frame_id = "world"
-        marker.header.stamp = self.get_clock().now().to_msg()
-        marker.ns = "point"
-        marker.action = Marker.ADD
-
-        marker.pose.position = point.position
-        marker.pose.orientation = point.orientation
-
-        marker.color.r = 1.0
-        marker.color.g = 0.0
-        marker.color.b = 0.0
-        marker.color.a = 1.0
-        
-        marker.scale.x = scale
-        marker.scale.y = scale
-        marker.scale.z = scale
-        marker.type = type
-        marker.lifetime = Duration() 
-        self.publisher.publish(marker)
-        print("Published!")
+import time
 
 class MarkerDisplay(Node):
-    def __init__(self, marker_publisher_name):
+    def __init__(self, marker_publisher_name, waypoints):
         super().__init__("marker_display")
-        self.publisher = self.create_publisher(MarkerArray, marker_publisher_name, 10)
-        self.rate = self.create_rate(10)
+        self.publisher = self.create_publisher(MarkerArray, marker_publisher_name, 1)
+        # self.rate = self.create_rate(10)  
         self.index = 0
+        self.waypoints = waypoints
+        self.timer = self.create_timer(1.0, self.executer)  # 1秒ごとに送信
         
     def display_waypoints(self, waypoints, scale=0.02, type=None):
         marker_array = MarkerArray()
@@ -58,7 +31,7 @@ class MarkerDisplay(Node):
             marker.ns = "waypoints"
             self.index += 1
             marker.id = self.index
-            print(marker.id)
+            # print(marker.id)
             marker.action = Marker.ADD
 
             marker.pose.position = points.position
@@ -91,14 +64,16 @@ class MarkerDisplay(Node):
                 marker.scale.z = scale
 
             marker.type = type
-            marker.lifetime = Duration()  # existing marker for ever
+            marker.lifetime = Duration(sec=10)  # existing marker for ever
             marker_array.markers.append(marker)
-
         self.publisher.publish(marker_array)
+        self.get_logger().info("Published!")
         # print("Published!")
+    def executer(self):
+        self.display_waypoints(self.waypoints)
+        # self.rate.sleep()
 
-
-def generate_spiral_waypoints(self, num_points):
+def generate_spiral_waypoints(num_points):
     waypoints = []
     radius = 0.3  # 初期半径
     theta = 0.0  # 初期角度
@@ -116,31 +91,23 @@ def generate_spiral_waypoints(self, num_points):
 
         radius += scale[1]  # 半径を増加させて螺旋状にする
         theta += theta_increment
-        print(z)
+        # print(z)
     return waypoints
 
 
-# def main(args=None):
-#     rclpy.init(args=args)
-#     marker_display = MarkerDisplay("marker_publisher")
-#     waypoints = generate_spiral_waypoints(marker_display, 100)
-#     marker_display.display_waypoints(
-#         waypoints
-#     )  # replace 'waypoints' with your waypoints data
-#     rclpy.spin(marker_display)
-#     marker_display.destroy_node()
-#     rclpy.shutdown()
 def main(args=None):
-    rclpy.init(args=args)
-    point=Pose()  
-    point.position.x=0.5
-    point.position.y=0.5
-    point.position.z=0.5
-    point_display = PointDisplay("point_publisher")
-    point_display.display_point(point)
-    rclpy.spin(point_display)  
-    point_display.destroy_node()
+    rclpy.init()
+    waypoints = generate_spiral_waypoints(100)
+    marker_display = MarkerDisplay("marker_publisher", waypoints)
+    marker_display.display_waypoints(waypoints)
+
+    # marker_display.display_waypoints(waypoints)
+    
+    # marker_display.create_timer(1.0, marker_display.display_waypoints(waypoints))  # replace 'waypoints' with your waypoints data
+    rclpy.spin(marker_display)
+    marker_display.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()
