@@ -8,6 +8,7 @@ from trac_ik_python.trac_ik import IK as TRACK_IK_SOLVER
 from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
 from enum import Enum, auto
 from rclpy.parameter import Parameter
+import time
 
 class IKType(Enum):
     TRACK_IK = auto()
@@ -59,6 +60,8 @@ class ArmPositionController(Node):
         self.ik_solver = ik_solver 
 
         self._init_ik_solver(base_link, tool_link, solve_type="Speed")
+        self._robot_urdf_package = "ur_description" #add
+        self._robot_urdf_file_name = "ur5e" #add
 
     def _load_urdf_string(self, package, filename):
         """
@@ -247,13 +250,23 @@ class ArmPositionController(Node):
     def get_result_callback(self, future):
         result = future.result().result
         self.get_logger().info(f"Result: {result}")
-        rclpy.shutdown()
+        #rclpy.shutdown() #remove
 
     def feedback_callback(self, feedback_msg):
         feedback = feedback_msg.feedback
         self.get_logger().info(f"Received feedback: {feedback}")
 
+    def test_jtc_one_target(self, target_pose, time_to_reach):
+        """Test JTC with one target pose."""
+        joint_positions = self.solve_ik(target_pose)
+        if joint_positions is not None:
+            self.set_joint_trajectory([joint_positions], time_to_reach, send_immediately=True, wait=True)
+        else:
+            self.get_logger().warn("No joint positions found for target pose.")
 
+    def test_jtc_waypoints(self, waypoints, time_to_reach):
+        """Test JTC with waypoints."""
+        self.set_waypoints(waypoints, time_to_reach, send_immediately=True, wait=True)
 
 def main(args=None):
     """
@@ -272,13 +285,46 @@ def main(args=None):
         ]
     )
 
-    # Example waypoints
-    p1 = [[0.0, 0.5, 1.0, 1.5, 2.0, 2.5]]
-    p2 = [[2.5, 2.0, 1.5, 1.0, 0.5, 0.0]]
-    time_to_reach = 5
-    arm_position_controller.set_waypoints(p1, time_to_reach, send_immediately=True, wait=True)
-    arm_position_controller.set_waypoints(p2, time_to_reach, send_immediately=True, wait=True)
-    rclpy.spin(arm_position_controller)
+    while rclpy.ok():
+        print("\nMenu:")
+        print("1. Solve IK")
+        print("2. Test JTC with one target pose")
+        print("3. Test JTC with waypoints")
+        print("4. Exit")
+
+        choice = input("Enter your choice: ")
+
+        if choice == '1':
+            # Example pose: [x, y, z, qx, qy, qz, qw]
+            target_pose = [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0]
+            joint_positions = arm_position_controller.solve_ik(target_pose)
+            if joint_positions is not None:
+                print(f"IK solution: {joint_positions}")
+            else:
+                print("No IK solution found.")
+        elif choice == '2':
+            # Example pose: [x, y, z, qx, qy, qz, qw]
+            target_pose = [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0]
+            time_to_reach = 5
+            arm_position_controller.test_jtc_one_target(target_pose, time_to_reach)
+        elif choice == '3':
+            # Example waypoints
+            waypoints = [
+                [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0],
+                [0.6, 0.1, 0.6, 0.0, 0.0, 0.0, 1.0],
+                [0.7, 0.2, 0.7, 0.0, 0.0, 0.0, 1.0]
+            ]
+            time_to_reach = 5
+            arm_position_controller.test_jtc_waypoints(waypoints, time_to_reach)
+        elif choice == '4':
+            break
+        else:
+            print("Invalid choice. Please try again.")
+        
+        rclpy.spin_once(arm_position_controller, timeout_sec=0.1)
+    
+    arm_position_controller.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == "__main__":
     main()

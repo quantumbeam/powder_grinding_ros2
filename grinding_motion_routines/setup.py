@@ -27,6 +27,7 @@ setup(
             "grinding_demo = grinding_motion_routines.grinding_demo:main",
             "JTC_helper = grinding_motion_routines.JTC_helper:main",
             "test_marker = grinding_motion_routines.test_marker:main",
+            "arm_position_controller = grinding_motion_routines.arm_position_controller:main",
             
         ],
     },
