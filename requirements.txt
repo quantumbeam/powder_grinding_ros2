@@ -1,4 +1,5 @@
 # for calculation
+Cython
 inputimeout
 numpy
 scipy
@@ -15,3 +16,8 @@ matplotlib
 plotly
 tyro
 termcolor
+
+# for ros2
+catkin_pkg
+pyyaml #add
+jinja2 #add

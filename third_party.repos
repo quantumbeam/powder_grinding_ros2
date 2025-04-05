@@ -1,0 +1,5 @@
+repositories:
+  trac_ik:
+    type: git
+    url: https://github.com/YusakuNakajima/trac_ik_ros2.git
+    version: ros2
