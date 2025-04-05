@@ -47,6 +47,8 @@ RUN apt-get update -q && \
 RUN python3 -m venv /home/ubuntu/user/grinding_ws/venv
 ENV VIRTUAL_ENV="/home/ubuntu/user/grinding_ws/venv"
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# Prevent colcon from searching the venv directory for packages
+RUN touch /home/ubuntu/user/grinding_ws/venv/COLCON_IGNORE 
 
 # Setup workspace
 RUN mkdir -p /home/ubuntu/user/grinding_ws/src
