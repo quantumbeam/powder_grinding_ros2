@@ -14,7 +14,7 @@ setup(
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
         (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
     ],
-    install_requires=["setuptools"],
+    install_requires=['setuptools', 'pytracik'],
     zip_safe=True,
     maintainer="ubuntu",
     maintainer_email="yusaku_nakajima@ap.eng.osaka-u.ac.jp",
@@ -28,7 +28,7 @@ setup(
             "JTC_helper = grinding_motion_routines.JTC_helper:main",
             "test_marker = grinding_motion_routines.test_marker:main",
             "arm_position_controller = grinding_motion_routines.arm_position_controller:main",
-            
+            "ik_test = grinding_motion_routines.ik_test:main",
         ],
     },
 )
