@@ -40,6 +40,7 @@ RUN apt-get update -q && \
     ros-${ROS_DISTRO}-moveit-visual-tools \
     ros-${ROS_DISTRO}-tf-transformations \
     ros-${ROS_DISTRO}-trac-ik \
+    ros-${ROS_DISTRO}-moveit \
     && apt-get clean \ 
     && rm -rf /var/lib/apt/lists/*
 
