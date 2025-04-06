@@ -13,7 +13,8 @@
   <test_depend>python3-pytest</test_depend>
 
   <exec_depend>launch_ros</exec_depend>
-
+  <exec_depend>trac_ik_kinematics_plugin</exec_depend>
+  <exec_depend>pytracik</exec_depend>
   <export>
     <build_type>ament_python</build_type>
   </export>

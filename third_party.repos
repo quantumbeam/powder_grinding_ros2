@@ -1,0 +1,5 @@
+repositories:
+  pytracik:
+    type: git
+    url: https://github.com/YusakuNakajima/pytracik.git
+    version: main

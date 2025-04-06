@@ -14,7 +14,7 @@ setup(
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
         (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
     ],
-    install_requires=["setuptools"],
+    install_requires=['setuptools', 'pytracik'],
     zip_safe=True,
     maintainer="ubuntu",
     maintainer_email="yusaku_nakajima@ap.eng.osaka-u.ac.jp",
@@ -23,10 +23,13 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "marker_display = grinding_motion_routines.marker_display:main",
+            "display_marker = grinding_motion_routines.display_marker:main",
             "grinding_demo = grinding_motion_routines.grinding_demo:main",
             "JTC_helper = grinding_motion_routines.JTC_helper:main",
             "moveit_test = grinding_motion_routines.moveit_test:main"
+            "test_marker = grinding_motion_routines.test_marker:main",
+            "arm_position_controller = grinding_motion_routines.arm_position_controller:main",
+            "ik_test = grinding_motion_routines.ik_test:main",
         ],
     },
 )

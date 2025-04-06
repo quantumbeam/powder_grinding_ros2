@@ -1,137 +1,224 @@
+#!/usr/bin/env python3
+
+
+
 import rclpy
-from rclpy.node import Node
 from rclpy.action import ActionClient
-from builtin_interfaces.msg import Duration
-from trajectory_msgs.msg import JointTrajectoryPoint
+from rclpy.node import Node
+from rclpy.duration import Duration
 from control_msgs.action import FollowJointTrajectory
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from grinding_motion_routines.arm_position_controller import ArmPositionController  # Modified for ROS2
+from sensor_msgs.msg import JointState  # Import JointState
+import time
+import numpy as np
+from tqdm import tqdm
 
-class JTCHelper(Node):
-    """
-    A helper class to publish joint trajectories to a specified controller using actions.
+class JointTrajectoryControllerHelper(ArmPositionController, Node):  # Inherit from rclpy.node.Node
+    """Motion Executor including IK and JointTrajectoryController(JTC) ."""
 
-    Attributes:
-        controller_name (str): The name of the controller to publish trajectories to.
-        joints (list): The list of joint names.
-        goals (list): The list of JointTrajectoryPoint goals to publish.
-        i (int): The index of the current goal to publish.
-    """
+    def __init__(
+        self,
+        robot_urdf_pkg,
+        robot_urdf_file_name,
+        joint_trajectory_controller_name,
+        tcp_link,
+        ns=None,
+        joint_names_prefix=None,
+        ft_topic=None,
+        gripper=False,
+        ik_solver="trac_ik",
+        solve_type="Distance",
+    ):
+        if joint_names_prefix is None:
+            joint_names_prefix = ""
+        
+        # ROS2 Node Initialization
+        rclpy.init() # Initialize rclpy if not already initialized
+        Node.__init__(self, "joint_trajectory_controller_executor")  # Initialize the Node
 
-    def __init__(self, node_name="jtc_helper", controller_name="joint_trajectory_controller", joints=[""]):
+        super().__init__(
+            robot_urdf_pkg,
+            robot_urdf_file_name,
+            joint_trajectory_controller_name,
+            gripper=gripper,
+            namespace=ns,
+            joint_names_prefix=joint_names_prefix,
+            ee_link=tcp_link,
+            ft_topic=ft_topic,
+            ik_solver=ik_solver,
+            solve_type=solve_type,
+        )
+        self.joint_names_prefix = joint_names_prefix
+        self.init_end_effector_link = tcp_link
+        self.solve_type = solve_type
+        
+        # ROS2 Action Client for FollowJointTrajectory
+        self._action_client = ActionClient(self, FollowJointTrajectory, joint_trajectory_controller_name + '/follow_joint_trajectory') # Correct topic name
+        
+        # ROS2:  Subscribe to joint states for current joint positions
+        self.joint_state_sub = self.create_subscription(JointState, 'joint_states', self._joint_state_callback, 10)
+        self.current_joint_positions = []
+
+
+    def _joint_state_callback(self, msg):
         """
-        Initialize the JTCHelper node.
-
-        Args:
-            node_name (str): The name of the node.
-            controller_name (str): The name of the controller to publish trajectories to.
-            joints (list): The list of joint names.
+        Callback function to update current joint positions.
         """
-        super().__init__(node_name)
+        self.current_joint_positions = list(msg.position)
 
-        self.controller_name = controller_name
-        self.joints = joints
-
-        if self.joints is None or len(self.joints) == 0:
-            raise Exception('"joints" parameter is not set!')
-
-        action_topic = "/" + self.controller_name + "/" + "follow_joint_trajectory"
-        self.action_client = ActionClient(self, FollowJointTrajectory, action_topic)
-        self.goals = []
-        self.i = 0
-
-    def set_waypoints(self, waypoints, time_to_reach, send_immediately=False, wait=True):
+    def joint_angles(self):
         """
-        Set the waypoints to be published and the time to reach each waypoint.
-
-        Args:
-            waypoints (list): A list of lists, where each inner list represents a JointTrajectoryPoint.
-            time_to_reach (int): The time in seconds to reach each waypoint.
-            send_immediately (bool): If True, send the waypoints immediately.
-            wait (bool): If True, wait for the result after sending the goal.
+        Get the current joint angles, handling potential threading issues and delays in ROS2.
         """
-        self.goals = []
-        for waypoint in waypoints:
-            point = JointTrajectoryPoint()
-            point.positions = waypoint
-            point.time_from_start = Duration(sec=time_to_reach)
-            self.goals.append(point)
-        self.i = 0
+        # In ROS2, the callback might not have populated the data yet.  Wait (with timeout).
+        timeout_seconds = 1.0  # Wait at most 1 second.
+        start_time = time.time()
+        while not self.current_joint_positions and time.time() - start_time < timeout_seconds:
+            rclpy.spin_once(self, timeout_sec=0.1) # Process callbacks
+            time.sleep(0.01)
 
-        if send_immediately:
-            self.send_goal(wait)
+        if not self.current_joint_positions:
+            self.get_logger().error("Failed to get joint positions from /joint_states topic!")
+            return []  # Or raise an exception if appropriate
 
-    def send_goal(self, wait=True):
-        """
-        Send the goal to the action server.
+        return self.current_joint_positions
 
-        Args:
-            wait (bool): If True, wait for the result after sending the goal.
-        """
-        if len(self.goals) > 0:
-            self.get_logger().info(f"Sending goal {self.goals[self.i]}.")
-            goal_msg = FollowJointTrajectory.Goal()
-            goal_msg.trajectory.joint_names = self.joints
-            goal_msg.trajectory.points = [self.goals[self.i]]
 
-            self.action_client.wait_for_server()
-            self._send_goal_future = self.action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
-            self._send_goal_future.add_done_callback(self.goal_response_callback)
+    def execute_to_goal_pose(
+        self,
+        goal_pose,
+        ee_link="",
+        time_to_reach=5.0,
+        max_attempts=10,
+        wait=True,
+    ):
+        """Supported pose is only x y z aw ax ay az"""
+        if ee_link == "":
+            ee_link = self.ee_link
+        if self.ee_link != ee_link:
+            self._change_ee_link(ee_link)
 
-            if wait:
-                rclpy.spin_until_future_complete(self, self._send_goal_future)
-                goal_handle = self._send_goal_future.result()
-                if goal_handle.accepted:
-                    self._get_result_future = goal_handle.get_result_async()
-                    rclpy.spin_until_future_complete(self, self._get_result_future)
-                    result = self._get_result_future.result()
-                    self.get_logger().info(f"Result: {result}")
-                else:
-                    self.get_logger().info('Goal rejected.')
-        else:
-            self.get_logger().warn("No goals set to send.")
+        best_ik= None
+        best_dif= float("inf")
+        start_joint = self.joint_angles()
+        for i in range(max_attempts):
+            joint_goal = self._solve_ik(goal_pose)
+            if joint_goal is None or np.any(joint_goal == "ik_not_found"):
+                self.get_logger().error("IK not found, Please check the pose")
+                continue
+            dif=abs(np.sum(np.array(start_joint[0:-1])-np.array(joint_goal[0:-1])))
+            if dif < best_dif:
+                best_ik=joint_goal
+                best_dif=dif
+        self.set_joint_positions(best_ik, t=time_to_reach, wait=wait)
+        return best_ik
 
-    def goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().info('Goal rejected.')
-            return
 
-        self.get_logger().info('Goal accepted.')
-        self._get_result_future = goal_handle.get_result_async()
-        self._get_result_future.add_done_callback(self.get_result_callback)
+    def generate_joint_trajectory(
+        self,
+        waypoints,
+        ee_link="",
+        joint_difference_limit=0.03,
+        max_attempts=1000,
+        max_attempts_for_first_waypoint=100,
+    ):
+        """Supported pose is only list of [x y z aw ax ay az]"""
+        if ee_link == "":
+            ee_link = self.ee_link
+        if self.ee_link != ee_link:
+            self._change_ee_link(ee_link)
 
-    def get_result_callback(self, future):
-        result = future.result().result
-        self.get_logger().info(f"Result: {result}")
-        rclpy.shutdown()
+        joint_trajectory = []
+        start_joint = self.joint_angles()
+        total_waypoints = len(waypoints)  # 全体のwaypoints数を取得
 
-    def feedback_callback(self, feedback_msg):
-        feedback = feedback_msg.feedback
-        self.get_logger().info(f"Received feedback: {feedback}")
+        for i, pose in tqdm(
+            enumerate(waypoints),
+            total=total_waypoints,
+            desc="Planning motion for waypoints",
+        ):
+            if i == 0:
+                best_joint_difference = float("inf")
+                for i in tqdm(
+                    range(max_attempts_for_first_waypoint),
+                    desc="Finding best IK solution for 1st waypoint",
+                ):
+                    ik_joint = self._solve_ik(pose, q_guess=start_joint)
+                    if ik_joint is None or np.any(ik_joint == "ik_not_found"):
+                        self.get_logger().error("IK not found, Please check the pose")
+                        continue
+                    joint_difference = np.sum(np.abs(np.array(start_joint[0:-1]) - np.array(ik_joint[0:-1])))
+                    if joint_difference < best_joint_difference:
+                        best_ik_joint = ik_joint
+                        best_joint_difference = joint_difference
+                start_joint = best_ik_joint
+                joint_trajectory.append(list(best_ik_joint))
+            else:
+                # 2番目以降のwaypoint
+                retry_count = 0  # 各ポーズごとの再試行カウントをリセット
+                joint_difference_list = []
+                while retry_count < max_attempts:
+                    ik_joint = self._solve_ik(pose, q_guess=start_joint)
+                    if ik_joint is None or np.any(ik_joint == "ik_not_found"):
+                        self.get_logger().error("IK not found, Please check the pose")
+                        return None
+                    joint_difference = np.sum(np.abs(np.array(start_joint[0:-1]) - np.array(ik_joint[0:-1])))
+                    if joint_difference > joint_difference_limit:
+                        retry_count += 1  # 再試行カウントを増やす
+                        joint_difference_list.append(joint_difference)
+                        if retry_count >= max_attempts:
+                            self.get_logger().error(
+                                f"Waypoint {i + 1}/{total_waypoints} failed after {max_attempts} trials, "
+                                f"Joint difference was too large (min diff:{min(joint_difference_list)})"
+                            )
+                            return None
+                        continue
+                    else:
+                        start_joint = ik_joint
+                        joint_trajectory.append(list(ik_joint))
+                        break
 
-def main(args=None):
-    """
-    Main function to initialize and spin the JTCHelper node.
-    """
-    rclpy.init(args=args)
-    jtc_helper = JTCHelper(
-        controller_name="scaled_joint_trajectory_controller",
-        joints=[
-            "shoulder_pan_joint",
-            "shoulder_lift_joint",
-            "elbow_joint",
-            "wrist_1_joint",
-            "wrist_2_joint",
-            "wrist_3_joint"
-        ]
-    )
+        return joint_trajectory if joint_trajectory else None
 
-    # Example waypoints
-    p1 = [[0.0, 0.5, 1.0, 1.5, 2.0, 2.5]]
-    p2 = [[2.5, 2.0, 1.5, 1.0, 0.5, 0.0]]
-    time_to_reach = 5
-    jtc_helper.set_waypoints(p1, time_to_reach, send_immediately=True, wait=True)
-    jtc_helper.set_waypoints(p2, time_to_reach, send_immediately=True, wait=True)
-    rclpy.spin(jtc_helper)
+    def execute_by_joint_trajectory(self, joint_trajectory, time_to_reach=5.0):
+        self.set_joint_trajectory(joint_trajectory, t=time_to_reach)
 
-if __name__ == "__main__":
-    main()
+
+    def execute_by_waypoints(
+        self,
+        waypoints,
+        joint_difference_limit,
+        ee_link="",
+        time_to_reach=5.0,
+        max_attempts=1000,
+        max_attempts_for_first_waypoint=100
+    ):
+        """Supported pose is only list of [x y z aw ax ay az]"""
+
+        joint_trajectory = self.generate_joint_trajectory(
+            waypoints,
+            ee_link=ee_link,
+            joint_difference_limit=joint_difference_limit,
+            max_attempts=max_attempts,
+            max_attempts_for_first_waypoint=max_attempts_for_first_waypoint
+        )
+        self.set_joint_trajectory(joint_trajectory, t=time_to_reach)
+
+
+    def execute_to_joint_goal(self, joint_goal, time_to_reach=5.0, wait=True):
+        self.set_joint_positions(joint_goal, t=time_to_reach, wait=wait)
+
+
+    def _change_ee_link(self, new_ee_link):
+        old_ee_link = self.ee_link
+        self.get_logger().info(
+            "============ Cange End effector link: %s to %s"
+            % (old_ee_link, new_ee_link)
+        )
+        self.ee_link = (
+            new_ee_link
+            if self.joint_names_prefix is None
+            else self.joint_names_prefix + new_ee_link
+        )
+        self._init_ik_solver(self.base_link, self.ee_link, self.solve_type)
