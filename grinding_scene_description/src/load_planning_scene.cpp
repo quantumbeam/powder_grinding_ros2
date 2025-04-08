@@ -53,7 +53,7 @@ void PlanningSceneLoader::load_scene()
 {
   _add_table(this->get_parameter("table_scale").as_double_array(), this->get_parameter("table_position").as_double_array());
   std::string mortar_mesh_file_path = "package://grinding_scene_description/meshes/" + this->get_parameter("mortar_mesh_file_name").as_string();
-  _add_mortar(mortar_mesh_file_path, this->get_parameter("mortar_top_position").as_double_array());
+  // _add_mortar(mortar_mesh_file_path, this->get_parameter("mortar_top_position").as_double_array());
 }
 
 
