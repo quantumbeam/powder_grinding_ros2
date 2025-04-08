@@ -356,7 +356,7 @@ class MotionGenerator:
             position=position,
             angle_scale=angle_scale,
             yaw_bias=yaw_bias,
-            grinding_yaw_twist_per_rotation=0,
+            yaw_twist=0,
             fixed_quaternion=fixed_quaternion,
         )
 
@@ -453,8 +453,8 @@ class MotionGenerator:
             quat = self._calc_quaternion_of_mortar_inner_wall(
                 position=position,
                 angle_scale=angle_scale,
-                yaw=yaw_bias,
-                grinding_yaw_twist_per_rotation=0,
+                yaw_bias=yaw_bias,
+                yaw_twist=0,
                 fixed_quaternion=fixed_quaternion,
             )
 
@@ -478,3 +478,87 @@ class MotionGenerator:
             waypoints_list.append(waypoints)
 
         return waypoints_list
+
+def main():
+    # Parameters (from your specifications)
+    mortar_inner_size = {
+        "x": 0.04,
+        "y": 0.04,
+        "z": 0.035,
+    }
+    mortar_top_position = {
+        "x": -0.24487948173594054,
+        "y": 0.3722676198635453,
+        "z": 0.045105853329747,
+    }
+    grinding_pos_begining = [-8, 0]
+    grinding_pos_end = [-8, 0.0001]
+    grinding_rz_begining = 36
+    grinding_rz_end = 36
+
+    # Create MotionGenerator instance
+    motion_generator = MotionGenerator(
+        mortar_top_position, mortar_inner_size
+    )
+
+    # Test motion generation
+    print("Testing circular motion...")
+    try:
+        waypoints = motion_generator.create_circular_waypoints(
+            begining_position=grinding_pos_begining,
+            end_position=grinding_pos_end,
+            begining_radious_z=grinding_rz_begining,
+            end_radious_z=grinding_rz_end,
+            angle_scale=0.5,  # Adjust as needed
+            yaw_bias=None,  # Adjust as needed
+            yaw_twist_per_rotation=0.1,  # Adjust as needed
+            number_of_rotations=2,  # Adjust as needed
+            number_of_waypoints_per_circle=20,  # Adjust as needed
+            center_position=[0,0]
+        )
+        print(f"Circular waypoints generated successfully. Shape: {waypoints.shape}")
+        print(f"Example waypoints:\n{waypoints[:5]}")  # Print first 5 waypoints
+    except ValueError as e:
+        print(f"Error generating circular waypoints: {e}")
+
+    print("\nTesting cartesian motion...")
+    try:
+        waypoints = motion_generator.create_cartesian_waypoints(
+            begining_position=grinding_pos_begining,
+            end_position=grinding_pos_end,
+            begining_radius_z=grinding_rz_begining,
+            end_radius_z=grinding_rz_end,
+            angle_scale=0.5,  # Adjust as needed
+            fixed_quaternion=False,  # Adjust as needed
+            yaw_bias=None,  # Adjust as needed
+            number_of_waypoints=10,  # Adjust as needed
+        )
+        print(f"Cartesian waypoints generated successfully. Shape: {waypoints.shape}")
+        print(f"Example waypoints:\n{waypoints[:5]}")  # Print first 5 waypoints
+    except ValueError as e:
+        print(f"Error generating cartesian waypoints: {e}")
+
+    print("\nTesting liner motion list...")
+    try:
+        waypoints_list = motion_generator.create_liner_waypoints_list(
+            begining_theta=0.0,  # Adjust as needed
+            end_tehta=np.pi / 2,  # Adjust as needed
+            begining_length_from_center=10,  # Adjust as needed
+            end_length_from_center=20,  # Adjust as needed
+            begining_radius_z=grinding_rz_begining,
+            end_radius_z=grinding_rz_end,
+            angle_scale=0.5,  # Adjust as needed
+            fixed_quaternion=False,  # Adjust as needed
+            yaw_bias=None,  # Adjust as needed
+            number_of_waypoints=5,  # Adjust as needed
+            motion_counts=3,  # Adjust as needed
+        )
+        print(f"Liner waypoints list generated successfully. Number of lists: {len(waypoints_list)}")
+        for i, waypoints in enumerate(waypoints_list):
+            print(f"Example waypoints list {i}:\n{waypoints[:5]}")  # Print first 5 waypoints of each list
+    except ValueError as e:
+        print(f"Error generating liner waypoints list: {e}")
+
+
+if __name__ == "__main__":
+    main()
