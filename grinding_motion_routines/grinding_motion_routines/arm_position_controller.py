@@ -7,6 +7,7 @@ import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.parameter import Parameter
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from builtin_interfaces.msg import Duration
 from control_msgs.action import FollowJointTrajectory
 from trajectory_msgs.msg import JointTrajectoryPoint
@@ -82,12 +83,18 @@ class ArmPositionController(Node):
         else:
             raise Exception("unsupported ik_solver: ", self.ik_solver.name)
         
-        # joint_states サブスクライバーを作成
+        # joint_states サブスクライバーを作成[
+        qos_profile = QoSProfile(
+        reliability=QoSReliabilityPolicy.BEST_EFFORT,  # Or RELIABLE
+        history=QoSHistoryPolicy.KEEP_LAST,
+        depth=10
+        )
+
         self.joint_state_sub = self.create_subscription(
             JointState,
             "/joint_states",
             self._joint_states_cb,
-            10
+            qos_profile=qos_profile
         )
     
     def _joint_states_cb(self, msg: JointState) -> None:
@@ -429,7 +436,7 @@ def main(args: Optional[List[str]] = None) -> None:
         else:
             print("Invalid choice. Please try again.")
 
-        rclpy.spin_once(arm_controller, timeout_sec=0.1)
+        rclpy.spin_once(arm_controller)
 
     arm_controller.destroy_node()
     rclpy.shutdown()
