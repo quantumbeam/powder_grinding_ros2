@@ -11,7 +11,8 @@ from builtin_interfaces.msg import Duration
 from control_msgs.action import FollowJointTrajectory
 from trajectory_msgs.msg import JointTrajectoryPoint
 from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
-
+from sensor_msgs.msg import JointState
+import numpy as np
 # パスを通して pytracik を参照
 sys.path.append('/home/ubuntu/user/grinding_ws/src/powder_grinding/pytracik')
 from pytracik.trac_ik import TracIK as TRACK_IK_SOLVER
@@ -29,8 +30,8 @@ class ArmPositionController(Node):
     位置制御を行うアームコントローラー
     """
     def __init__(self,
-                 controller_name: str = "joint_trajectory_controller",
-                 joints_name: List[str] = [""],
+                 controller_name: str,
+                 joints_name: List[str],
                  tool_link: str = "tool0",
                  base_link: str = "base_link",
                  robot_urdf_package: str = "grinding_robot_description",
@@ -51,8 +52,8 @@ class ArmPositionController(Node):
         super().__init__('arm_position_controller')
 
         self.controller_name = controller_name
-        self.joints_name = joints_name
-        if not self.joints_name:
+        self.valid_joint_names = joints_name
+        if not self.valid_joint_names:
             raise Exception('"joints" parameter is not set!')
 
         # アクションクライアントの設定
@@ -72,7 +73,6 @@ class ArmPositionController(Node):
                 ('trac_ik_solver_type', "Distance"),
             ]
         )
-
         if self.ik_solver == IKType.TRACK_IK:
             self.get_logger().info("TRACK IK selected")
             self.trac_ik_timeout = self.get_parameter('trac_ik_timeout').value
@@ -81,6 +81,58 @@ class ArmPositionController(Node):
             self._init_ik_solver(base_link, tool_link, urdf_path)
         else:
             raise Exception("unsupported ik_solver: ", self.ik_solver.name)
+        
+        # joint_states サブスクライバーを作成
+        self.joint_state_sub = self.create_subscription(
+            JointState,
+            "/joint_states",
+            self._joint_states_cb,
+            10
+        )
+    
+    def _joint_states_cb(self, msg: JointState) -> None:
+        """
+        Callback executed every time a message is published on the 'joint_states' topic.
+        Args:
+            msg (JointState): The JointState message published by the RT hardware interface.
+        """
+        position = []
+        velocity = []
+        effort = []
+        name = []
+        for joint_name in self.valid_joint_names:
+            if joint_name in msg.name:
+                idx = msg.name.index(joint_name)
+                name.append(msg.name[idx])
+                effort.append(msg.effort[idx])
+                velocity.append(msg.velocity[idx])
+                position.append(msg.position[idx])
+        if set(name) == set(self.valid_joint_names):
+            self._current_jnt_positions = np.array(position)
+            self._current_jnt_velocities = np.array(velocity)
+            self._current_jnt_efforts = np.array(effort)
+            self._joint_names = list(name)
+        print(f"Joint names: {self._joint_names}")
+        print(f"Joint positions: {self._current_jnt_positions}")
+        
+    
+    def get_joint_names(self) -> List[str]:
+        """
+        現在のジョイント名を取得する
+
+        Returns:
+            現在のジョイント名のリスト
+        """
+        return self.valid_joint_names
+    
+    def get_current_joint_positions(self) -> List[float]:
+        """
+        現在のジョイント位置を取得する
+
+        Returns:
+            現在のジョイント位置のリスト
+        """
+        return self._current_jnt_positions
 
     def _init_ik_solver(self, base_link: str, ee_link: str, urdf_path: str) -> None:
         """
@@ -122,7 +174,7 @@ class ArmPositionController(Node):
             if self.ik_solver == IKType.TRACK_IK:
                 try:
                     if q_init is None:
-                        q_init = [0.0] * len(self.joints_name)
+                        q_init = [0.0] * len(self.valid_joint_names)
                     joint_positions = self.trac_ik.ik(pose[:3], pose[3:], seed_jnt_values=q_init)
                     if joint_positions is not None:
                         return joint_positions
@@ -185,7 +237,7 @@ class ArmPositionController(Node):
             send_immediately: True の場合、生成と同時に送信する
             wait: True の場合、ゴール結果を待つ
         """
-        if not joint_trajectory or len(joint_trajectory[0]) != len(self.joints_name):
+        if not joint_trajectory or len(joint_trajectory[0]) != len(self.valid_joint_names):
             self.get_logger().error("Joint trajectory has an unexpected number of joint positions.")
             return
         
@@ -197,7 +249,7 @@ class ArmPositionController(Node):
             point.time_from_start = Duration(sec=int(dt * i), nanosec=int((dt * i - int(dt * i)) * 1e9))
             self.goals.append(point)
         # print(f"Joint trajectory goals: {self.goals}")
-        self.get_logger().info(f"Joint trajectory : {joint_trajectory[0]} | [1]: {joint_trajectory[1]} | [2]: {joint_trajectory[2]}")
+        self.get_logger().info(f"Joint trajectory : {joint_trajectory[0]} ")
         if send_immediately:
             self._send_joint_trajectory_goal(wait)
 
@@ -214,7 +266,7 @@ class ArmPositionController(Node):
 
         # self.get_logger().info(f"Sending goal with trajectory: {self.goals}.")
         goal_msg = FollowJointTrajectory.Goal()
-        goal_msg.trajectory.joint_names = self.joints_name
+        goal_msg.trajectory.joint_names = self.valid_joint_names
         goal_msg.trajectory.points = self.goals
 
         self.action_client.wait_for_server()
@@ -285,25 +337,29 @@ def main(args: Optional[List[str]] = None) -> None:
         print("2. Test JTC with one target pose")
         print("3. Test JTC with waypoints")
         print("4. Test grinding motion")
+        print("10. Get joint names")
+        print("11. Get current joint positions")
         choice = input("Enter your choice: ")
 
-        if choice == '1':
+        if choice == '0':
+            break
+        elif choice == '1':
             # 例： [x, y, z, qx, qy, qz, qw]
-            target_pose = [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0]
+            target_pose = [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0]
             joint_positions = arm_controller.solve_ik(target_pose)
             if joint_positions is not None:
                 print(f"IK solution: {joint_positions}")
             else:
                 print("No IK solution found.")
         elif choice == '2':
-            target_pose = [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0]
+            target_pose = [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0]
             time_to_reach = 5
             arm_controller.set_goal_pose(target_pose, time_to_reach, send_immediately=True)
         elif choice == '3':
             waypoints = [
-                [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0],
-                [0.6, 0.1, 0.6, 0.0, 0.0, 0.0, 1.0],
-                [0.7, 0.2, 0.7, 0.0, 0.0, 0.0, 1.0]
+                [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0],
+                [0.6, 0.1, 0.6, 1.0, 0.0, 0.0, 0.0],
+                [0.7, 0.2, 0.7, 1.0, 0.0, 0.0, 0.0]
             ]
             time_to_reach = 5
             arm_controller.set_waypoints(waypoints, time_to_reach, send_immediately=True)
@@ -330,7 +386,7 @@ def main(args: Optional[List[str]] = None) -> None:
             grinding_pos_end = [-8, 0.0001]
             grinding_rz_begining = 36
             grinding_rz_end = 36
-            number_of_rotations = 10
+            number_of_rotations = 1
             angle_scale = 0.3
             yaw_bias = None
             yaw_twist_per_rotation=0
@@ -363,8 +419,13 @@ def main(args: Optional[List[str]] = None) -> None:
                 send_immediately=True
             )
             print("Grinding motion test completed.")
-        elif choice == '0':
-            break
+        elif choice == '10':
+            joint_names = arm_controller.get_joint_names()
+            print(f"Joint names: {joint_names}")
+        elif choice == '11':
+            current_joint_positions = arm_controller.get_current_joint_positions()
+            print(f"Current joint positions: {current_joint_positions}")
+
         else:
             print("Invalid choice. Please try again.")
 
