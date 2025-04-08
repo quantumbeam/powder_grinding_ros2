@@ -89,13 +89,13 @@ class ArmPositionController(Node):
         history=QoSHistoryPolicy.KEEP_LAST,
         depth=10
         )
-
         self.joint_state_sub = self.create_subscription(
             JointState,
             "/joint_states",
             self._joint_states_cb,
             qos_profile=qos_profile
         )
+        self._current_jnt_positions = None
     
     def _joint_states_cb(self, msg: JointState) -> None:
         """
@@ -119,9 +119,6 @@ class ArmPositionController(Node):
             self._current_jnt_velocities = np.array(velocity)
             self._current_jnt_efforts = np.array(effort)
             self._joint_names = list(name)
-        print(f"Joint names: {self._joint_names}")
-        print(f"Joint positions: {self._current_jnt_positions}")
-        
     
     def get_joint_names(self) -> List[str]:
         """
@@ -139,6 +136,9 @@ class ArmPositionController(Node):
         Returns:
             現在のジョイント位置のリスト
         """
+        if self._current_jnt_positions is None:
+            self.get_logger().warn("Joint State not received yet.")
+            return None
         return self._current_jnt_positions
 
     def _init_ik_solver(self, base_link: str, ee_link: str, urdf_path: str) -> None:
@@ -181,7 +181,10 @@ class ArmPositionController(Node):
             if self.ik_solver == IKType.TRACK_IK:
                 try:
                     if q_init is None:
-                        q_init = [0.0] * len(self.valid_joint_names)
+                        q_init = self.get_current_joint_positions()
+                        if q_init is None:
+                            self.get_logger().warn("Current joint positions not available, using zero initialization.")
+                            q_init = [0.0] * len(self.valid_joint_names)
                     joint_positions = self.trac_ik.ik(pose[:3], pose[3:], seed_jnt_values=q_init)
                     if joint_positions is not None:
                         return joint_positions
@@ -206,12 +209,14 @@ class ArmPositionController(Node):
             wait: True の場合、ゴール結果を待つ
         """
         joint_trajectory = []
-        for waypoint in waypoints:
-            joint_positions = self.solve_ik(waypoint)
+        q_init = self.get_current_joint_positions()
+        for i,waypoint in enumerate(waypoints):
+            joint_positions = self.solve_ik(waypoint, q_init=q_init)
+            q_init = joint_positions
             if joint_positions is not None:
                 joint_trajectory.append(joint_positions)
             else:
-                self.get_logger().warn("No joint positions found for a waypoint.")
+                self.get_logger().warn(f"No joint positions found for a waypoint [{i}]")
                 return  # 途中で解が得られない場合は中断
 
         self.set_joint_trajectory(joint_trajectory, time_to_reach, send_immediately, wait)
@@ -365,8 +370,8 @@ def main(args: Optional[List[str]] = None) -> None:
         elif choice == '3':
             waypoints = [
                 [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0],
-                [0.6, 0.1, 0.6, 1.0, 0.0, 0.0, 0.0],
-                [0.7, 0.2, 0.7, 1.0, 0.0, 0.0, 0.0]
+                [0.5, 0.0, 0.6, 1.0, 0.0, 0.0, 0.0],
+                [0.5, 0.0, 0.7, 1.0, 0.0, 0.0, 0.0]
             ]
             time_to_reach = 5
             arm_controller.set_waypoints(waypoints, time_to_reach, send_immediately=True)
