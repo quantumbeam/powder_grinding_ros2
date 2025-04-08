@@ -4,16 +4,21 @@ from rclpy.action import ActionClient
 from builtin_interfaces.msg import Duration
 from trajectory_msgs.msg import JointTrajectoryPoint
 from control_msgs.action import FollowJointTrajectory
-from trac_ik_python.trac_ik import IK as TRACK_IK_SOLVER
+import sys
+sys.path.append('/home/ubuntu/user/grinding_ws/src/powder_grinding/pytracik')
+from pytracik.trac_ik import TracIK as TRACK_IK_SOLVER
 from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
 from enum import Enum, auto
 from rclpy.parameter import Parameter
 import time
 
+
+
 class IKType(Enum):
     TRACK_IK = auto()
-    PICK_IK = auto()
-    QU_IK = auto()  
+    # below are not inplemented yet
+    # PICK_IK = auto()
+    # QU_IK = auto()  
 
 class ArmPositionController(Node):
     """
@@ -25,6 +30,8 @@ class ArmPositionController(Node):
                  joints_name=[""],
                  tool_link="tool0",
                  base_link="base_link",
+                 robot_urdf_package="grinding_robot_description",
+                 robot_urdf_file_name="ur5e_with_pestle",
                  ik_solver=IKType.TRACK_IK):
         """
         Initialize the ArmPositionController node.
@@ -44,56 +51,40 @@ class ArmPositionController(Node):
         if not self.joints_name:
             raise Exception('"joints" parameter is not set!')
 
+        # Joint trajectory action client setup
         action_topic = f"/{self.controller_name}/follow_joint_trajectory"
         self.action_client = ActionClient(self, FollowJointTrajectory, action_topic)
         self.goals = []
         self.i = 0
         
+        # IK solver setup
+        self.ik_solver = ik_solver
+        pkg_share_dir = get_package_share_directory(robot_urdf_package)
+        urdf_path = f"{pkg_share_dir}/urdf/{robot_urdf_file_name}.urdf"
+        self.declare_parameters(
+            namespace='',
+            parameters=[
+                ('trac_ik_timeout', 0.02),
+                ('trac_ik_epsilon', 1e-5),
+                ('trac_ik_solver_type', "Distance"),
+            ]
+        )
+
         if ik_solver == IKType.TRACK_IK:
             self.get_logger().info("TRACK IK selected")
-        elif ik_solver == IKType.PICK_IK:
-            self.get_logger().info("Pick IK selected")
-        elif ik_solver == IKType.QU_IK:  # または FULL_IK
-            self.get_logger().info("QuIK selected")
+            self.trac_ik_timeout = self.get_parameter('trac_ik_timeout').value
+            self.trac_ik_epsilon = self.get_parameter('trac_ik_epsilon').value
+            self.trac_ik_solver_type = self.get_parameter('trac_ik_solver_type').value
+            self._init_ik_solver(base_link, tool_link, urdf_path)
+        # elif ik_solver == IKType.PICK_IK:
+        #     self.get_logger().info("Pick IK selected")
+        # elif ik_solver == IKType.QU_IK:  # または FULL_IK
+        #     self.get_logger().info("QuIK selected")
         else:
             raise Exception("unsupported ik_solver", ik_solver)
-        self.ik_solver = ik_solver 
-
-        self._init_ik_solver(base_link, tool_link, solve_type="Speed")
-        self._robot_urdf_package = "ur_description" #add
-        self._robot_urdf_file_name = "ur5e" #add
-
-    def _load_urdf_string(self, package, filename):
-        """
-        Loads a URDF file as a string from a given ROS 2 package.
-
-        Args:
-            package (str): The name of the ROS 2 package.
-            filename (str): The name of the URDF file (without the .urdf extension).
-
-        Returns:
-            str: The URDF file content as a string, or None if an error occurred.
-        """
-        try:
-            package_dir = get_package_share_directory(package)
-        except PackageNotFoundError:
-            self.get_logger().error(f"Package '{package}' not found.")
-            return None
         
-        urdf_file = f"{package_dir}/urdf/{filename}.urdf"
 
-        try:
-            with open(urdf_file, 'r') as f:
-                urdf = f.read()
-            return urdf
-        except FileNotFoundError:
-            self.get_logger().error(f"URDF file '{urdf_file}' not found.")
-            return None
-        except Exception as e:
-            self.get_logger().error(f"Error reading URDF file: {e}")
-            return None
-
-    def _init_ik_solver(self, base_link, ee_link, solve_type):
+    def _init_ik_solver(self, base_link, ee_link,urdf_path):
         """
         Initializes the IK solver (Trac-IK).
 
@@ -101,39 +92,18 @@ class ArmPositionController(Node):
             base_link (str):  Name of the base link.
             ee_link (str):    Name of the end-effector link.
             solve_type (str): Type of solver to use ("Speed", "Distance", "Manipulation1", "Manipulation2")
-        """
-        self.base_link = base_link
-        self.ee_link = ee_link
+        """       
 
         if self.ik_solver == IKType.TRACK_IK:
             try:
-                robot_description_param = self.get_parameter("robot_description")
-
-                if robot_description_param.type_ == Parameter.Type.NOT_SET:
-                    urdf_string = self._load_urdf_string(
-                        self._robot_urdf_package, self._robot_urdf_file_name
-                    )
-                    if urdf_string is None:
-                        self.get_logger().error("Failed to load URDF string.")
-                        return
-
-                    self.trac_ik = TRACK_IK_SOLVER(
-                        base_link=base_link,
-                        tip_link=ee_link,
-                        solve_type=solve_type,
-                        timeout=0.002,
-                        epsilon=1e-5,
-                        urdf_string=urdf_string,
-                    )
-                else:
-                    self.trac_ik = TRACK_IK_SOLVER(
-                        base_link=base_link,
-                        tip_link=ee_link,
-                        solve_type=solve_type,
-                        timeout=0.002,
-                        epsilon=1e-5,
-                        urdf_string=robot_description_param.value
-                    )
+                self.trac_ik = TRACK_IK_SOLVER(
+                    base_link_name=base_link,
+                    tip_link_name=ee_link,
+                    urdf_path=urdf_path,
+                    timeout=self.trac_ik_timeout,
+                    epsilon=self.trac_ik_epsilon,
+                    solver_type=self.trac_ik_solver_type
+                )
             except Exception as e:
                 self.get_logger().error(f"Could not instantiate TRAC_IK: {e}")
         else:
@@ -150,17 +120,23 @@ class ArmPositionController(Node):
         Returns:
             list: The joint positions that achieve the target pose.
         """
-        if len(pose) != 7:
-            self.get_logger().error("Pose must have 7 elements (x, y, z, qx, qy, qz, qw).")
-            return None
-        if q_init is None:
-            q_init = [0.0] * self.trac_ik.number_of_joints
-
-        solution = self.trac_ik.get_ik(q_init, *pose)
-        if solution is None:
-            self.get_logger().warn("IK solution not found.")
-        return solution
-    
+        print(f"pose: {pose}",pose[:3], pose[3:],)
+        if self.ik_solver == IKType.TRACK_IK:
+            try:
+                if q_init is None:
+                    q_init = [0.0] * len(self.joints_name)
+                joint_positions = self.trac_ik.ik(pose[:3], pose[3:], seed_jnt_values=q_init)
+                if joint_positions is not None:
+                    return joint_positions
+                else:
+                    self.get_logger().warn("No IK solution found.")
+                    return None
+            except Exception as e:
+                self.get_logger().error(f"Could not instantiate TRAC_IK: {e}")
+        else:
+            raise Exception("unsupported ik_solver: ", self.ik_solver.name)
+       
+        
     def set_waypoints(self, waypoints, time_to_reach, send_immediately=False, wait=True):
         """
         Set the waypoints to be published and the time to reach each waypoint.
