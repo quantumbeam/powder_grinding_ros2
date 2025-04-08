@@ -1,63 +1,67 @@
-import rclpy
-from rclpy.node import Node
-from rclpy.action import ActionClient
-from builtin_interfaces.msg import Duration
-from trajectory_msgs.msg import JointTrajectoryPoint
-from control_msgs.action import FollowJointTrajectory
 import sys
+import time
+from enum import Enum, auto
+from typing import List, Optional, Union
+
+import rclpy
+from rclpy.action import ActionClient
+from rclpy.node import Node
+from rclpy.parameter import Parameter
+from builtin_interfaces.msg import Duration
+from control_msgs.action import FollowJointTrajectory
+from trajectory_msgs.msg import JointTrajectoryPoint
+from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
+
+# パスを通して pytracik を参照
 sys.path.append('/home/ubuntu/user/grinding_ws/src/powder_grinding/pytracik')
 from pytracik.trac_ik import TracIK as TRACK_IK_SOLVER
-from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
-from enum import Enum, auto
-from rclpy.parameter import Parameter
-import time
-
 
 
 class IKType(Enum):
     TRACK_IK = auto()
-    # below are not inplemented yet
+    # 他の IK ソルバーは未実装
     # PICK_IK = auto()
-    # QU_IK = auto()  
+    # QU_IK = auto()
+
 
 class ArmPositionController(Node):
     """
-    Arm controller class with position control
+    位置制御を行うアームコントローラー
     """
-
-    def __init__(self,  
-                 controller_name="joint_trajectory_controller",
-                 joints_name=[""],
-                 tool_link="tool0",
-                 base_link="base_link",
-                 robot_urdf_package="grinding_robot_description",
-                 robot_urdf_file_name="ur5e_with_pestle",
-                 ik_solver=IKType.TRACK_IK):
+    def __init__(self,
+                 controller_name: str = "joint_trajectory_controller",
+                 joints_name: List[str] = [""],
+                 tool_link: str = "tool0",
+                 base_link: str = "base_link",
+                 robot_urdf_package: str = "grinding_robot_description",
+                 robot_urdf_file_name: str = "ur5e_with_pestle",
+                 ik_solver: IKType = IKType.TRACK_IK) -> None:
         """
-        Initialize the ArmPositionController node.
+        ノードの初期化と IK ソルバーのセットアップを行う
 
         Args:
-            controller_name (str): The name of the controller to publish trajectories to.
-            joints_name (list): The list of joint names.
-            tool_link (str): The name of the tool link.
-            base_link (str): The name of the base link.
-            ik_solver (IKType): The type of IK solver to use.
+            controller_name: コントローラーの名称
+            joints_name: ジョイント名のリスト
+            tool_link: ツールリンク名
+            base_link: ベースリンク名
+            robot_urdf_package: URDF を含むパッケージ名
+            robot_urdf_file_name: URDF ファイル名（拡張子不要）
+            ik_solver: 使用するIKソルバーの種類
         """
         super().__init__('arm_position_controller')
 
         self.controller_name = controller_name
         self.joints_name = joints_name
-
         if not self.joints_name:
             raise Exception('"joints" parameter is not set!')
 
-        # Joint trajectory action client setup
+        # アクションクライアントの設定
         action_topic = f"/{self.controller_name}/follow_joint_trajectory"
         self.action_client = ActionClient(self, FollowJointTrajectory, action_topic)
-        self.goals = []
+        self.goals: List[JointTrajectoryPoint] = []
         self.i = 0
-        
-        # IK solver setup
+
+        # IK ソルバー設定
         self.ik_solver = ik_solver
         pkg_share_dir = get_package_share_directory(robot_urdf_package)
         urdf_path = f"{pkg_share_dir}/urdf/{robot_urdf_file_name}.urdf"
@@ -70,30 +74,24 @@ class ArmPositionController(Node):
             ]
         )
 
-        if ik_solver == IKType.TRACK_IK:
+        if self.ik_solver == IKType.TRACK_IK:
             self.get_logger().info("TRACK IK selected")
             self.trac_ik_timeout = self.get_parameter('trac_ik_timeout').value
             self.trac_ik_epsilon = self.get_parameter('trac_ik_epsilon').value
             self.trac_ik_solver_type = self.get_parameter('trac_ik_solver_type').value
             self._init_ik_solver(base_link, tool_link, urdf_path)
-        # elif ik_solver == IKType.PICK_IK:
-        #     self.get_logger().info("Pick IK selected")
-        # elif ik_solver == IKType.QU_IK:  # または FULL_IK
-        #     self.get_logger().info("QuIK selected")
         else:
-            raise Exception("unsupported ik_solver", ik_solver)
-        
+            raise Exception("unsupported ik_solver: ", self.ik_solver.name)
 
-    def _init_ik_solver(self, base_link, ee_link,urdf_path):
+    def _init_ik_solver(self, base_link: str, ee_link: str, urdf_path: str) -> None:
         """
-        Initializes the IK solver (Trac-IK).
+        Trac-IK ソルバーの初期化
 
         Args:
-            base_link (str):  Name of the base link.
-            ee_link (str):    Name of the end-effector link.
-            solve_type (str): Type of solver to use ("Speed", "Distance", "Manipulation1", "Manipulation2")
-        """       
-
+            base_link: ベースリンク名
+            ee_link: エンドエフェクタリンク名
+            urdf_path: URDF のパス
+        """
         if self.ik_solver == IKType.TRACK_IK:
             try:
                 self.trac_ik = TRACK_IK_SOLVER(
@@ -108,19 +106,19 @@ class ArmPositionController(Node):
                 self.get_logger().error(f"Could not instantiate TRAC_IK: {e}")
         else:
             raise Exception("unsupported ik_solver: ", self.ik_solver.name)
-    
-    def solve_ik(self, pose, q_init=None):
+
+    def solve_ik(self, pose: List[float], q_init: Optional[List[float]] = None) -> Optional[List[float]]:
         """
-        Solve the inverse kinematics for a given pose.
+        指定したポーズに対して IK を解く
 
         Args:
-            pose (list): The target pose as [x, y, z, qx, qy, qz, qw].
-            q_init (list): The initial joint positions.
+            pose: [x, y, z, qx, qy, qz, qw] のリスト
+            q_init: 初期ジョイント値。未指定の場合はゼロ埋めする
 
         Returns:
-            list: The joint positions that achieve the target pose.
+            正常な解が得られた場合はジョイント角度のリスト、解が見つからなければ None 
         """
-        print(f"pose: {pose}",pose[:3], pose[3:],)
+        self.get_logger().debug(f"Input pose: {pose} | pos: {pose[:3]} | rot: {pose[3:]}")
         if self.ik_solver == IKType.TRACK_IK:
             try:
                 if q_init is None:
@@ -132,20 +130,21 @@ class ArmPositionController(Node):
                     self.get_logger().warn("No IK solution found.")
                     return None
             except Exception as e:
-                self.get_logger().error(f"Could not instantiate TRAC_IK: {e}")
+                self.get_logger().error(f"Could not solve IK: {e}")
+                return None
         else:
             raise Exception("unsupported ik_solver: ", self.ik_solver.name)
-       
-        
-    def set_waypoints(self, waypoints, time_to_reach, send_immediately=False, wait=True):
+
+    def set_waypoints(self, waypoints: List[List[float]], time_to_reach: int,
+                      send_immediately: bool = False, wait: bool = True) -> None:
         """
-        Set the waypoints to be published and the time to reach each waypoint.
+        複数のウェイポイントに対して軌道を生成し送信する
 
         Args:
-            waypoints (list): A list of lists, where each inner list represents a waypoint.
-            time_to_reach (int): The time in seconds to reach each waypoint.
-            send_immediately (bool): If True, send the waypoints immediately.
-            wait (bool): If True, wait for the result after sending the goal.
+            waypoints: 各ウェイポイントは [x, y, z, qx, qy, qz, qw]
+            time_to_reach: 各ウェイポイントに到達する時間 (秒)
+            send_immediately: True の場合、生成と同時に送信する
+            wait: True の場合、ゴール結果を待つ
         """
         joint_trajectory = []
         for waypoint in waypoints:
@@ -153,20 +152,21 @@ class ArmPositionController(Node):
             if joint_positions is not None:
                 joint_trajectory.append(joint_positions)
             else:
-                self.get_logger().warn("No joint positions found for waypoint.")
-                return
+                self.get_logger().warn("No joint positions found for a waypoint.")
+                return  # 途中で解が得られない場合は中断
 
         self.set_joint_trajectory(joint_trajectory, time_to_reach, send_immediately, wait)
-    
-    def set_goal_pose(self, goal_pose, time_to_reach, send_immediately=False, wait=True):
+
+    def set_goal_pose(self, goal_pose: List[float], time_to_reach: int,
+                      send_immediately: bool = False, wait: bool = True) -> None:
         """
-        Set the goal pose to be published and the time to reach each waypoint.
+        単一のゴールポーズに対して軌道を生成し送信する
 
         Args:
-            goal_pose (list): The target pose as [x, y, z, qx, qy, qz, qw].
-            time_to_reach (int): The time in seconds to reach each waypoint.
-            send_immediately (bool): If True, send the goal pose immediately.
-            wait (bool): If True, wait for the result after sending the goal.
+            goal_pose: ゴールポーズ [x, y, z, qx, qy, qz, qw]
+            time_to_reach: 到達にかかる時間 (秒)
+            send_immediately: True の場合、生成と同時に送信する
+            wait: True の場合、ゴール結果を待つ
         """
         joint_positions = self.solve_ik(goal_pose)
         if joint_positions is not None:
@@ -174,87 +174,90 @@ class ArmPositionController(Node):
         else:
             self.get_logger().warn("No joint positions found for goal pose.")
 
-    
-    def set_joint_trajectory(self, joint_trajectory, time_to_reach, send_immediately=False, wait=True):
+    def set_joint_trajectory(self, joint_trajectory: List[List[float]], time_to_reach: int,
+                             send_immediately: bool = False, wait: bool = True) -> None:
         """
-        Set the joint_trajectory to be published and the time to reach each waypoint.
+        生成済みの joint trajectory をアクションとして送信する
 
         Args:
-            joint_trajectory (list): A list of lists, where each inner list represents a JointTrajectoryPoint.
-            time_to_reach (int): The time in seconds to reach each waypoint.
-            send_immediately (bool): If True, send the joint_trajectory immediately.
-            wait (bool): If True, wait for the result after sending the goal.
+            joint_trajectory: 各リストが各ウェイポイントのジョイント角度を表す
+            time_to_reach: 各ウェイポイントに到達する時間 (秒)
+            send_immediately: True の場合、生成と同時に送信する
+            wait: True の場合、ゴール結果を待つ
         """
-        if len(joint_trajectory[0]) != len(self.joints_name):
-            self.get_logger().error("Joint trajectory has different number of joints than the joints name list.")
+        if not joint_trajectory or len(joint_trajectory[0]) != len(self.joints_name):
+            self.get_logger().error("Joint trajectory has an unexpected number of joint positions.")
             return
-        
-        self.goals = []
-        for goal_joints_position in joint_trajectory:
+
+        self.goals.clear()
+        for goal_joints in joint_trajectory:
             point = JointTrajectoryPoint()
-            point.positions = goal_joints_position
+            point.positions = goal_joints
             point.time_from_start = Duration(sec=time_to_reach)
             self.goals.append(point)
         self.i = 0
 
+        self.get_logger().info(f"Joint trajectory: {joint_trajectory}")
         if send_immediately:
-            self._send_JTC_goal(wait)
+            self._send_joint_trajectory_goal(wait)
 
-    def _send_JTC_goal(self, wait=True):
+    def _send_joint_trajectory_goal(self, wait: bool = True) -> None:
         """
-        Send the goal to the action server.
+        アクションクライアントへゴールを送信する
 
         Args:
-            wait (bool): If True, wait for the result after sending the goal.
+            wait: ゴール結果を待つかどうか
         """
-        if self.goals:
-            self.get_logger().info(f"Sending goal {self.goals[self.i]}.")
-            goal_msg = FollowJointTrajectory.Goal()
-            goal_msg.trajectory.joint_names = self.joints_name
-            goal_msg.trajectory.points = [self.goals[self.i]]
-
-            self.action_client.wait_for_server()
-            self.__send_JTC_goal_future = self.action_client.send_goal_async(goal_msg, feedback_callback=self._feedback_callback)
-            self.__send_JTC_goal_future.add_done_callback(self._goal_response_callback)
-
-            if wait:
-                rclpy.spin_until_future_complete(self, self.__send_JTC_goal_future)
-                goal_handle = self.__send_JTC_goal_future.result()
-                if goal_handle.accepted:
-                    self._get_result_future = goal_handle.get_result_async()
-                    rclpy.spin_until_future_complete(self, self._get_result_future)
-                    result = self._get_result_future.result()
-                    self.get_logger().info(f"Result: {result}")
-                else:
-                    self.get_logger().info('Goal rejected.')
-        else:
+        if not self.goals:
             self.get_logger().warn("No goals set to send.")
+            return
 
-    def _goal_response_callback(self, future):
+        self.get_logger().info(f"Sending goal {self.goals[self.i]}.")
+        goal_msg = FollowJointTrajectory.Goal()
+        goal_msg.trajectory.joint_names = self.joints_name
+        goal_msg.trajectory.points = [self.goals[self.i]]
+
+        self.action_client.wait_for_server()
+        send_goal_future = self.action_client.send_goal_async(goal_msg, feedback_callback=self._feedback_callback)
+        send_goal_future.add_done_callback(self._goal_response_callback)
+
+        if wait:
+            rclpy.spin_until_future_complete(self, send_goal_future)
+            goal_handle = send_goal_future.result()
+            if goal_handle.accepted:
+                get_result_future = goal_handle.get_result_async()
+                rclpy.spin_until_future_complete(self, get_result_future)
+                result = get_result_future.result()
+                self.get_logger().info(f"Result: {result}")
+            else:
+                self.get_logger().info('Goal rejected.')
+
+    def _goal_response_callback(self, future) -> None:
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.get_logger().info('Goal rejected.')
             return
 
         self.get_logger().info('Goal accepted.')
-        self._get_result_future = goal_handle.get_result_async()
-        self._get_result_future.add_done_callback(self._get_result_callback)
+        get_result_future = goal_handle.get_result_async()
+        get_result_future.add_done_callback(self._get_result_callback)
 
-    def _get_result_callback(self, future):
+    def _get_result_callback(self, future) -> None:
         result = future.result().result
         self.get_logger().info(f"Result: {result}")
-        #rclpy.shutdown() #remove
 
-    def _feedback_callback(self, feedback_msg):
+    def _feedback_callback(self, feedback_msg) -> None:
+        # フィードバックは必要に応じて処理
         feedback = feedback_msg.feedback
         # self.get_logger().info(f"Received feedback: {feedback}")
 
-def main(args=None):
+
+def main(args: Optional[List[str]] = None) -> None:
     """
-    Main function to initialize and spin the ArmPositionController node.
+    ArmPositionController ノードを初期化し、インタラクティブにテストする
     """
     rclpy.init(args=args)
-    arm_position_controller = ArmPositionController(
+    arm_controller = ArmPositionController(
         controller_name="scaled_joint_trajectory_controller",
         joints_name=[
             "shoulder_pan_joint",
@@ -272,40 +275,38 @@ def main(args=None):
         print("1. Solve IK")
         print("2. Test JTC with one target pose")
         print("3. Test JTC with waypoints")
-
         choice = input("Enter your choice: ")
 
         if choice == '1':
-            # Example pose: [x, y, z, qx, qy, qz, qw]
+            # 例： [x, y, z, qx, qy, qz, qw]
             target_pose = [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0]
-            joint_positions = arm_position_controller.solve_ik(target_pose)
+            joint_positions = arm_controller.solve_ik(target_pose)
             if joint_positions is not None:
                 print(f"IK solution: {joint_positions}")
             else:
                 print("No IK solution found.")
         elif choice == '2':
-            # Example pose: [x, y, z, qx, qy, qz, qw]
             target_pose = [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0]
             time_to_reach = 5
-            arm_position_controller.set_goal_pose(target_pose, time_to_reach, send_immediately=True)
+            arm_controller.set_goal_pose(target_pose, time_to_reach, send_immediately=True)
         elif choice == '3':
-            # Example waypoints
             waypoints = [
                 [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0],
                 [0.6, 0.1, 0.6, 0.0, 0.0, 0.0, 1.0],
                 [0.7, 0.2, 0.7, 0.0, 0.0, 0.0, 1.0]
             ]
             time_to_reach = 5
-            arm_position_controller.set_waypoints(waypoints, time_to_reach, send_immediately=True)
+            arm_controller.set_waypoints(waypoints, time_to_reach, send_immediately=True)
         elif choice == '0':
             break
         else:
             print("Invalid choice. Please try again.")
-        
-        rclpy.spin_once(arm_position_controller, timeout_sec=0.1)
-    
-    arm_position_controller.destroy_node()
+
+        rclpy.spin_once(arm_controller, timeout_sec=0.1)
+
+    arm_controller.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()
