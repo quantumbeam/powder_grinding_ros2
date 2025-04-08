@@ -59,7 +59,6 @@ class ArmPositionController(Node):
         action_topic = f"/{self.controller_name}/follow_joint_trajectory"
         self.action_client = ActionClient(self, FollowJointTrajectory, action_topic)
         self.goals: List[JointTrajectoryPoint] = []
-        self.i = 0
 
         # IK ソルバー設定
         self.ik_solver = ik_solver
@@ -107,7 +106,7 @@ class ArmPositionController(Node):
         else:
             raise Exception("unsupported ik_solver: ", self.ik_solver.name)
 
-    def solve_ik(self, pose: List[float], q_init: Optional[List[float]] = None) -> Optional[List[float]]:
+    def solve_ik(self, pose: List[float], q_init: Optional[List[float]] = None,number_of_attempts: int = 100) -> Optional[List[float]]:
         """
         指定したポーズに対して IK を解く
 
@@ -119,21 +118,22 @@ class ArmPositionController(Node):
             正常な解が得られた場合はジョイント角度のリスト、解が見つからなければ None 
         """
         self.get_logger().debug(f"Input pose: {pose} | pos: {pose[:3]} | rot: {pose[3:]}")
-        if self.ik_solver == IKType.TRACK_IK:
-            try:
-                if q_init is None:
-                    q_init = [0.0] * len(self.joints_name)
-                joint_positions = self.trac_ik.ik(pose[:3], pose[3:], seed_jnt_values=q_init)
-                if joint_positions is not None:
-                    return joint_positions
-                else:
-                    self.get_logger().warn("No IK solution found.")
+        for _ in range(number_of_attempts):
+            if self.ik_solver == IKType.TRACK_IK:
+                try:
+                    if q_init is None:
+                        q_init = [0.0] * len(self.joints_name)
+                    joint_positions = self.trac_ik.ik(pose[:3], pose[3:], seed_jnt_values=q_init)
+                    if joint_positions is not None:
+                        return joint_positions
+                    else:
+                        self.get_logger().warn("No IK solution found.")
+                        return None
+                except Exception as e:
+                    self.get_logger().error(f"Could not solve IK: {e}")
                     return None
-            except Exception as e:
-                self.get_logger().error(f"Could not solve IK: {e}")
-                return None
-        else:
-            raise Exception("unsupported ik_solver: ", self.ik_solver.name)
+            else:
+                raise Exception("unsupported ik_solver: ", self.ik_solver.name)
 
     def set_waypoints(self, waypoints: List[List[float]], time_to_reach: int,
                       send_immediately: bool = False, wait: bool = True) -> None:
@@ -188,16 +188,16 @@ class ArmPositionController(Node):
         if not joint_trajectory or len(joint_trajectory[0]) != len(self.joints_name):
             self.get_logger().error("Joint trajectory has an unexpected number of joint positions.")
             return
-
+        
+        dt = float(time_to_reach) / float(len(joint_trajectory))
         self.goals.clear()
-        for goal_joints in joint_trajectory:
+        for i,goal_joints in enumerate(joint_trajectory, start=1):
             point = JointTrajectoryPoint()
             point.positions = goal_joints
-            point.time_from_start = Duration(sec=time_to_reach)
+            point.time_from_start = Duration(sec=int(dt * i), nanosec=int((dt * i - int(dt * i)) * 1e9))
             self.goals.append(point)
-        self.i = 0
-
-        self.get_logger().info(f"Joint trajectory: {joint_trajectory}")
+        # print(f"Joint trajectory goals: {self.goals}")
+        self.get_logger().info(f"Joint trajectory : {joint_trajectory[0]} | [1]: {joint_trajectory[1]} | [2]: {joint_trajectory[2]}")
         if send_immediately:
             self._send_joint_trajectory_goal(wait)
 
@@ -212,10 +212,10 @@ class ArmPositionController(Node):
             self.get_logger().warn("No goals set to send.")
             return
 
-        self.get_logger().info(f"Sending goal {self.goals[self.i]}.")
+        # self.get_logger().info(f"Sending goal with trajectory: {self.goals}.")
         goal_msg = FollowJointTrajectory.Goal()
         goal_msg.trajectory.joint_names = self.joints_name
-        goal_msg.trajectory.points = [self.goals[self.i]]
+        goal_msg.trajectory.points = self.goals
 
         self.action_client.wait_for_server()
         send_goal_future = self.action_client.send_goal_async(goal_msg, feedback_callback=self._feedback_callback)
@@ -250,6 +250,15 @@ class ArmPositionController(Node):
         # フィードバックは必要に応じて処理
         feedback = feedback_msg.feedback
         # self.get_logger().info(f"Received feedback: {feedback}")
+    
+    def clear_points(self) -> None:
+        """
+        ジョイントトラジェクトリのポイントをクリアする
+        """
+        self.goals.clear()
+        self.get_logger().info("Cleared all points.")
+        self.get_logger().info("Cleared all points.")
+        self.get_logger().info("Cleared all points.")
 
 
 def main(args: Optional[List[str]] = None) -> None:
@@ -275,6 +284,7 @@ def main(args: Optional[List[str]] = None) -> None:
         print("1. Solve IK")
         print("2. Test JTC with one target pose")
         print("3. Test JTC with waypoints")
+        print("4. Test grinding motion")
         choice = input("Enter your choice: ")
 
         if choice == '1':
@@ -297,6 +307,62 @@ def main(args: Optional[List[str]] = None) -> None:
             ]
             time_to_reach = 5
             arm_controller.set_waypoints(waypoints, time_to_reach, send_immediately=True)
+        elif choice == '4':
+            print("Testing grinding motion ...")
+            try:
+                from grinding_motion_routines.grinding_motion_generator import MotionGenerator
+            except ImportError as e:
+                print(f"ImportError: {e}")
+                continue
+
+            # Parameters (from your specifications)
+            mortar_inner_size = {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.035,
+            }
+            mortar_top_position = {
+                "x": -0.24487948173594054,
+                "y": 0.3722676198635453,
+                "z": 0.045105853329747,
+            }
+            grinding_pos_begining = [-8, 0]
+            grinding_pos_end = [-8, 0.0001]
+            grinding_rz_begining = 36
+            grinding_rz_end = 36
+            number_of_rotations = 10
+            angle_scale = 0.3
+            yaw_bias = None
+            yaw_twist_per_rotation=0
+            number_of_waypoints_per_circle = 50
+            center_position = [0, 0]
+            sec_per_rotation = 0.5
+
+            # Create MotionGenerator instance
+            motion_generator = MotionGenerator(mortar_top_position, mortar_inner_size)
+            try:
+                waypoints = motion_generator.create_circular_waypoints(
+                    begining_position=grinding_pos_begining,
+                    end_position=grinding_pos_end,
+                    begining_radious_z=grinding_rz_begining,
+                    end_radious_z=grinding_rz_end,
+                    number_of_rotations=number_of_rotations,
+                    angle_scale=angle_scale,
+                    yaw_bias=yaw_bias,
+                    yaw_twist_per_rotation=yaw_twist_per_rotation,
+                    number_of_waypoints_per_circle=number_of_waypoints_per_circle,
+                    center_position=center_position
+                )
+            except ValueError as e:
+                print(f"Error generating circular waypoints: {e}")
+            print("Generated grinding motion waypoints")
+            print(f"Executing grinding motion with {len(waypoints)} waypoints")
+            arm_controller.set_waypoints(
+                waypoints,
+                time_to_reach=sec_per_rotation * number_of_rotations,
+                send_immediately=True
+            )
+            print("Grinding motion test completed.")
         elif choice == '0':
             break
         else:
