@@ -14,10 +14,10 @@ rosdep update
 rosdep install -r -y -i --from-paths src --rosdistro $ROS_DISTRO
 
 # Install pytracik
-cd src/pytracik
+cd src/powder_grinding/pytracik
 pip install -r requirements.txt
 pip install -e .
-cd ../..
+cd /home/ubuntu/user/grinding_ws
 
 
 # Build
