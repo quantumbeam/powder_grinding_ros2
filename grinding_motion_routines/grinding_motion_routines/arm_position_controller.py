@@ -158,6 +158,23 @@ class ArmPositionController(Node):
 
         self.set_joint_trajectory(joint_trajectory, time_to_reach, send_immediately, wait)
     
+    def set_goal_pose(self, goal_pose, time_to_reach, send_immediately=False, wait=True):
+        """
+        Set the goal pose to be published and the time to reach each waypoint.
+
+        Args:
+            goal_pose (list): The target pose as [x, y, z, qx, qy, qz, qw].
+            time_to_reach (int): The time in seconds to reach each waypoint.
+            send_immediately (bool): If True, send the goal pose immediately.
+            wait (bool): If True, wait for the result after sending the goal.
+        """
+        joint_positions = self.solve_ik(goal_pose)
+        if joint_positions is not None:
+            self.set_joint_trajectory([joint_positions], time_to_reach, send_immediately, wait)
+        else:
+            self.get_logger().warn("No joint positions found for goal pose.")
+
+    
     def set_joint_trajectory(self, joint_trajectory, time_to_reach, send_immediately=False, wait=True):
         """
         Set the joint_trajectory to be published and the time to reach each waypoint.
@@ -181,9 +198,9 @@ class ArmPositionController(Node):
         self.i = 0
 
         if send_immediately:
-            self.send_goal(wait)
+            self._send_JTC_goal(wait)
 
-    def send_goal(self, wait=True):
+    def _send_JTC_goal(self, wait=True):
         """
         Send the goal to the action server.
 
@@ -197,12 +214,12 @@ class ArmPositionController(Node):
             goal_msg.trajectory.points = [self.goals[self.i]]
 
             self.action_client.wait_for_server()
-            self._send_goal_future = self.action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
-            self._send_goal_future.add_done_callback(self.goal_response_callback)
+            self.__send_JTC_goal_future = self.action_client.send_goal_async(goal_msg, feedback_callback=self._feedback_callback)
+            self.__send_JTC_goal_future.add_done_callback(self._goal_response_callback)
 
             if wait:
-                rclpy.spin_until_future_complete(self, self._send_goal_future)
-                goal_handle = self._send_goal_future.result()
+                rclpy.spin_until_future_complete(self, self.__send_JTC_goal_future)
+                goal_handle = self.__send_JTC_goal_future.result()
                 if goal_handle.accepted:
                     self._get_result_future = goal_handle.get_result_async()
                     rclpy.spin_until_future_complete(self, self._get_result_future)
@@ -213,7 +230,7 @@ class ArmPositionController(Node):
         else:
             self.get_logger().warn("No goals set to send.")
 
-    def goal_response_callback(self, future):
+    def _goal_response_callback(self, future):
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.get_logger().info('Goal rejected.')
@@ -221,28 +238,16 @@ class ArmPositionController(Node):
 
         self.get_logger().info('Goal accepted.')
         self._get_result_future = goal_handle.get_result_async()
-        self._get_result_future.add_done_callback(self.get_result_callback)
+        self._get_result_future.add_done_callback(self._get_result_callback)
 
-    def get_result_callback(self, future):
+    def _get_result_callback(self, future):
         result = future.result().result
         self.get_logger().info(f"Result: {result}")
         #rclpy.shutdown() #remove
 
-    def feedback_callback(self, feedback_msg):
+    def _feedback_callback(self, feedback_msg):
         feedback = feedback_msg.feedback
-        self.get_logger().info(f"Received feedback: {feedback}")
-
-    def test_jtc_one_target(self, target_pose, time_to_reach):
-        """Test JTC with one target pose."""
-        joint_positions = self.solve_ik(target_pose)
-        if joint_positions is not None:
-            self.set_joint_trajectory([joint_positions], time_to_reach, send_immediately=True, wait=True)
-        else:
-            self.get_logger().warn("No joint positions found for target pose.")
-
-    def test_jtc_waypoints(self, waypoints, time_to_reach):
-        """Test JTC with waypoints."""
-        self.set_waypoints(waypoints, time_to_reach, send_immediately=True, wait=True)
+        # self.get_logger().info(f"Received feedback: {feedback}")
 
 def main(args=None):
     """
@@ -263,10 +268,10 @@ def main(args=None):
 
     while rclpy.ok():
         print("\nMenu:")
+        print("0. Exit")
         print("1. Solve IK")
         print("2. Test JTC with one target pose")
         print("3. Test JTC with waypoints")
-        print("4. Exit")
 
         choice = input("Enter your choice: ")
 
@@ -282,7 +287,7 @@ def main(args=None):
             # Example pose: [x, y, z, qx, qy, qz, qw]
             target_pose = [0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0]
             time_to_reach = 5
-            arm_position_controller.test_jtc_one_target(target_pose, time_to_reach)
+            arm_position_controller.set_goal_pose(target_pose, time_to_reach, send_immediately=True)
         elif choice == '3':
             # Example waypoints
             waypoints = [
@@ -291,8 +296,8 @@ def main(args=None):
                 [0.7, 0.2, 0.7, 0.0, 0.0, 0.0, 1.0]
             ]
             time_to_reach = 5
-            arm_position_controller.test_jtc_waypoints(waypoints, time_to_reach)
-        elif choice == '4':
+            arm_position_controller.set_waypoints(waypoints, time_to_reach, send_immediately=True)
+        elif choice == '0':
             break
         else:
             print("Invalid choice. Please try again.")
