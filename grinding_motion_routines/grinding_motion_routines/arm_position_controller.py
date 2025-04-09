@@ -1,6 +1,6 @@
 #!/home/ubuntu/user/grinding_ws/venv/bin/python3
 import sys
-sys.path.append('/home/ubuntu/user/grinding_ws/venv/lib/python3.10/site-packages')
+sys.path.append('/home/ubuntu/user/grinding_ws/venv/lib/python3.12/site-packages')
 import time
 from enum import Enum, auto
 from typing import List, Optional, Union
@@ -361,7 +361,7 @@ def main(args: Optional[List[str]] = None) -> None:
             grinding_pos_end = [-8, 0.0001]
             grinding_rz_begining = 36
             grinding_rz_end = 36
-            number_of_rotations = 1
+            number_of_rotations = 10
             angle_scale = 0.3
             yaw_bias = None
             yaw_twist_per_rotation = 0
