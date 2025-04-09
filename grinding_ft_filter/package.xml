@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>grinding_force_torque</name>
+  <version>0.0.0</version>
+  <description>The grinding_force_torque package</description>
+
+  <maintainer email="yusaku_nakajima@ap.eng.osaka-u.ac.jp">YusakuNakajima</maintainer>
+  <license>MIT</license>
+
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>rospy</depend>
+  <depend>roscpp</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  
+</package>
