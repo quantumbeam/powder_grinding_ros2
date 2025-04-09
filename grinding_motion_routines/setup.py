@@ -28,7 +28,6 @@ setup(
             "JTC_helper = grinding_motion_routines.JTC_helper:main",
             "moveit_test = grinding_motion_routines.moveit_test:main",
             "test_marker = grinding_motion_routines.test_marker:main",
-            "arm_position_controller = grinding_motion_routines.arm_position_controller:main",
             "ik_test = grinding_motion_routines.ik_test:main",
         ],
     },
