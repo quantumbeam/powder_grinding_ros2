@@ -1,23 +1,5 @@
-# for calculation
-Cython
-inputimeout
-numpy
-scipy
-pandas
-quaternion
-numpy-quaternion
-pyquaternion
-
-# for display
-tqdm
-ipython
-ipywidgets
-matplotlib
-plotly
-tyro
-termcolor
-
-# for ros2
+# for ros2 system
 catkin_pkg
-pyyaml #add
-jinja2 #add
+pyyaml
+jinja2
+typeguard
