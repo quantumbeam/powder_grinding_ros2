@@ -8,6 +8,7 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+from rclpy.task import Future
 from builtin_interfaces.msg import Duration
 from control_msgs.action import FollowJointTrajectory
 from trajectory_msgs.msg import JointTrajectoryPoint
@@ -83,19 +84,10 @@ class ArmPositionController(Node):
         else:
             raise Exception("unsupported ik_solver: ", self.ik_solver.name)
         
-        # joint_states サブスクライバーを作成[
-        qos_profile = QoSProfile(
-        reliability=QoSReliabilityPolicy.BEST_EFFORT,  # Or RELIABLE
-        history=QoSHistoryPolicy.KEEP_LAST,
-        depth=10
-        )
-        self.joint_state_sub = self.create_subscription(
-            JointState,
-            "/joint_states",
-            self._joint_states_cb,
-            qos_profile=qos_profile
-        )
+        # joint_states サブスクライバーを作成
         self._current_jnt_positions = None
+        self.first_joint_state_received = Future()
+        self.create_joint_state_subscription()
     
     def _joint_states_cb(self, msg: JointState) -> None:
         """
@@ -103,6 +95,7 @@ class ArmPositionController(Node):
         Args:
             msg (JointState): The JointState message published by the RT hardware interface.
         """
+        self.first_joint_state_received.set_result(True)
         position = []
         velocity = []
         effort = []
@@ -119,7 +112,24 @@ class ArmPositionController(Node):
             self._current_jnt_velocities = np.array(velocity)
             self._current_jnt_efforts = np.array(effort)
             self._joint_names = list(name)
-    
+
+    def create_joint_state_subscription(self, timeout_sec=10) -> bool:
+        self.subscription = self.create_subscription(
+            JointState,
+            '/joint_states',
+            self._joint_states_cb,
+            10
+        )
+        self.get_logger().info("Waiting for joint states subscription...")
+        rclpy.spin_until_future_complete(self, self.first_joint_state_received, timeout_sec=timeout_sec)
+        if self.first_joint_state_received.done():
+            self.get_logger().info("Joint state subscription created successfully.")
+            return True
+        else:
+            self.get_logger().error("Failed to create joint state subscription within timeout.")
+            self.destroy_subscription(self.subscription) # タイムアウトした場合、サブスクリプションを破棄
+            return False
+        
     def get_joint_names(self) -> List[str]:
         """
         現在のジョイント名を取得する
@@ -260,8 +270,8 @@ class ArmPositionController(Node):
             point.positions = goal_joints
             point.time_from_start = Duration(sec=int(dt * i), nanosec=int((dt * i - int(dt * i)) * 1e9))
             self.goals.append(point)
-        # print(f"Joint trajectory goals: {self.goals}")
-        self.get_logger().info(f"Joint trajectory : {joint_trajectory[0]} ")
+        self.get_logger().debug(f"All joint trajectory: {self.goals}")
+        self.get_logger().info(f"Joint trajectory [0] : {joint_trajectory[0]} ")
         if send_immediately:
             self._send_joint_trajectory_goal(wait)
 
@@ -276,7 +286,7 @@ class ArmPositionController(Node):
             self.get_logger().warn("No goals set to send.")
             return
 
-        # self.get_logger().info(f"Sending goal with trajectory: {self.goals}.")
+        self.get_logger().debug(f"Sending goal with trajectory: {self.goals}.")
         goal_msg = FollowJointTrajectory.Goal()
         goal_msg.trajectory.joint_names = self.valid_joint_names
         goal_msg.trajectory.points = self.goals
@@ -313,7 +323,7 @@ class ArmPositionController(Node):
     def _feedback_callback(self, feedback_msg) -> None:
         # フィードバックは必要に応じて処理
         feedback = feedback_msg.feedback
-        # self.get_logger().info(f"Received feedback: {feedback}")
+        self.get_logger().debug(f"Received feedback: {feedback}")
     
     def clear_points(self) -> None:
         """
