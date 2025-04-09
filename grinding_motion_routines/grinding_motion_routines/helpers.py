@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from numpy import pi
 
 
@@ -71,30 +69,3 @@ def lerp_in_polar(st, ed, points, number_of_rotations, r_max):
     y = r * np.sin(theta)
 
     return x, y
-
-
-def plot_position_to_debug(position, show=True):
-    position *= 1000  # cahnge unit m to mm
-    x, y, z = position[0], position[1], position[2]
-
-    deb_fig2d = plt.figure()
-    deb_ax2d = deb_fig2d.add_subplot(111)
-    deb_fig3d = plt.figure()
-    deb_ax3d = Axes3D(deb_fig3d)
-
-    # waypoints
-    deb_ax2d.scatter(x, y)
-    if show:
-        # motar
-        # deb_ax2d.axhline(0, linewidth=2, color="gray")  # 横軸(horizon)ゼロの太線化
-        # deb_ax2d.axvline(0, linewidth=2, color="gray")  # 縦軸(Vertical)ゼロの太線化
-        deb_ax2d.set_aspect("equal")
-        plt.show()
-
-    # debug 3D plot
-    deb_ax3d.scatter(x, y, z)  # yxzの座標系なのに注意
-    if show:
-        deb_ax3d.set_xlabel("X")
-        deb_ax3d.set_ylabel("Y")
-        deb_ax3d.set_zlabel("Z")
-        plt.show()
