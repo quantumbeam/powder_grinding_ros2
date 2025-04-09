@@ -3,14 +3,11 @@ import os
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
-from tf_transformations import quaternion_from_matrix, rotation_matrix
 from ament_index_python.packages import get_package_share_directory
 
 # Add pytracik to the path if it's not in the standard locations
-# This is not necessary if pytracik is installed correctly in your ROS2 environment
-sys.path.append('/home/ubuntu/user/grinding_ws/src/pytracik')
+sys.path.append('/home/ubuntu/user/grinding_ws/src/powder_grinding/pytracik')
 from pytracik.trac_ik import TracIK
 
 class UR5eIKTestNode(Node):

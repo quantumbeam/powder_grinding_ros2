@@ -111,6 +111,18 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
   - [ ] PestleLengthEstimation
   - [ ] MortarPositionEstimation
 
+## 既知の課題
+**ros2 runしたときにpip installしたモジュールが認識されない**
+- 結論からいうと、**なるべくpipを使わずにrosdepで入れるのが安全**です
+- PEP668のせいでpython 3.11以上は仮想環境を使わないといけなくなりました
+- 一応仮想環境の構築はDockerファイル内でしてあるのですが、現状パスがうまく通っていないみたいです
+  - ros2のビルドシステムのcolconの仕様の問題です
+  - 一時しのぎですが、`sys.path.append('/home/ubuntu/user/grinding_ws/venv/lib/python3.12/site-packages')`でパスを通せばとりあえず動きます
+- [公式ドキュメント](https://docs.ros.org/en/jazzy/How-To-Guides/Using-Python-Packages.html)にはrosdepを使うのが推奨されています
+  - この記事に仮想環境も使えるっぽい記述がありますが、venvではなく古いvertualenvを使っているので記事は古そうです
+- というわけで、[rosdepのリポジトリ](https://github.com/ros/rosdistro/blob/master/rosdep/python.yaml)に登録されているpythonパッケージはpackage.xmlのexec_dependで書くようにしてください
+- どうしてもpipでしか入らないものは、一時しのぎでなんとかしてください
+
 ## トラブルシューティング
 **ビルド中に固まる**
 - WSL2を使っていたり、性能低いPCだとビルド中に固まることがある
@@ -122,6 +134,7 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
   - `--parallel-workers 8`がビルドの並列数
   - デフォルトだとCPUのコア数に設定されているが、WSLを使っていたり他にリソースがさかれている場合はジョブがコンフリクトする可能性があるので、下げたほうが良い
   - 1だと最も安全(ビルドの時間が非常に長くなるけど)
+
 
 ## 開発ログ
 2025/2/24

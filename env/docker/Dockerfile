@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     net-tools \
     python3-pip \
-    python3.12-venv \
+    python3-venv \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -44,7 +44,7 @@ RUN apt-get update -q && \
     && apt-get clean \ 
     && rm -rf /var/lib/apt/lists/*
 
-# # Create python virtual environment for PEP668
+# # # Create python virtual environment for PEP668
 RUN python3 -m venv /home/ubuntu/user/grinding_ws/venv
 ENV VIRTUAL_ENV="/home/ubuntu/user/grinding_ws/venv"
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"

@@ -4,8 +4,7 @@
 sudo apt update
 
 # Activate virtual environment
-source /home/ubuntu/user/grinding_ws/venv/bin/activate
-pip3 install -r src/powder_grinding/requirements.txt
+python3 -m pip install -r src/powder_grinding/requirements.txt
 
 # Downloading packages
 vcs import src < src/powder_grinding/third_party.repos

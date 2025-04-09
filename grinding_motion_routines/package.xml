@@ -15,7 +15,15 @@
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>trac_ik_kinematics_plugin</exec_depend>
   <exec_depend>pytracik</exec_depend>
+<<<<<<< HEAD
   <exec_depend>moveit_py</exec_depend>
+=======
+
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  <exec_depend>python3-tqdm</exec_depend>
+  
+>>>>>>> 336eb3085364df3787607634801ee792ba28574c
   <export>
     <build_type>ament_python</build_type>
   </export>

@@ -1,0 +1,3 @@
+[submodule "pytracik"]
+	path = pytracik
+	url = https://github.com/YusakuNakajima/pytracik.git

@@ -3,10 +3,9 @@
 sudo apt update
 sudo apt upgrade -y
 source /opt/ros/$ROS_DISTRO/setup.bash
-source /home/ubuntu/user/grinding_ws/venv/bin/activate
 
 sudo apt install python3-pip -y
-pip3 install -r src/powder_grinding/requirements.txt
+python3 -m pip install -r src/powder_grinding/requirements.txt
 
 vcs import src < src/powder_grinding/third_party.repos
 sudo rosdep fix-permissions
@@ -14,10 +13,10 @@ rosdep update
 rosdep install -r -y -i --from-paths src --rosdistro $ROS_DISTRO
 
 # Install pytracik
-cd src/pytracik
+cd src/powder_grinding/pytracik
 pip install -r requirements.txt
 pip install -e .
-cd ../..
+cd /home/ubuntu/user/grinding_ws
 
 
 # Build
