@@ -90,17 +90,19 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 
 ## Migration Progress 
 - [ ] grinding_robot_bringup
-  - [ ] UR5e/UR3e
+  - [x] UR5e
+  - [ ] UR3e
   - [ ] Cobotta
 - [ ] grinding_robot_description
-  - [ ] UR5e/UR3e
+  - [x] UR5e
+  - [ ] UR3e
   - [ ] Cobotta
 - [ ] grinding_moveit_config
   - [ ] UR5e/UR3e
   - [ ] Cobotta
 - [x] grinding_scene_description
 - [ ] grinding_robot_control
-  - [ ] JointTrajectoryController
+  - [x] JointTrajectoryController
   - [ ] MoveIt2
 - [ ] grinding_motion_routines
   - [ ] GrindingMotion
