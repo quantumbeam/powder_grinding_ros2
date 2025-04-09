@@ -164,7 +164,7 @@ class JointTrajectoryControllerHelper(Node):
                             self.get_logger().warn("Current joint positions not available, using zero initialization.")
                             q_init = [0.0] * len(self.valid_joint_names)
                     joint_positions = self.trac_ik.ik(pose[:3], pose[3:], seed_jnt_values=q_init)
-                    if joint_positions is not None:
+                    if joint_positions.size == len(self.valid_joint_names):
                         return joint_positions
                     else:
                         self.get_logger().warn("No IK solution found.")
@@ -187,7 +187,7 @@ class JointTrajectoryControllerHelper(Node):
         for i, waypoint in enumerate(tqdm(waypoints, desc="Calculating IK for waypoints"), start=1):
             joint_positions = self.solve_ik(waypoint, q_init=q_init)
             q_init = joint_positions
-            if joint_positions is not None:
+            if joint_positions.size == len(self.valid_joint_names):
                 joint_trajectory.append(joint_positions)
             else:
                 self.get_logger().warn(f"No joint positions found for waypoint [{i}]: {waypoint}")
@@ -202,7 +202,7 @@ class JointTrajectoryControllerHelper(Node):
         単一のゴールポーズに対して軌道を生成し送信する
         """
         joint_positions = self.solve_ik(goal_pose)
-        if joint_positions is not None:
+        if joint_positions.size == len(self.valid_joint_names):
             self.set_joint_trajectory([joint_positions], time_to_reach, send_immediately, wait)
         else:
             self.get_logger().warn("No joint positions found for goal pose.")
@@ -322,10 +322,7 @@ def main(args: Optional[List[str]] = None) -> None:
         elif choice == '1':
             target_pose = [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0]
             joint_positions = arm_controller.solve_ik(target_pose)
-            if joint_positions:
-                print(f"IK solution: {joint_positions}")
-            else:
-                print("No IK solution found.")
+            print(f"IK solution: {joint_positions}")
         elif choice == '2':
             target_pose = [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0]
             arm_controller.set_goal_pose(target_pose, time_to_reach=5, send_immediately=True)
