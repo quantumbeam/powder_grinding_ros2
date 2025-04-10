@@ -31,9 +31,22 @@ class MarkerDisplay(Node):
         
     def display_waypoints(self, waypoints, scale=0.02, type=None):
         marker_array = MarkerArray()
+
         if type is None:
             type = Marker().SPHERE
         for index, points in enumerate(waypoints):
+            # pointsの型がPoseでなければ変換
+            if not isinstance(points, Pose):
+                point_pose = Pose()
+                point_pose.position.x = points[0]
+                point_pose.position.y = points[1]
+                point_pose.position.z = points[2]
+                point_pose.orientation.x = points[3]
+                point_pose.orientation.y = points[4]
+                point_pose.orientation.z = points[5]
+                point_pose.orientation.w = points[6]
+                points = point_pose
+                
             marker = Marker()
 
             marker.header.frame_id = "world"
@@ -74,7 +87,7 @@ class MarkerDisplay(Node):
                 marker.scale.z = scale
 
             marker.type = type
-            marker.lifetime = Duration(sec=10)  # existing marker for ever
+            marker.lifetime = Duration(sec=60)  # existing marker for ever
             marker_array.markers.append(marker)
         self.wait_for_connection()
         self.publisher.publish(marker_array)
