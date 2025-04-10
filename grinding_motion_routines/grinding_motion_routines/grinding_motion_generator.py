@@ -8,7 +8,8 @@ from scipy.spatial.transform import Slerp
 
 # constants
 from numpy import pi, nan
-
+from display_marker import MarkerDisplay
+import rclpy
 
 class MotionGenerator:
     def __init__(
@@ -283,11 +284,12 @@ class MotionGenerator:
             [
                 shifted_position[0],
                 shifted_position[1],
-                shifted_position[2],
+                shifted_position[2],                   
                 quat.T[0],
                 quat.T[1],
                 quat.T[2],
                 quat.T[3],
+                
             ]
         ).T
         # delete duplicated waypoints
@@ -455,6 +457,7 @@ class MotionGenerator:
                 angle_scale=angle_scale,
                 yaw_bias=yaw_bias,
                 yaw_twist=0,
+                
                 fixed_quaternion=fixed_quaternion,
             )
 
@@ -543,14 +546,14 @@ def main():
         waypoints_list = motion_generator.create_liner_waypoints_list(
             begining_theta=0.0,  # Adjust as needed
             end_tehta=np.pi / 2,  # Adjust as needed
-            begining_length_from_center=10,  # Adjust as needed
-            end_length_from_center=20,  # Adjust as needed
+            begining_length_from_center=0,  # Adjust as needed
+            end_length_from_center=30,  # Adjust as needed
             begining_radius_z=grinding_rz_begining,
             end_radius_z=grinding_rz_end,
             angle_scale=0.5,  # Adjust as needed
             fixed_quaternion=False,  # Adjust as needed
             yaw_bias=None,  # Adjust as needed
-            number_of_waypoints=5,  # Adjust as needed
+            number_of_waypoints=3,  # Adjust as needed
             motion_counts=3,  # Adjust as needed
         )
         print(f"Liner waypoints list generated successfully. Number of lists: {len(waypoints_list)}")
@@ -558,7 +561,13 @@ def main():
             print(f"Example waypoints list {i}:\n{waypoints[:5]}")  # Print first 5 waypoints of each list
     except ValueError as e:
         print(f"Error generating liner waypoints list: {e}")
-
-
+    waypoints = waypoints_list[0]
+    rclpy.init()
+    print("waypoints",waypoints)
+    marker_display = MarkerDisplay("generated_points", waypoints)
+    marker_display.display_waypoints(waypoints)
+    rclpy.spin(marker_display)
+    marker_display.destroy_node()
+    rclpy.shutdown()
 if __name__ == "__main__":
     main()
