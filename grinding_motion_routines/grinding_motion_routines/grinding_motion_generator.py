@@ -524,44 +524,44 @@ def main():
     except ValueError as e:
         print(f"Error generating circular waypoints: {e}")
 
-    print("\nTesting cartesian motion...")
-    try:
-        waypoints = motion_generator.create_cartesian_waypoints(
-            begining_position=grinding_pos_begining,
-            end_position=grinding_pos_end,
-            begining_radius_z=grinding_rz_begining,
-            end_radius_z=grinding_rz_end,
-            angle_scale=0.5,  # Adjust as needed
-            fixed_quaternion=False,  # Adjust as needed
-            yaw_bias=None,  # Adjust as needed
-            number_of_waypoints=10,  # Adjust as needed
-        )
-        print(f"Cartesian waypoints generated successfully. Shape: {waypoints.shape}")
-        print(f"Example waypoints:\n{waypoints[:5]}")  # Print first 5 waypoints
-    except ValueError as e:
-        print(f"Error generating cartesian waypoints: {e}")
+    # print("\nTesting cartesian motion...")
+    # try:
+    #     waypoints = motion_generator.create_cartesian_waypoints(
+    #         begining_position=grinding_pos_begining,
+    #         end_position=grinding_pos_end,
+    #         begining_radius_z=grinding_rz_begining,
+    #         end_radius_z=grinding_rz_end,
+    #         angle_scale=0.5,  # Adjust as needed
+    #         fixed_quaternion=False,  # Adjust as needed
+    #         yaw_bias=None,  # Adjust as needed
+    #         number_of_waypoints=10,  # Adjust as needed
+    #     )
+    #     print(f"Cartesian waypoints generated successfully. Shape: {waypoints.shape}")
+    #     print(f"Example waypoints:\n{waypoints[:5]}")  # Print first 5 waypoints
+    # except ValueError as e:
+    #     print(f"Error generating cartesian waypoints: {e}")
 
-    print("\nTesting liner motion list...")
-    try:
-        waypoints_list = motion_generator.create_liner_waypoints_list(
-            begining_theta=0.0,  # Adjust as needed
-            end_tehta=np.pi / 2,  # Adjust as needed
-            begining_length_from_center=0,  # Adjust as needed
-            end_length_from_center=30,  # Adjust as needed
-            begining_radius_z=grinding_rz_begining,
-            end_radius_z=grinding_rz_end,
-            angle_scale=0.5,  # Adjust as needed
-            fixed_quaternion=False,  # Adjust as needed
-            yaw_bias=None,  # Adjust as needed
-            number_of_waypoints=3,  # Adjust as needed
-            motion_counts=3,  # Adjust as needed
-        )
-        print(f"Liner waypoints list generated successfully. Number of lists: {len(waypoints_list)}")
-        for i, waypoints in enumerate(waypoints_list):
-            print(f"Example waypoints list {i}:\n{waypoints[:5]}")  # Print first 5 waypoints of each list
-    except ValueError as e:
-        print(f"Error generating liner waypoints list: {e}")
-    waypoints = waypoints_list[0]
+    # print("\nTesting liner motion list...")
+    # try:
+    #     waypoints_list = motion_generator.create_liner_waypoints_list(
+    #         begining_theta=0.0,  # Adjust as needed
+    #         end_tehta=np.pi / 2,  # Adjust as needed
+    #         begining_length_from_center=0,  # Adjust as needed
+    #         end_length_from_center=30,  # Adjust as needed
+    #         begining_radius_z=grinding_rz_begining,
+    #         end_radius_z=grinding_rz_end,
+    #         angle_scale=0.5,  # Adjust as needed
+    #         fixed_quaternion=False,  # Adjust as needed
+    #         yaw_bias=None,  # Adjust as needed
+    #         number_of_waypoints=3,  # Adjust as needed
+    #         motion_counts=3,  # Adjust as needed
+    #     )
+    #     print(f"Liner waypoints list generated successfully. Number of lists: {len(waypoints_list)}")
+    #     for i, waypoints in enumerate(waypoints_list):
+    #         print(f"Example waypoints list {i}:\n{waypoints[:5]}")  # Print first 5 waypoints of each list
+    # except ValueError as e:
+    #     print(f"Error generating liner waypoints list: {e}")
+    # waypoints = waypoints_list[0]
     rclpy.init()
     print("waypoints",waypoints)
     marker_display = MarkerDisplay("generated_points", waypoints)

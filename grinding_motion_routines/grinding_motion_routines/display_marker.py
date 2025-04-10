@@ -29,7 +29,7 @@ class MarkerDisplay(Node):
 
 
         
-    def display_waypoints(self, waypoints, scale=0.02, type=None):
+    def display_waypoints(self, waypoints, scale=0.002, type=None):
         marker_array = MarkerArray()
 
         if type is None:
