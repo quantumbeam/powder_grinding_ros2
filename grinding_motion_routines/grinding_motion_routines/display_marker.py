@@ -58,10 +58,12 @@ class DisplayMarker(Node):
 
             marker.pose.position = points.position
             marker.pose.orientation = points.orientation
-
-            marker.color.r = 1.0
+            red_strength= 1.0*index/(len(waypoints)-1)
+            blue_strength= 1.0*(len(waypoints)-index-1)/(len(waypoints)-1)
+            print(red_strength,blue_strength)
+            marker.color.r = red_strength
             marker.color.g = 0.0
-            marker.color.b = 0.0
+            marker.color.b = blue_strength
             marker.color.a = 1.0
             if type == marker.ARROW:
                 marker.scale.x = scale
