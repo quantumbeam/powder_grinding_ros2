@@ -1,43 +1,27 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(grinding_force_torque)
-set(CMAKE_CXX_STANDARD 14)
+cmake_minimum_required(VERSION 3.8)
+project(grinding_ft_filter)
 
-# Find catkin macros and libraries
-find_package(catkin REQUIRED COMPONENTS
-  rospy
-  roscpp
-  std_msgs
-  message_generation
+# Find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclpy REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
+
+# Install Python modules
+ament_python_install_package(${PROJECT_NAME})
+
+# Install scripts
+install(
+  PROGRAMS
+  grinding_ft_filter/ft_filter.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
-## Generate messages
-# add_message_files()
-add_service_files(  
-  FILES
-  WrenchStatistics.srv
-)
-# add_action_files()
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs
+# Install launch files
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}/
 )
 
-catkin_package(
- CATKIN_DEPENDS rospy roscpp std_msgs
-)
-
-# Include directories
-# include_directories(
-#   ${catkin_INCLUDE_DIRS}
-# )
-
-# C++ files
-# add_executable(${PROJECT_NAME}
-# )
-
-# Linking
-# target_link_libraries(${PROJECT_NAME}
-#   ${catkin_LIBRARIES}
-# )
-
+ament_package()

@@ -1,17 +1,20 @@
 <?xml version="1.0"?>
-<package format="2">
-  <name>grinding_force_torque</name>
-  <version>0.0.0</version>
-  <description>The grinding_force_torque package</description>
+<package format="3">
+  <name>grinding_ft_filter</name>
+  <version>0.1.0</version>
+  <description>Filtered FT sensor output for robotic calibration (ROS2)</description>
 
-  <maintainer email="yusaku_nakajima@ap.eng.osaka-u.ac.jp">YusakuNakajima</maintainer>
+  <maintainer email="your_email@example.com">Your Name</maintainer>
   <license>MIT</license>
 
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <buildtool_depend>catkin</buildtool_depend>
-  <depend>rospy</depend>
-  <depend>roscpp</depend>
-  <depend>std_msgs</depend>
-  <depend>geometry_msgs</depend>
-  
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>
