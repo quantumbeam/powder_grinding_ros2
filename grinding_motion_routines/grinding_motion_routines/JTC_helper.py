@@ -184,15 +184,44 @@ class JointTrajectoryControllerHelper(Node):
         """
         joint_trajectory = []
         q_init = self.get_current_joint_positions()
+        # Check if initial position is valid before starting the loop
+        if q_init is None:
+             self.get_logger().error("Cannot start waypoint calculation: Initial joint positions not available.")
+             return
+
+        all_waypoints_solved = True # Flag to track if all waypoints were solved
         for i, waypoint in enumerate(tqdm(waypoints, desc="Calculating IK for waypoints"), start=1):
             joint_positions = self.solve_ik(waypoint, q_init=q_init)
-            q_init = joint_positions
-            if joint_positions.size == len(self.valid_joint_names):
-                joint_trajectory.append(joint_positions)
+
+            # --- FIX: Check if solve_ik returned a valid result ---
+            if joint_positions is not None:
+                # solve_ik should already guarantee the size if it doesn't return None,
+                # but an extra check doesn't hurt.
+                if joint_positions.size == len(self.valid_joint_names):
+                    # Use the found positions for the trajectory and as the seed for the next IK
+                    joint_trajectory.append(joint_positions.tolist()) # Convert numpy array to list
+                    q_init = joint_positions # Update seed ONLY if successful
+                else:
+                    # This case indicates an unexpected issue in solve_ik logic
+                    self.get_logger().error(f"IK solution for waypoint [{i}] has unexpected size ({joint_positions.size}). Stopping.")
+                    all_waypoints_solved = False
+                    break # Exit the loop
             else:
-                self.get_logger().warn(f"No joint positions found for waypoint [{i}]: {waypoint}")
-                return  # 中断
-        self.set_joint_trajectory(joint_trajectory, time_to_reach, send_immediately, wait)
+                # solve_ik returned None (IK failed for this waypoint)
+                self.get_logger().warn(f"No joint positions found for waypoint [{i}]: {waypoint}. Stopping trajectory generation.")
+                all_waypoints_solved = False
+                break # Exit the loop if any waypoint fails
+
+        # Only send the trajectory if all waypoints were successfully converted to joint positions
+        if all_waypoints_solved and joint_trajectory:
+            self.get_logger().info(f"Successfully calculated joint trajectory for {len(joint_trajectory)} waypoints.")
+            self.set_joint_trajectory(joint_trajectory, time_to_reach, send_immediately, wait)
+        elif not joint_trajectory:
+             self.get_logger().error("Trajectory generation failed: No valid joint positions calculated.")
+        else:
+             self.get_logger().error("Trajectory generation incomplete due to IK failure(s). Trajectory not sent.")
+
+
 
     def set_goal_pose(self, goal_pose: List[float],
                       time_to_reach: int,
@@ -202,10 +231,21 @@ class JointTrajectoryControllerHelper(Node):
         単一のゴールポーズに対して軌道を生成し送信する
         """
         joint_positions = self.solve_ik(goal_pose)
-        if joint_positions.size == len(self.valid_joint_names):
-            self.set_joint_trajectory([joint_positions], time_to_reach, send_immediately, wait)
+
+        # --- FIX: Check if solve_ik returned a valid result ---
+        if joint_positions is not None:
+            # IK が成功した場合のみサイズチェックと軌道設定を行う
+            if joint_positions.size == len(self.valid_joint_names):
+                # Convert numpy array to list for set_joint_trajectory if needed
+                self.set_joint_trajectory([joint_positions.tolist()], time_to_reach, send_immediately, wait)
+            else:
+                # This case indicates an unexpected issue in solve_ik logic
+                 self.get_logger().error(f"IK solution for goal pose has unexpected size ({joint_positions.size}). Trajectory not sent.")
         else:
-            self.get_logger().warn("No joint positions found for goal pose.")
+            # solve_ik returned None (IK failed)
+            self.get_logger().warn(f"No joint positions found for goal pose: {goal_pose}. Trajectory not sent.")
+
+
 
     def set_joint_trajectory(self, joint_trajectory: List[List[float]],
                              time_to_reach: int,
@@ -330,7 +370,7 @@ def main(args: Optional[List[str]] = None) -> None:
             waypoints = [
                 [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0],
                 [0.5, 0.0, 0.6, 1.0, 0.0, 0.0, 0.0],
-                [0.5, 0.0, 0.7, 1.0, 0.0, 0.0, 0.0]
+                [0.5, 0.1, 0.6, 1.0, 0.0, 0.0, 0.0]
             ]
             arm_controller.set_waypoints(waypoints, time_to_reach=5, send_immediately=True)
         elif choice == '4':
@@ -349,8 +389,6 @@ def main(args: Optional[List[str]] = None) -> None:
             }
             grinding_pos_beginning = [-8, 0]
             grinding_pos_end = [-8, 0.0001]
-            grinding_rz_beginning = 36
-            grinding_rz_end = 36
             number_of_rotations = 10
             angle_scale = 0.3
             yaw_bias = None
@@ -362,16 +400,14 @@ def main(args: Optional[List[str]] = None) -> None:
             motion_generator = GrindingMotionGenerator(mortar_top_position, mortar_inner_size)
             try:
                 waypoints = motion_generator.create_circular_waypoints(
-                    begining_position=grinding_pos_beginning,
-                    end_position=grinding_pos_end,
-                    begining_radious_z=grinding_rz_beginning,
-                    end_radious_z=grinding_rz_end,
+                    beginning_position_mm=grinding_pos_beginning,
+                    end_position_mm=grinding_pos_end,
                     number_of_rotations=number_of_rotations,
+                    number_of_waypoints_per_circle=number_of_waypoints_per_circle,
                     angle_scale=angle_scale,
                     yaw_bias=yaw_bias,
                     yaw_twist_per_rotation=yaw_twist_per_rotation,
-                    number_of_waypoints_per_circle=number_of_waypoints_per_circle,
-                    center_position=center_position
+                    center_position_mm=center_position
                 )
             except ValueError as e:
                 print(f"Error generating circular waypoints: {e}")
