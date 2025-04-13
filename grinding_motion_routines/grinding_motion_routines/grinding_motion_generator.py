@@ -50,48 +50,30 @@ def lerp_in_polar(
     end_pos_xy: np.ndarray,
     num_points: int,
     num_rotations: float,
+    max_radius: float = 1.0,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Linear interpolation between two points defined in polar coordinates,
-    spanning multiple rotations (exclusive of endpoint).
-
-    Args:
-        start_pos_xy: Starting [x, y] position.
-        end_pos_xy: Ending [x, y] position.
-        num_points: Number of points to generate.
-        num_rotations: Number of full rotations to span during interpolation.
-
-    Returns:
-        Tuple of interpolated x and y coordinate arrays in Cartesian space.
-    """
     start_pos_xy = np.asarray(start_pos_xy)
     end_pos_xy = np.asarray(end_pos_xy)
+    st_radius, st_theta = cartesian_to_polar(start_pos_xy[0], start_pos_xy[1])
+    ed_radius, ed_theta = cartesian_to_polar(end_pos_xy[0], end_pos_xy[1])
+    if st_theta > ed_theta:
+        ed_theta += 2 * pi
+    ed_theta += (num_rotations - 1) * 2 * pi
 
-    if num_rotations < 1:
-        warnings.warn("num_rotations < 1 may lead to unexpected interpolation paths. Treating as single rotation segment.")
-        num_rotations = 1
+    dr = abs(ed_radius - st_radius) / (max_radius * 2)
+    d_theta = abs(ed_theta - st_theta) / (2 * pi)
 
-    start_r, start_theta = cartesian_to_polar(start_pos_xy[0], start_pos_xy[1])
-    end_r, end_theta = cartesian_to_polar(end_pos_xy[0], end_pos_xy[1])
+    if dr > d_theta:
+        r = np.linspace(st_radius, ed_radius, num_points, endpoint=False)
+        theta = st_theta + (ed_theta - st_theta) * (r - st_radius) / (ed_radius - st_radius)
+    else:
+        theta = np.linspace(st_theta, ed_theta, num_points, endpoint=False)
+        r = st_radius + (ed_radius - st_radius) * (theta - st_theta) / (ed_theta - st_theta)
+    x = r * np.cos(theta)
+    y = r * np.sin(theta)
 
-    # Adjust end_theta for multiple rotations and shortest path wrapping
-    delta_theta = end_theta - start_theta
-    # Adjust for shortest path if only one rotation and crossing +/- pi boundary
-    if num_rotations == 1:
-        if delta_theta > pi:
-            end_theta -= 2 * pi
-        elif delta_theta < -pi:
-            end_theta += 2 * pi
-    # Add full rotations (adjust end_theta first if needed)
-    end_theta += (num_rotations -1) * 2 * pi # Add full rotations after potential wrap adjustment
-
-
-    # Interpolate radius and theta linearly using linspace (endpoint=False)
-    r_interp = np.linspace(start_r, end_r, num_points, endpoint=False)
-    theta_interp = np.linspace(start_theta, end_theta, num_points, endpoint=False)
-
-    x, y = polar_to_cartesian(r_interp, theta_interp)
     return x, y
+
 
 # --- GrindingMotionGenerator Class ---
 
@@ -401,6 +383,7 @@ class GrindingMotionGenerator:
             end_pos_xy_offset,
             total_number_of_waypoints,
             number_of_rotations,
+            max_radius=self.mortar_inner_radii["x"]
         )
 
         # --- Calculate XY positions (relative to mortar center) ---
