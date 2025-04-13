@@ -454,6 +454,7 @@ def main(args: Optional[List[str]] = None) -> None:
             print("Testing grinding motion ...")
             try:
                 from grinding_motion_routines.grinding_motion_generator import GrindingMotionGenerator
+                from grinding_motion_routines.display_marker import DisplayMarker
             except ImportError as e:
                 print(f"ImportError: {e}")
                 continue
@@ -490,6 +491,9 @@ def main(args: Optional[List[str]] = None) -> None:
                 print(f"Error generating circular waypoints: {e}")
                 continue
             print("Generated grinding motion waypoints")
+            print("Displaying waypoints ...")
+            display_marker = DisplayMarker()
+            display_marker.display_waypoints(waypoints, scale=0.002)
             print("Go to first grinding position")
             arm_controller.set_goal_pose(waypoints[0], time_to_reach=5, send_immediately=True)
             print(f"Executing grinding motion with {len(waypoints)} waypoints")
