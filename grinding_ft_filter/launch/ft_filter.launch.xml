@@ -1,0 +1,16 @@
+<launch>
+  <node
+    pkg="grinding_ft_filter"
+    exec="ft_filter.py"
+    name="ft_filter"
+    output="screen">
+    
+    <param name="input_topic" value="/wrench_raw"/>
+    <param name="output_topic" value="/wrench_filtered"/>
+    <param name="sampling_frequency" value="500.0"/>
+    <param name="cutoff_frequency" value="2.5"/>
+    <param name="filter_order" value="3"/>
+    <param name="data_window" value="100"/>
+
+  </node>
+</launch>

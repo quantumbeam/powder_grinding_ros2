@@ -9,12 +9,13 @@ find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 
 # Install Python modules
-ament_python_install_package(${PROJECT_NAME})
+ament_python_install_package(grinding_ft_filter_pkg)
 
 # Install scripts
 install(
   PROGRAMS
-  grinding_ft_filter/ft_filter.py
+  grinding_ft_filter_pkg/ft_filter.py
+  scripts/noisy_wrench_pub.py  
   DESTINATION lib/${PROJECT_NAME}
 )
 

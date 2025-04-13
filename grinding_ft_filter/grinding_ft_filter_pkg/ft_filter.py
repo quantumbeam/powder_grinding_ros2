@@ -1,20 +1,49 @@
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 
-from geometry_msgs.msg import WrenchStamped
+from geometry_msgs.msg import WrenchStamped, Wrench, Vector3
 from std_srvs.srv import Empty
 
 import numpy as np
 from collections import deque
-from grinding_motion_routines import conversions, filters
+import scipy.signal
 
+# ========== Conversions (ベタ書き) ==========
+def from_wrench(msg):
+    array = np.zeros(6)
+    array[:3] = [msg.force.x, msg.force.y, msg.force.z]
+    array[3:] = [msg.torque.x, msg.torque.y, msg.torque.z]
+    return array
 
+def to_wrench(array):
+    msg = Wrench()
+    msg.force = Vector3(x=array[0], y=array[1], z=array[2])
+    msg.torque = Vector3(x=array[3], y=array[4], z=array[5])
+    return msg
+
+# ========== Filters (ベタ書き: ButterLowPass class のみ) ==========
+class ButterLowPass:
+    def __init__(self, cutoff, fs, order=5):
+        nyq = 0.5 * fs
+        normal_cutoff = cutoff / nyq
+        self.b, self.a = scipy.signal.butter(order, normal_cutoff, btype="low", analog=False)
+
+    def __call__(self, x):
+        if not hasattr(self, "zi"):
+            cols = x.shape[1]
+            zi = scipy.signal.lfiltic(self.b, self.a, []).tolist() * cols
+            self.zi = np.array(scipy.signal.lfiltic(self.b, self.a, []).tolist() * cols)
+            self.zi.shape = (-1, cols)
+        (filtered, self.zi) = scipy.signal.lfilter(self.b, self.a, x, zi=self.zi, axis=0)
+        return filtered
+
+# ========== FTFilterNode ==========
 class FTFilterNode(Node):
     def __init__(self):
         super().__init__('ft_filter')
 
-        # Declare parameters
         self.declare_parameter('input_topic', '/wrench_raw')
         self.declare_parameter('output_topic', '/wrench_filtered')
         self.declare_parameter('sampling_frequency', 500.0)
@@ -22,7 +51,6 @@ class FTFilterNode(Node):
         self.declare_parameter('filter_order', 3)
         self.declare_parameter('data_window', 100)
 
-        # Get parameters
         self.input_topic = self.get_parameter('input_topic').get_parameter_value().string_value
         self.output_topic = self.get_parameter('output_topic').get_parameter_value().string_value
         self.sampling_frequency = self.get_parameter('sampling_frequency').get_parameter_value().double_value
@@ -33,24 +61,16 @@ class FTFilterNode(Node):
         self.get_logger().info(f"Subscribing to: {self.input_topic}")
         self.get_logger().info(f"Publishing to: {self.output_topic}")
 
-        # Data queue for filtering
         self.data_queue = deque(maxlen=self.data_window)
-
-        # Filtering utility
-        self.filter = filters.ButterLowPass(self.cutoff_frequency, self.sampling_frequency, self.filter_order)
-
-        # Offset for calibration
+        self.filter = ButterLowPass(self.cutoff_frequency, self.sampling_frequency, self.filter_order)
         self.wrench_offset = np.zeros(6)
 
-        # Subscribers and publishers
         self.subscription = self.create_subscription(WrenchStamped, self.input_topic, self.wrench_callback, 10)
         self.publisher = self.create_publisher(WrenchStamped, self.output_topic, 10)
-
-        # Zeroing service
         self.zero_service = self.create_service(Empty, self.output_topic + '/zero_ftsensor', self.handle_zero)
 
     def wrench_callback(self, msg):
-        wrench_np = conversions.from_wrench(msg.wrench)
+        wrench_np = from_wrench(msg.wrench)
         self.data_queue.append(wrench_np)
 
         if len(self.data_queue) < self.data_window:
@@ -59,7 +79,7 @@ class FTFilterNode(Node):
         filtered_data = self.filter(np.array(self.data_queue))[-1] - self.wrench_offset
         filtered_msg = WrenchStamped()
         filtered_msg.header = msg.header
-        filtered_msg.wrench = conversions.to_wrench(filtered_data)
+        filtered_msg.wrench = to_wrench(filtered_data)
         self.publisher.publish(filtered_msg)
 
     def handle_zero(self, request, response):
