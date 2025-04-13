@@ -56,8 +56,10 @@ class JointTrajectoryControllerHelper(Node):
 
         # IK ソルバー設定
         self.ik_solver = ik_solver
+        self.base_link = base_link
+        self.tool_link = tool_link
         pkg_share_dir = get_package_share_directory(robot_urdf_package)
-        urdf_path = f"{pkg_share_dir}/urdf/{robot_urdf_file_name}.urdf"
+        self.urdf_path = f"{pkg_share_dir}/urdf/{robot_urdf_file_name}.urdf"
         self.declare_parameters(
             namespace='',
             parameters=[
@@ -71,7 +73,7 @@ class JointTrajectoryControllerHelper(Node):
             self.trac_ik_timeout = self.get_parameter('trac_ik_timeout').value
             self.trac_ik_epsilon = self.get_parameter('trac_ik_epsilon').value
             self.trac_ik_solver_type = self.get_parameter('trac_ik_solver_type').value
-            self._init_ik_solver(base_link, tool_link, urdf_path)
+            self._init_ik_solver(base_link, tool_link)
         else:
             raise Exception(f"Unsupported IK solver: {self.ik_solver.name}")
 
@@ -129,10 +131,14 @@ class JointTrajectoryControllerHelper(Node):
             return None
         return self._current_jnt_positions.tolist()
 
-    def _init_ik_solver(self, base_link: str, ee_link: str, urdf_path: str) -> None:
+    def _init_ik_solver(self, base_link: str, ee_link: str, urdf_path: str=None) -> None:
         """
         Trac-IK ソルバーの初期化
         """
+        if urdf_path is None:
+            urdf_path = self.urdf_path
+        self.get_logger().info(f"Initializing IK solver with base link: {base_link}, end effector link: {ee_link}")
+        self.get_logger().info(f"URDF path: {urdf_path}")
         if self.ik_solver == IKType.TRACK_IK:
             try:
                 self.trac_ik = TRACK_IK_SOLVER(
@@ -147,6 +153,19 @@ class JointTrajectoryControllerHelper(Node):
                 self.get_logger().error(f"Could not instantiate TRAC_IK: {e}")
         else:
             raise Exception(f"Unsupported IK solver: {self.ik_solver.name}")
+        
+    def change_ee_link(self, new_ee_link: str) -> None:
+        """
+        エンドエフェクタリンクを変更する
+        """
+        self.tool_link = new_ee_link
+        self.get_logger().info(f"Changing end effector link to: {new_ee_link}")
+        self._init_ik_solver(
+            base_link=self.base_link,
+            ee_link=new_ee_link,
+            urdf_path=self.urdf_path
+        )
+        
 
     def solve_ik(self, pose: List[float],
                  q_init: Optional[List[float]] = None,
