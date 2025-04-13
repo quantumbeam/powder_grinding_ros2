@@ -107,7 +107,7 @@ class GrindingMotionGenerator:
     def __init__(
         self,
         mortar_top_center_position: Dict[str, float],
-        mortar_inner_size_mm: Dict[str, float], # Expect size (diameter/depth) in mm
+        mortar_inner_size: Dict[str, float], # Expect size (diameter/depth) in mm
         yaw_twist_limit: Tuple[float, float] = (0, 2 * pi)
     ):
         """
@@ -115,23 +115,23 @@ class GrindingMotionGenerator:
 
         Args:
             mortar_top_center_position: The [x, y, z] position of the mortar's top center (in meters).
-            mortar_inner_size_mm: The inner dimensions [x, y, z] of the mortar (in mm),
+            mortar_inner_size: The inner dimensions [x, y, z] of the mortar (in meters),
                                   representing the diameters or depth. These are converted to radii in meters.
             yaw_twist_limit: Min and max allowed absolute yaw twist angle (in radians).
         """
         if not all(key in mortar_top_center_position for key in ['x', 'y', 'z']):
             raise ValueError("mortar_top_center_position must contain 'x', 'y', 'z' keys.")
-        if not all(key in mortar_inner_size_mm for key in ['x', 'y', 'z']):
-            raise ValueError("mortar_inner_size_mm must contain 'x', 'y', 'z' keys.")
-        if not all(mortar_inner_size_mm[key] > 0 for key in ['x', 'y', 'z']):
+        if not all(key in mortar_inner_size for key in ['x', 'y', 'z']):
+            raise ValueError("mortar_inner_size must contain 'x', 'y', 'z' keys.")
+        if not all(mortar_inner_size[key] > 0 for key in ['x', 'y', 'z']):
              raise ValueError("Mortar inner dimensions must be positive.")
 
         self.mortar_top_center_position = mortar_top_center_position
         # Convert diameters/depth (size) in mm to radii in meters
         self.mortar_inner_radii = {
-            "x": mortar_inner_size_mm["x"] * MM_TO_M / 2.0,
-            "y": mortar_inner_size_mm["y"] * MM_TO_M / 2.0,
-            "z": mortar_inner_size_mm["z"] * MM_TO_M / 2.0, # Assuming z is depth/diameter -> radius
+            "x": mortar_inner_size["x"] / 2.0,
+            "y": mortar_inner_size["y"] / 2.0,
+            "z": mortar_inner_size["z"] / 2.0, # Assuming z is depth/diameter -> radius
         }
         # Store limits on absolute twist
         self.min_abs_yaw_twist = abs(yaw_twist_limit[0])
