@@ -26,6 +26,7 @@ setup(
             "display_marker = grinding_motion_routines.display_marker:main",
             "grinding_demo = grinding_motion_routines.grinding_demo:main",
             "JTC_helper = grinding_motion_routines.JTC_helper:main",
+            "grinding_motion_primitive = grinding_motion_routines.grinding_motion_primitive:main",
             "moveit_test = grinding_motion_routines.moveit_test:main",
             "test_marker = grinding_motion_routines.test_marker:main",
             "ik_test = grinding_motion_routines.ik_test:main",
