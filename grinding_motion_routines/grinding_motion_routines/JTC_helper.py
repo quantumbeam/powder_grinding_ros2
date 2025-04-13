@@ -466,11 +466,11 @@ def main(args: Optional[List[str]] = None) -> None:
                 "z": 0.045105853329747,
             }
             grinding_pos_beginning = [-8, 0]
-            grinding_pos_end = [-8, 0.0001]
-            number_of_rotations = 10
-            angle_scale = 0.3
-            yaw_bias = None
-            yaw_twist_per_rotation = 0
+            grinding_pos_end = [-8, 0.001]
+            number_of_rotations = 1
+            angle_scale = 1
+            yaw_bias = 0
+            yaw_twist_per_rotation = np.pi / 2
             number_of_waypoints_per_circle = 50
             center_position = [0, 0]
             sec_per_rotation = 1
@@ -491,6 +491,8 @@ def main(args: Optional[List[str]] = None) -> None:
                 print(f"Error generating circular waypoints: {e}")
                 continue
             print("Generated grinding motion waypoints")
+            print(f"Number of waypoints: {len(waypoints)}")
+            print(f"Waypoints: {waypoints}")
             print("Displaying waypoints ...")
             display_marker = DisplayMarker()
             display_marker.display_waypoints(waypoints, scale=0.002)
