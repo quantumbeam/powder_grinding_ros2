@@ -204,147 +204,92 @@ class GrindingMotionGenerator:
     def _calculate_orientation(
         self,
         position_relative: np.ndarray, # Shape (3, N) - x, y, z relative to mortar center
-        radius_z_interp: np.ndarray,   # Shape (N,) - z-radius for each point
         angle_scale: float,
         yaw_bias: Optional[float],
         yaw_twist_total: float,
         fixed_quaternion: bool = False
     ) -> np.ndarray:
-        """
-        Calculates the orientation (quaternion) for each waypoint.
+        quats = []
 
-        The orientation interpolates between pointing vertically downwards and
-        pointing normal to the inner mortar surface, with optional yaw control.
+        pos_x = np.array(position_relative[0])
+        pos_y = np.array(position_relative[1])
+        pos_z = np.array(position_relative[2])
 
-        Args:
-            position_relative: Waypoint positions relative to mortar center (shape [3, N], meters).
-            radius_z_interp: Z-radius of the ellipsoid for each waypoint (shape [N,], meters).
-            angle_scale: Interpolation factor (0=vertical, 1=normal, <0=inverted normal).
-            yaw_bias: Fixed yaw offset (radians). Applied if yaw_twist_total is 0.
-            yaw_twist_total: Total yaw rotation over the trajectory (radians).
-            fixed_quaternion: If True, use the orientation of the first waypoint for all points.
-
-        Returns:
-            Array of quaternions (shape [N, 4]).
-        """
-        num_waypoints = position_relative.shape[1]
-        if num_waypoints == 0:
-            return np.empty((0, 4))
-
-        pos_x, pos_y, pos_z = position_relative # Each is shape (N,)
-
-        # --- Calculate Target Yaw ---
-        if yaw_twist_total != 0:
-            abs_twist = abs(yaw_twist_total)
-            if not (self.min_abs_yaw_twist <= abs_twist <= self.max_abs_yaw_twist):
-                 warnings.warn(
-                     f"Total absolute yaw twist {abs_twist:.2f} rad is outside the limit "
-                     f"[{self.min_abs_yaw_twist:.2f}, {self.max_abs_yaw_twist:.2f}] rad."
-                 )
-            # Linear twist from start_yaw to end_yaw. Assume twist is applied relative to initial orientation.
-            # Let's assume the twist is applied linearly over the path.
-            # If yaw_bias is also given, should it be the starting yaw? Assume twist overrides bias.
-            start_yaw = yaw_bias if yaw_bias is not None else 0.0 # Start yaw if no twist specified
-            end_yaw = start_yaw + yaw_twist_total
-            yaw_values = np.linspace(start_yaw, end_yaw, num_waypoints)
-
-        elif yaw_bias is not None:
-            yaw_values = np.full(num_waypoints, yaw_bias)
-        else:
-            yaw_values = np.zeros(num_waypoints) # Default to zero yaw offset
-
-        # --- Calculate Normal Vector Orientation ---
-        # Calculate surface normal (gradient of ellipsoid function F = x²/rx² + y²/ry² + z²/rz² - 1 = 0)
-        # grad(F) = [2x/rx², 2y/ry², 2z/rz²]
-        # Normal vector points outwards. For inner surface, we need the negative gradient (-grad(F)).
-        rx2 = self.mortar_inner_radii["x"]**2
-        ry2 = self.mortar_inner_radii["y"]**2
-        rz2 = radius_z_interp**2 # Use interpolated z-radius for each point
-
-        # Avoid division by zero if radii are zero (should be caught earlier)
-        if rx2 <= 0 or ry2 <= 0 or np.any(rz2 <= 0):
-             raise ValueError("Invalid zero or negative squared radii detected during normal calculation.")
-
-        normal_x = -2 * pos_x / rx2 # Components of inward normal
-        normal_y = -2 * pos_y / ry2
-        normal_z = -2 * pos_z / rz2
-
-        # Normalize the normal vector
-        norm_magnitude = np.sqrt(normal_x**2 + normal_y**2 + normal_z**2)
-        # Handle points potentially at the center (0,0,0) or where norm is very small
-        valid_norm_mask = norm_magnitude > 1e-9
-        inward_normal = np.zeros_like(position_relative) # Initialize shape (3, N)
-
-        inward_normal[0, valid_norm_mask] = normal_x[valid_norm_mask] / norm_magnitude[valid_norm_mask]
-        inward_normal[1, valid_norm_mask] = normal_y[valid_norm_mask] / norm_magnitude[valid_norm_mask]
-        inward_normal[2, valid_norm_mask] = normal_z[valid_norm_mask] / norm_magnitude[valid_norm_mask]
-
-        # For points with near-zero norm (e.g., center), default normal to pointing straight up (inward -> [0,0,1])
-        # This corresponds to the tool pointing straight down.
-        inward_normal[0, ~valid_norm_mask] = 0
-        inward_normal[1, ~valid_norm_mask] = 0
-        inward_normal[2, ~valid_norm_mask] = 1 # Pointing up (tool Z will point down)
-
-
-        # --- Calculate Orientation from Normal (Tool Z aligned with -Normal) ---
-        # We want the tool's Z-axis ([0, 0, 1] in tool frame) to align with the *negative* inward normal vector (pointing into surface).
-        target_z_axis = -inward_normal # Shape (3, N)
-
-        # Calculate Roll/Pitch to align Z-axis with the target_z_axis
-        # Using 'xyz' Euler sequence convention (Roll around X, Pitch around Y, Yaw around Z)
-        # Pitch (rotation around Y): asin(-target_z_axis_x)
-        # Roll (rotation around X): atan2(-target_z_axis_y, -target_z_axis_z)
-        pitch_normal = np.arcsin(-target_z_axis[0, :])
-        roll_normal = np.arctan2(-target_z_axis[1, :], -target_z_axis[2, :])
-
-        # Create rotation objects for normal alignment (without yaw)
-        rot_normal = Rotation.from_euler('xyz', np.stack([roll_normal, pitch_normal, np.zeros_like(roll_normal)], axis=1))
-
-        # --- Calculate Vertical Orientation (Tool Z pointing down [-world_z]) ---
-        # Euler angles 'xyz': [pi, 0, 0] means Roll=pi, Pitch=0, Yaw=0
-        rot_vertical = Rotation.from_euler('xyz', [pi, 0, 0]) # Single rotation object
-
-        # --- Interpolate using Slerp ---
-        interp_scale = np.clip(abs(angle_scale), 0, 1) # Ensure scale is [0, 1]
-
-        # Handle angle_scale < 0 (target is inverted normal)
+        #################### calculate orientation
+        # angle param < 0  use inverse x,y, mean using inverse slope
         if angle_scale < 0:
-             # Target Z axis becomes +inward_normal
-             target_z_axis_inv = inward_normal
-             pitch_normal_inv = np.arcsin(-target_z_axis_inv[0, :])
-             roll_normal_inv = np.arctan2(-target_z_axis_inv[1, :], -target_z_axis_inv[2, :])
-             rot_normal = Rotation.from_euler('xyz', np.stack([roll_normal_inv, pitch_normal_inv, np.zeros_like(roll_normal_inv)], axis=1))
+            pos_x *= -1
+            pos_y *= -1
 
-        # Perform Slerp for each waypoint
-        key_times = [0, 1]
-        quat_interp = np.zeros((num_waypoints, 4))
+        # normalized position
+        norm = np.sqrt(pos_x**2 + pos_y**2 + pos_z**2)
+        normalized_pos_x = pos_x / norm
+        normalized_pos_y = pos_y / norm
+        normalized_pos_z = pos_z / norm
 
-        quat_vertical = rot_vertical.as_quat() # Shape (4,)
-        quats_normal = rot_normal.as_quat()    # Shape (N, 4)
+        # calc yaw angle
+        yaw_std = np.arctan2(
+                    self.mortar_top_center_position["y"],
+                    self.mortar_top_center_position["x"],
+                )
+        if yaw_twist_total != 0:
+            if abs(yaw_twist_total) > self.max_abs_yaw_twist:
+                raise ValueError("yaw_twist is bigger than 2pi")
+            if yaw_twist_total < 0:
+                yaw = np.linspace(0, abs(yaw_twist_total), len(pos_x))
+            else:
+                yaw = np.linspace(abs(yaw_twist_total), 0, len(pos_x))
+            yaw += yaw_std
+        else:
+            if yaw_bias == None:
+                yaw = yaw_std
+            else:
+                yaw = yaw_bias
 
-        # Check if quats_normal has the expected shape
-        if quats_normal.shape != (num_waypoints, 4):
-             raise RuntimeError(f"Unexpected shape for normal quaternions: {quats_normal.shape}")
+            # rotate xy by the amount of yaw angle
+            r, theta = cartesian_to_polar(normalized_pos_x, normalized_pos_y)
+            normalized_pos_x, normalized_pos_y = polar_to_cartesian(
+                r, theta + yaw
+            )
+        # calc euler of the normal and the verticle to the ground
+        roll_of_the_normal = -np.arctan2(normalized_pos_y, normalized_pos_z)
+        pitch_of_the_normal = -np.arctan2(
+            normalized_pos_x,
+            np.sqrt(normalized_pos_y**2 + normalized_pos_z**2),
+        )
+        yaw_of_the_normal = np.full_like(pos_z, yaw)
 
+        roll_of_the_vertical = np.full_like(pos_x, pi)
+        pitch_of_the_vertical = np.full_like(pos_y, 0)
+        yaw_of_the_vertical = np.full_like(pos_z, yaw)
 
-        for i in range(num_waypoints):
-            # Slerp between the single vertical quaternion and the i-th normal quaternion
-            slerp_rotations = Rotation.from_quat([quat_vertical, quats_normal[i]])
-            slerp = Slerp(key_times, slerp_rotations)
-            quat_interp[i] = slerp(interp_scale).as_quat()
+        for r_normal, p_normal, y_normal, r_vertical, p_vertical, y_vertical in zip(
+            roll_of_the_normal,
+            pitch_of_the_normal,
+            yaw_of_the_normal,
+            roll_of_the_vertical,
+            pitch_of_the_vertical,
+            yaw_of_the_vertical,
+        ):
+            rotation_normal = Rotation.from_euler("xyz", [r_normal, p_normal, y_normal])
+            rotation_vertical = Rotation.from_euler(
+                "xyz", [r_vertical, p_vertical, y_vertical]
+            )
+            rotations = Rotation.from_quat(
+                [rotation_vertical.as_quat(), rotation_normal.as_quat()]
+            )
 
-        # --- Apply Yaw ---
-        # Create yaw rotations (around Z axis) and apply them *after* the roll/pitch alignment
-        yaw_rotations = Rotation.from_euler('z', yaw_values)
-        final_rotations = yaw_rotations * Rotation.from_quat(quat_interp) # Apply yaw
+            slerp = Slerp([0, 1], rotations)
+            slerp_quat = slerp(angle_scale).as_quat()
+            quats.append(slerp_quat)
 
-        final_quats = final_rotations.as_quat()
+        quats = np.array(quats)
 
-        # --- Handle Fixed Quaternion ---
-        if fixed_quaternion and num_waypoints > 0:
-            final_quats = np.tile(final_quats[0], (num_waypoints, 1)) # Repeat first quat
+        if fixed_quaternion:
+            quats = np.full_like(quats, quats[0])
 
-        return final_quats # Shape (N, 4)
+        return quats
+
 
 
     def _create_waypoints_array(self, positions_global: np.ndarray, orientations_quat: np.ndarray) -> np.ndarray:
@@ -489,7 +434,7 @@ class GrindingMotionGenerator:
         # --- Calculate Orientations ---
         total_yaw_twist = yaw_twist_per_rotation * number_of_rotations
         orientations = self._calculate_orientation(
-            position_relative, radius_z_interp, angle_scale, yaw_bias, total_yaw_twist
+            position_relative, angle_scale, yaw_bias, total_yaw_twist
         )
 
         # --- Create Final Waypoints ---
@@ -594,7 +539,7 @@ class GrindingMotionGenerator:
 
         # --- Calculate Orientations ---
         orientations = self._calculate_orientation(
-            position_relative, radius_z_interp, angle_scale, yaw_bias, yaw_twist_total=0, fixed_quaternion=fixed_quaternion
+            position_relative, angle_scale, yaw_bias, yaw_twist_total=0, fixed_quaternion=fixed_quaternion
         )
 
         # --- Create Final Waypoints ---
