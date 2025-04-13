@@ -175,51 +175,128 @@ class JointTrajectoryControllerHelper(Node):
             else:
                 raise Exception(f"Unsupported IK solver: {self.ik_solver.name}")
     
-    def set_waypoints(self, waypoints: List[List[float]],
+    def set_waypoints(self,
+                      waypoints: List[List[float]],
                       time_to_reach: int,
+                      max_joint_change_per_step: Optional[float] = 0.1, # OptionalにしてNone許容、デフォルト値を少し大きく
+                      max_ik_retries_on_jump: int = 100, # 閾値超過時のIKリトライ回数上限
+                      ik_retry_perturbation: float = 0.05, # IKリトライ時のシード値の摂動量 (ラジアン)
                       send_immediately: bool = False,
                       wait: bool = True) -> None:
         """
         複数のウェイポイントに対して軌道を生成し送信する
+
+        Args:
+            waypoints: 目標姿勢 [x, y, z, qx, qy, qz, qw] のリスト
+            time_to_reach: 全体の目標到達時間 (秒)
+            max_joint_change_per_step: 連続するウェイポイント間で許容される
+                                       各ジョイントの最大角度変化量 (ラジアン)。
+                                       None の場合はチェックしない。
+            max_ik_retries_on_jump: max_joint_change_per_step を超えた場合のIKリトライ回数上限
+            ik_retry_perturbation: IKリトライ時にシード値に加える摂動の最大量 (ラジアン)
+            send_immediately: すぐに軌道を送信するかどうか
+            wait: 軌道実行の完了を待つかどうか
         """
         joint_trajectory = []
-        q_init = self.get_current_joint_positions()
+        q_prev = self.get_current_joint_positions() # 前のステップのジョイント角度 (最初は現在値)
+
         # Check if initial position is valid before starting the loop
-        if q_init is None:
+        if q_prev is None:
              self.get_logger().error("Cannot start waypoint calculation: Initial joint positions not available.")
              return
+        q_prev = np.array(q_prev) # numpy 配列に変換
 
         all_waypoints_solved = True # Flag to track if all waypoints were solved
         for i, waypoint in enumerate(tqdm(waypoints, desc="Calculating IK for waypoints"), start=1):
-            joint_positions = self.solve_ik(waypoint, q_init=q_init)
 
-            # --- FIX: Check if solve_ik returned a valid result ---
-            if joint_positions is not None:
-                # solve_ik should already guarantee the size if it doesn't return None,
-                # but an extra check doesn't hurt.
-                if joint_positions.size == len(self.valid_joint_names):
-                    # Use the found positions for the trajectory and as the seed for the next IK
-                    joint_trajectory.append(joint_positions.tolist()) # Convert numpy array to list
-                    q_init = joint_positions # Update seed ONLY if successful
+            solved_within_limit = False
+            best_solution_found = None # リトライで見つかった最良の解を保持
+
+            # --- IK計算とリトライループ ---
+            for attempt in range(max_ik_retries_on_jump + 1): # 初回 + リトライ回数
+
+                # IK計算に使用するシード値 (初回は q_prev, リトライ時は摂動を加える)
+                if attempt == 0:
+                    q_seed = q_prev.tolist() # solve_ik はリストを期待
                 else:
-                    # This case indicates an unexpected issue in solve_ik logic
-                    self.get_logger().error(f"IK solution for waypoint [{i}] has unexpected size ({joint_positions.size}). Stopping.")
-                    all_waypoints_solved = False
-                    break # Exit the loop
-            else:
-                # solve_ik returned None (IK failed for this waypoint)
-                self.get_logger().warn(f"No joint positions found for waypoint [{i}]: {waypoint}. Stopping trajectory generation.")
-                all_waypoints_solved = False
-                break # Exit the loop if any waypoint fails
+                    # q_prev にランダムな摂動を加える
+                    perturbation = np.random.uniform(-ik_retry_perturbation, ik_retry_perturbation, size=q_prev.shape)
+                    q_seed_np = q_prev + perturbation
+                    # オプション: ジョイントリミット内にクリップする処理を追加しても良い
+                    q_seed = q_seed_np.tolist()
 
-        # Only send the trajectory if all waypoints were successfully converted to joint positions
+                # IK計算実行
+                current_joint_positions_np = self.solve_ik(waypoint, q_init=q_seed)
+
+                if current_joint_positions_np is not None:
+                    # IK成功
+                    if current_joint_positions_np.size == len(self.valid_joint_names):
+                        # サイズチェックOK
+                        best_solution_found = current_joint_positions_np # 少なくとも解は見つかった
+
+                        # 角度変化量チェック (max_joint_change_per_step が指定されている場合のみ)
+                        if max_joint_change_per_step is not None:
+                            joint_change = np.abs(current_joint_positions_np - q_prev)
+                            if np.any(joint_change > max_joint_change_per_step):
+                                # 閾値超え -> リトライへ (ループの次の反復へ)
+                                self.get_logger().debug(
+                                    f"Joint change exceeds threshold for waypoint [{i}] (Attempt {attempt}). "
+                                    f"Max change: {np.max(joint_change):.3f} > {max_joint_change_per_step:.3f} rad."
+                                )
+                                continue # 次のリトライへ
+                            else:
+                                # 閾値内 -> 成功
+                                solved_within_limit = True
+                                break # リトライループを抜ける (最適な解が見つかった)
+                        else:
+                            # 角度変化チェックなし -> 成功
+                            solved_within_limit = True
+                            break # リトライループを抜ける
+                    else:
+                        # IK成功したがサイズが不正 (solve_ik内で警告が出るはず)
+                        self.get_logger().error(
+                            f"IK solution for waypoint [{i}] (Attempt {attempt}) has unexpected size "
+                            f"({current_joint_positions_np.size})."
+                        )
+                        # この場合はリトライしても無駄なのでループを抜ける
+                        best_solution_found = None # 失敗扱い
+                        break
+                else:
+                    # IK失敗 (solve_ik内で警告が出るはず)
+                    self.get_logger().warn(f"IK failed for waypoint [{i}] (Attempt {attempt}).")
+                    # リトライを続ける (別のシードで成功するかもしれない)
+                    # continue は不要 (ループの次の反復へ)
+
+            # --- リトライループの結果処理 ---
+            if solved_within_limit and best_solution_found is not None:
+                # 閾値内でIK成功
+                joint_trajectory.append(best_solution_found.tolist())
+                q_prev = best_solution_found # 次のステップの q_prev を更新
+            else:
+                # リトライしても閾値内の解が見つからない or IK自体が失敗
+                if best_solution_found is not None: # IKは解けたが閾値を超えた場合
+                     self.get_logger().error(
+                         f"Failed to find IK solution within joint change limit ({max_joint_change_per_step:.3f} rad) "
+                         f"for waypoint [{i}] after {max_ik_retries_on_jump} retries. "
+                         f"Last valid solution had max change: {np.max(np.abs(best_solution_found - q_prev)):.3f} rad. "
+                         "Stopping trajectory generation."
+                     )
+                else: # IKが一度も成功しなかった場合
+                     self.get_logger().error(
+                         f"IK failed for waypoint [{i}] after {max_ik_retries_on_jump + 1} attempts. "
+                         "Stopping trajectory generation."
+                     )
+                all_waypoints_solved = False
+                break # 外側の for ループ (ウェイポイントのループ) を抜ける
+
+        # --- 軌道送信処理 (変更なし) ---
         if all_waypoints_solved and joint_trajectory:
             self.get_logger().info(f"Successfully calculated joint trajectory for {len(joint_trajectory)} waypoints.")
             self.set_joint_trajectory(joint_trajectory, time_to_reach, send_immediately, wait)
         elif not joint_trajectory:
              self.get_logger().error("Trajectory generation failed: No valid joint positions calculated.")
         else:
-             self.get_logger().error("Trajectory generation incomplete due to IK failure(s). Trajectory not sent.")
+             self.get_logger().error("Trajectory generation incomplete due to IK failure(s) or joint change limit exceeded. Trajectory not sent.")
 
 
 
@@ -395,7 +472,7 @@ def main(args: Optional[List[str]] = None) -> None:
             yaw_twist_per_rotation = 0
             number_of_waypoints_per_circle = 50
             center_position = [0, 0]
-            sec_per_rotation = 0.5
+            sec_per_rotation = 1
 
             motion_generator = GrindingMotionGenerator(mortar_top_position, mortar_inner_size)
             try:
