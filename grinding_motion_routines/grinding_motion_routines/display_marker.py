@@ -10,13 +10,12 @@ from builtin_interfaces.msg import Duration
 import numpy as np
 import time
 
-class MarkerDisplay(Node):
-    def __init__(self, marker_publisher_name, waypoints):
+class DisplayMarker(Node):
+    def __init__(self, marker_publisher_name="debug_marker"):
         super().__init__("marker_display")
         self.publisher = self.create_publisher(MarkerArray, marker_publisher_name, 1)
         # self.rate = self.create_rate(10)  
         self.index = 0
-        self.waypoints = waypoints
         # self.timer = self.create_timer(1.0, self.executer)  # 1秒ごとに送信
     def wait_for_connection(self):
         self.get_logger().info('Waiting for publisher to connect...')
@@ -93,9 +92,6 @@ class MarkerDisplay(Node):
         self.publisher.publish(marker_array)
         self.get_logger().info("Published!")
         # print("Published!")
-    def executer(self):
-        self.display_waypoints(self.waypoints)
-        # self.rate.sleep()
 
 def generate_spiral_waypoints(num_points):
     waypoints = []
@@ -122,7 +118,7 @@ def generate_spiral_waypoints(num_points):
 def main(args=None):
     rclpy.init()
     waypoints = generate_spiral_waypoints(100)
-    marker_display = MarkerDisplay("marker_publisher", waypoints)
+    marker_display = DisplayMarker("marker_publisher")
     marker_display.display_waypoints(waypoints)
 
     # marker_display.display_waypoints(waypoints)
