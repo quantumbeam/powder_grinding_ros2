@@ -4,9 +4,8 @@
     <arg name="robot_ip" default="192.168.58.42" />
     <arg name="use_mock_hardware" default="true" />
     <arg name="mock_sensor_commands" default="true" />
-    <arg name="launch_rviz" default="false" />
+    <arg name="launch_moveit_rviz" default="true" />
     <arg name="use_moveit" default="true" />
-    <arg name="launch_rviz_with_moveit" default="true" />
 
     <arg name="planning_scene_config" default="$(find-pkg-share grinding_scene_description)/config/planning_scene_config.yaml" />
 
@@ -16,13 +15,13 @@
         <arg name="robot_ip" value="$(var robot_ip)" />
         <arg name="use_mock_hardware" value="$(var use_mock_hardware)" />
         <arg name="mock_sensor_commands" value="$(var mock_sensor_commands)" />
-        <arg name="launch_rviz" value="$(var launch_rviz)" />
+        <arg name="launch_rviz" value="false" />
     </include>
 
     <!-- Include ur_moveit_config launch file -->
     <include file="$(find-pkg-share grinding_moveit_config)/launch/ur_moveit.launch.py">
         <arg name="ur_type" value="$(var ur_type)" />
-        <arg name="launch_rviz" value="$(var launch_rviz_with_moveit)" />
+        <arg name="launch_rviz" value="$(var launch_moveit_rviz)" />
     </include>
 
     <!-- Include grinding_scene_description launch file -->
