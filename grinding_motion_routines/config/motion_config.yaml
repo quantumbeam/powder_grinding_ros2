@@ -1,63 +1,68 @@
 grinding_demo_node:
   ros__parameters:
-    experiment_time: 300 # min
-    pouse_time_list: 
-      - 30
-      - 60
-      - 90
-      - 120
-      - 150
-      - 180
-      - 210 
-      - 240
-      - 270
-      - 300
-    grinding_ee_link: "pestle_tip"  
+    # Robot and Controller Parameters
+    controller_name: "scaled_joint_trajectory_controller"
+    joint_names: [
+      "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
+      "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"
+    ]
+    base_link: "base_link"
+    grinding_ee_link: "pestle_tip"
     gathering_ee_link: "spatula_tip"
+    robot_description_package: "grinding_robot_description"
+    robot_description_file: "ur5e_with_pestle"
 
-    # ik and motion planner params 
-    joint_trajectory_controller_name: "scaled_pos_joint_traj_controller"
-    urdf_name: "ur5e" # support "ur3e" and "ur5e"
-    ik_solver: "trac_ik" # only "trac_ik" is supported, "ikfast" will be supported in the future
-    motion_planner_id: "RRTConnect" # recommended "TRRT"(highly optimal but long planning time) or "RRTConnect" (low optimal but fast planning)
-    planning_time: 20 # planning time to timeout in MoveIt motion planning 
-    max_attempts: 100 # number of trial for planning by JTC
+    # Mortar Parameters
+    mortar:
+      inner_size:
+        x: 0.04
+        y: 0.04
+        z: 0.035
+      top_position:
+        x: -0.245
+        y: 0.372
+        z: 0.045
 
-    # grinding params
-    grinding_pos_begining: 
-      - -8
-      - 0
-    grinding_pos_end:
-      - -8
-      - 0.0001
-    grinding_center_pos:
-      - 0
-      - 0
-    grinding_number_of_rotation: 20
-    grinding_sec_per_rotation: 0.5 # grinding_number_of_rotation * grinding_sec_per_rotation < 15
-    grinding_number_of_waypoints_per_circle: 50  # 50 is enough
-    grinding_angle_scale: 0.3 #0 - 0.3
-    grinding_rz_begining: 36
-    grinding_rz_end: 36
-    grinding_vel_scale: 1
-    grinding_acc_scale: 1
-    grinding_yaw_bias: 3.14159265359 # rad(pi)
-    grinding_joint_difference_limit_for_motion_planning: 0.03
+    # Initial Pose Parameters
+    init_pose:
+      offset_z: 0.05
+      orientation:
+        x: 1.0
+        y: 0.0
+        z: 0.0
+        w: 0.0
 
-    # circular gathering params 
-    gathering_pos_begining: 
-      - 30
-      - 0
-    gathering_pos_end:
-      - -22
-      - 0.0001
-    gathering_number_of_rotation: 5
-    gathering_sec_per_rotation: 2
-    gathering_angle_scale: 0
-    gathering_rz_begining: 35
-    gathering_rz_end: 35
-    gathering_vel_scale: 0.1
-    gathering_acc_scale: 0.1
-    gathering_number_of_waypoints_per_circle: 100
-    gathering_yaw_bias: 3.14159265359 # rad(pi)
-    gathering_joint_difference_limit_for_motion_planning: 0.03  
+    # Grinding Parameters
+    grinding:
+      depth_mm: -10.0
+      radius_mm: 15.0
+      rotations: 2.0
+      angle_scale: 0.8
+      yaw_twist_per_rotation_deg: 90.0
+      waypoints_per_circle: 30
+      sec_per_rotation: 2.0
+      center_offset_mm:
+        x: 0.0
+        y: 0.0
+
+    # Gathering Parameters
+    gathering:
+      depth_mm: -5.0
+      start_radius_mm: 18.0
+      end_radius_mm: 2.0 # 中心ぴったりは避ける
+      rotations: 1.5
+      angle_scale: 0.1
+      waypoints_per_circle: 40
+      sec_per_rotation: 3.0
+      center_offset_mm:
+        x: 0.0
+        y: 0.0
+
+    # Motion Execution Parameters
+    motion:
+      joint_difference_limit_rad: 0.1
+      max_ik_retries_on_jump: 100
+      ik_retry_perturbation_rad: 0.05
+      pre_motion: true
+      post_motion: true
+      wait_for_completion: true

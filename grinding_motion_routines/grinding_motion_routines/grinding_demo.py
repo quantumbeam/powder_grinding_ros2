@@ -1,162 +1,245 @@
+#!/usr/bin/env python3
+
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Quaternion, Pose, Point
-from tf_transformations import quaternion_from_euler, quaternion_slerp
-
-
-from numpy import pi
-from math import tau, dist, fabs, cos, sin, sqrt
-from cmath import nan
-import sys
-import copy
 import numpy as np
+from typing import List, Optional, Tuple
+import math # For deg2rad
 
-# from ur_pykdl import ur_kinematics
-from grinding_motion_routines.helpers import *
-from onolab_ws.src.grinding_motion_routines.grinding_motion_routines.display_marker import MarkerDisplay
+# 必要なクラスをインポート
+from grinding_motion_routines.grinding_motion_primitive import GrindingMotionPrimitive
+from grinding_motion_routines.grinding_motion_generator import GrindingMotionGenerator
+from grinding_motion_routines.JTC_helper import JointTrajectoryControllerHelper, IKType
+from grinding_motion_routines.display_marker import DisplayMarker # マーカー表示用
+
+def main(args=None):
+    rclpy.init(args=args)
+    # メインとなるノードを作成
+    main_node = Node('grinding_demo_node')
+    logger = main_node.get_logger()
+
+    logger.info("Starting Grinding Demo Node...")
+
+    # --- パラメータの宣言・取得 ---
+    try:
+        logger.info("Declaring and getting parameters...")
+        # Robot and Controller Parameters
+        controller_name = main_node.declare_parameter('controller_name', 'scaled_joint_trajectory_controller').get_parameter_value().string_value
+        joint_names = main_node.declare_parameter('joint_names', [
+            "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
+            "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"
+        ]).get_parameter_value().string_array_value
+        base_link = main_node.declare_parameter('base_link', 'base_link').get_parameter_value().string_value
+        grinding_ee_link = main_node.declare_parameter('grinding_ee_link', 'pestle_tip').get_parameter_value().string_value
+        gathering_ee_link = main_node.declare_parameter('gathering_ee_link', 'spatula_tip').get_parameter_value().string_value
+        robot_description_package = main_node.declare_parameter('robot_description_package', 'grinding_robot_description').get_parameter_value().string_value
+        robot_description_file = main_node.declare_parameter('robot_description_file', 'ur5e_with_pestle').get_parameter_value().string_value
+
+        # Mortar Parameters
+        mortar_inner_size_x = main_node.declare_parameter('mortar.inner_size.x', 0.04).get_parameter_value().double_value
+        mortar_inner_size_y = main_node.declare_parameter('mortar.inner_size.y', 0.04).get_parameter_value().double_value
+        mortar_inner_size_z = main_node.declare_parameter('mortar.inner_size.z', 0.035).get_parameter_value().double_value
+        mortar_top_pos_x = main_node.declare_parameter('mortar.top_position.x', -0.245).get_parameter_value().double_value
+        mortar_top_pos_y = main_node.declare_parameter('mortar.top_position.y', 0.372).get_parameter_value().double_value
+        mortar_top_pos_z = main_node.declare_parameter('mortar.top_position.z', 0.045).get_parameter_value().double_value
+
+        mortar_inner_size = {"x": mortar_inner_size_x, "y": mortar_inner_size_y, "z": mortar_inner_size_z}
+        mortar_top_position = {"x": mortar_top_pos_x, "y": mortar_top_pos_y, "z": mortar_top_pos_z}
+
+        # Initial Pose Parameters
+        init_pose_offset_z = main_node.declare_parameter('init_pose.offset_z', 0.05).get_parameter_value().double_value
+        init_pose_quat_x = main_node.declare_parameter('init_pose.orientation.x', 1.0).get_parameter_value().double_value
+        init_pose_quat_y = main_node.declare_parameter('init_pose.orientation.y', 0.0).get_parameter_value().double_value
+        init_pose_quat_z = main_node.declare_parameter('init_pose.orientation.z', 0.0).get_parameter_value().double_value
+        init_pose_quat_w = main_node.declare_parameter('init_pose.orientation.w', 0.0).get_parameter_value().double_value
+
+        init_pose = [
+            mortar_top_position["x"],
+            mortar_top_position["y"],
+            mortar_top_position["z"] + init_pose_offset_z,
+            init_pose_quat_x, init_pose_quat_y, init_pose_quat_z, init_pose_quat_w
+        ]
+        logger.info(f"Using initial pose: {init_pose}")
+
+        # Grinding Parameters
+        grinding_radius_mm = main_node.declare_parameter('grinding.radius_mm', 10.0).get_parameter_value().double_value
+        grinding_rotations = main_node.declare_parameter('grinding.rotations', 4.0).get_parameter_value().double_value
+        grinding_angle_scale = main_node.declare_parameter('grinding.angle_scale', 0.5).get_parameter_value().double_value
+        grinding_yaw_twist_deg = main_node.declare_parameter('grinding.yaw_twist_per_rotation_deg', 45.0).get_parameter_value().double_value
+        grinding_waypoints_per_circle = main_node.declare_parameter('grinding.waypoints_per_circle', 50).get_parameter_value().integer_value
+        grinding_sec_per_rotation = main_node.declare_parameter('grinding.sec_per_rotation', 2.0).get_parameter_value().double_value
+        grinding_center_offset_x_mm = main_node.declare_parameter('grinding.center_offset_mm.x', 0.0).get_parameter_value().double_value
+        grinding_center_offset_y_mm = main_node.declare_parameter('grinding.center_offset_mm.y', 0.0).get_parameter_value().double_value
+        grinding_yaw_twist_rad = math.radians(grinding_yaw_twist_deg) # Convert to radians
+
+        # Gathering Parameters
+        gathering_start_radius_mm = main_node.declare_parameter('gathering.start_radius_mm', 18.0).get_parameter_value().double_value
+        gathering_end_radius_mm = main_node.declare_parameter('gathering.end_radius_mm', 0.0).get_parameter_value().double_value
+        gathering_rotations = main_node.declare_parameter('gathering.rotations', 1.5).get_parameter_value().double_value
+        gathering_angle_scale = main_node.declare_parameter('gathering.angle_scale', 0.1).get_parameter_value().double_value
+        gathering_waypoints_per_circle = main_node.declare_parameter('gathering.waypoints_per_circle', 40).get_parameter_value().integer_value
+        gathering_sec_per_rotation = main_node.declare_parameter('gathering.sec_per_rotation', 3.0).get_parameter_value().double_value
+        gathering_center_offset_x_mm = main_node.declare_parameter('gathering.center_offset_mm.x', 0.0).get_parameter_value().double_value
+        gathering_center_offset_y_mm = main_node.declare_parameter('gathering.center_offset_mm.y', 0.0).get_parameter_value().double_value
+
+        # Motion Execution Parameters
+        joint_difference_limit_rad = main_node.declare_parameter('motion.joint_difference_limit_rad', 0.1).get_parameter_value().double_value
+        max_ik_retries_on_jump = main_node.declare_parameter('motion.max_ik_retries_on_jump', 100).get_parameter_value().integer_value
+        ik_retry_perturbation_rad = main_node.declare_parameter('motion.ik_retry_perturbation_rad', 0.05).get_parameter_value().double_value
+        pre_motion = main_node.declare_parameter('motion.pre_motion', True).get_parameter_value().bool_value
+        post_motion = main_node.declare_parameter('motion.post_motion', True).get_parameter_value().bool_value
+        wait_for_completion = main_node.declare_parameter('motion.wait_for_completion', True).get_parameter_value().bool_value
+
+        logger.info("Parameters loaded successfully.")
+
+    except Exception as e:
+        logger.error(f"Failed to declare or get parameters: {e}", exc_info=True)
+        rclpy.shutdown()
+        return
+
+    # --- ヘルパーとジェネレータの初期化 ---
+    jtc_helper = None # Define outside try block for finally clause
+    display_marker = None
+    try:
+        # JTC Helper を初期化 (最初は研削用EEリンクを使用)
+        jtc_helper = JointTrajectoryControllerHelper(
+            controller_name=controller_name,
+            joints_name=joint_names,
+            tool_link=grinding_ee_link, # 初期は研削用
+            base_link=base_link,
+            robot_urdf_package=robot_description_package,
+            robot_urdf_file_name=robot_description_file,
+            ik_solver=IKType.TRACK_IK # または BIO_IK
+        )
+        logger.info("JointTrajectoryControllerHelper initialized.")
+
+        # JTC Helper が準備できるまで待機 (オプション)
+        # logger.info("Waiting for JTC Helper to be ready...")
+        # rclpy.spin_once(jtc_helper, timeout_sec=1.0) # Spin once to allow subscriptions
+        # if not jtc_helper.wait_for_joint_state(timeout_sec=10.0):
+        #      logger.error("JTC Helper failed to initialize (timeout waiting for joint states).")
+        #      raise RuntimeError("JTC Helper initialization failed")
+        # logger.info("JTC Helper is ready.")
+
+        # GrindingMotionGenerator を初期化
+        motion_generator = GrindingMotionGenerator(mortar_top_position, mortar_inner_size)
+        logger.info("GrindingMotionGenerator initialized.")
+
+        # GrindingMotionPrimitive を初期化
+        motion_primitive = GrindingMotionPrimitive(
+            node=main_node,
+            jtc_helper=jtc_helper, # 作成したヘルパーを渡す
+            init_pose=init_pose,
+            grinding_ee_link=grinding_ee_link,
+            gathering_ee_link=gathering_ee_link,
+        )
+        logger.info("GrindingMotionPrimitive initialized.")
+
+        # マーカー表示用
+        display_marker = DisplayMarker()
+        logger.info("DisplayMarker initialized.")
+
+    except Exception as e:
+        logger.error(f"Failed to initialize helpers or generators: {e}", exc_info=True)
+        if jtc_helper:
+            jtc_helper.destroy_node()
+        rclpy.shutdown()
+        return
+
+    # --- デモ動作の実行 ---
+    try:
+        # --- 1. 研削動作 ---
+        logger.info("--- Generating Grinding Waypoints ---")
+        # ウェイポイント生成
+        grinding_waypoints = motion_generator.create_circular_waypoints(
+            beginning_position_mm=[grinding_radius_mm, 0], # [x,y]
+            end_position_mm=[grinding_radius_mm, 0.001],   # [x,y]
+            number_of_rotations=grinding_rotations,
+            number_of_waypoints_per_circle=grinding_waypoints_per_circle,
+            angle_scale=grinding_angle_scale,
+            yaw_twist_per_rotation=grinding_yaw_twist_rad, # Use radians
+            center_position_mm=[grinding_center_offset_x_mm, grinding_center_offset_y_mm]
+        )
+        logger.info(f"Generated {grinding_waypoints.shape[0]} grinding waypoints.")
+
+        # マーカー表示
+        display_marker.display_waypoints(grinding_waypoints)
+        logger.info("Published grinding path markers.")
+
+        # 研削動作実行
+        logger.info("--- Executing Grinding Motion ---")
+        success_grind, _ = motion_primitive.execute_grinding(
+            waypoints=grinding_waypoints, # Pass numpy array
+            grinding_sec=grinding_sec_per_rotation * grinding_rotations,
+            joint_difference_limit=joint_difference_limit_rad,
+            max_ik_retries_on_jump=max_ik_retries_on_jump,
+            ik_retry_perturbation=ik_retry_perturbation_rad,
+            pre_motion=pre_motion,
+            post_motion=post_motion,
+            wait_for_completion=wait_for_completion
+        )
+
+        if not success_grind:
+            logger.error("Grinding motion failed.")
+            # デモを継続するか、ここで終了するか選択
+            # raise RuntimeError("Grinding motion failed") # 例: エラーで終了
+        else:
+            logger.info("Grinding motion completed.")
 
 
-class GrindingDemo(Node):
-    def __init__(self, node_name):
-        super().__init__(node_name)
+        # --- 2. 収集動作 ---
+        logger.info("--- Generating Gathering Waypoints ---")
+        # ウェイポイント生成 (開始半径から終了半径へ)
+        gathering_waypoints = motion_generator.create_circular_waypoints(
+            beginning_position_mm=[gathering_start_radius_mm, 0], # [x,y]
+            end_position_mm=[gathering_end_radius_mm, 0.001],   # [x,y]
+            number_of_rotations=gathering_rotations,
+            number_of_waypoints_per_circle=gathering_waypoints_per_circle,
+            angle_scale=gathering_angle_scale,
+            yaw_twist_per_rotation=0, # No twist for gathering
+            center_position_mm=[gathering_center_offset_x_mm, gathering_center_offset_y_mm]
+        )
+        logger.info(f"Generated {gathering_waypoints.shape[0]} gathering waypoints.")
 
-        # Declare parameters
-        self.declare_parameter("experiment_time", 300)
-        self.declare_parameter("pouse_time_list", [30, 60, 90, 120, 150, 180, 210, 240, 270, 300])
-        self.declare_parameter("grinding_ee_link", "pestle_tip")
-        self.declare_parameter("gathering_ee_link", "spatula_tip")
-        self.declare_parameter("joint_trajectory_controller_name", "scaled_pos_joint_traj_controller")
-        self.declare_parameter("urdf_name", "ur5e")
-        self.declare_parameter("ik_solver", "trac_ik")
-        self.declare_parameter("motion_planner_id", "RRTConnect")
-        self.declare_parameter("planning_time", 20)
-        self.declare_parameter("max_attempts", 100)
-        self.declare_parameter("grinding_pos_begining", [-8, 0])
-        self.declare_parameter("grinding_pos_end", [-8, 0.0001])
-        self.declare_parameter("grinding_center_pos", [0, 0])
-        self.declare_parameter("grinding_number_of_rotation", 20)
-        self.declare_parameter("grinding_sec_per_rotation", 0.5)
-        self.declare_parameter("grinding_number_of_waypoints_per_circle", 50)
-        self.declare_parameter("grinding_angle_scale", 0.3)
-        self.declare_parameter("grinding_rz_begining", 36)
-        self.declare_parameter("grinding_rz_end", 36)
-        self.declare_parameter("grinding_vel_scale", 1)
-        self.declare_parameter("grinding_acc_scale", 1)
-        self.declare_parameter("grinding_yaw_bias", 3.14159)  # rad(pi)
-        self.declare_parameter("grinding_joint_difference_limit_for_motion_planning", 0.03)
-        self.declare_parameter("gathering_pos_begining", [30, 0])
-        self.declare_parameter("gathering_pos_end", [-22, 0.0001])
-        self.declare_parameter("gathering_number_of_rotation", 5)
-        self.declare_parameter("gathering_sec_per_rotation", 2)
-        self.declare_parameter("gathering_angle_scale", 0)
-        self.declare_parameter("gathering_rz_begining", 35)
-        self.declare_parameter("gathering_rz_end", 35)
-        self.declare_parameter("gathering_vel_scale", 0.1)
-        self.declare_parameter("gathering_acc_scale", 0.1)
-        self.declare_parameter("gathering_number_of_waypoints_per_circle", 100)
-        self.declare_parameter("gathering_yaw_bias", 3.14159)  # rad(pi)
-        self.declare_parameter("gathering_joint_difference_limit_for_motion_planning", 0.03)
+        # マーカー表示
+        display_marker.display_waypoints(gathering_waypoints)
+        logger.info("Published gathering path markers.")
 
-        # Get parameters
-        experiment_time = self.get_parameter("experiment_time").get_parameter_value().integer_value
-        pouse_time_list = self.get_parameter("pouse_time_list").get_parameter_value().double_array_value
-        grinding_ee_link = self.get_parameter("grinding_ee_link").get_parameter_value().string_value
-        gathering_ee_link = self.get_parameter("gathering_ee_link").get_parameter_value().string_value
-        joint_trajectory_controller_name = self.get_parameter("joint_trajectory_controller_name").get_parameter_value().string_value
-        urdf_name = self.get_parameter("urdf_name").get_parameter_value().string_value
-        ik_solver = self.get_parameter("ik_solver").get_parameter_value().string_value
-        motion_planner_id = self.get_parameter("motion_planner_id").get_parameter_value().string_value
-        planning_time = self.get_parameter("planning_time").get_parameter_value().integer_value
-        max_attempts = self.get_parameter("max_attempts").get_parameter_value().integer_value
-        grinding_pos_begining = self.get_parameter("grinding_pos_begining").get_parameter_value().double_array_value
-        grinding_pos_end = self.get_parameter("grinding_pos_end").get_parameter_value().double_array_value
-        grinding_center_pos = self.get_parameter("grinding_center_pos").get_parameter_value().double_array_value
-        grinding_number_of_rotation = self.get_parameter("grinding_number_of_rotation").get_parameter_value().integer_value
-        grinding_sec_per_rotation = self.get_parameter("grinding_sec_per_rotation").get_parameter_value().double_value
-        grinding_number_of_waypoints_per_circle = self.get_parameter("grinding_number_of_waypoints_per_circle").get_parameter_value().integer_value
-        grinding_angle_scale = self.get_parameter("grinding_angle_scale").get_parameter_value().double_value
-        grinding_rz_begining = self.get_parameter("grinding_rz_begining").get_parameter_value().double_value
-        grinding_rz_end = self.get_parameter("grinding_rz_end").get_parameter_value().double_value
-        grinding_vel_scale = self.get_parameter("grinding_vel_scale").get_parameter_value().double_value
-        grinding_acc_scale = self.get_parameter("grinding_acc_scale").get_parameter_value().double_value
-        grinding_yaw_bias = self.get_parameter("grinding_yaw_bias").get_parameter_value().double_value
-        grinding_joint_difference_limit_for_motion_planning = self.get_parameter("grinding_joint_difference_limit_for_motion_planning").get_parameter_value().double_value
-        gathering_pos_begining = self.get_parameter("gathering_pos_begining").get_parameter_value().double_array_value
-        gathering_pos_end = self.get_parameter("gathering_pos_end").get_parameter_value().double_array_value
-        gathering_number_of_rotation = self.get_parameter("gathering_number_of_rotation").get_parameter_value().integer_value
-        gathering_sec_per_rotation = self.get_parameter("gathering_sec_per_rotation").get_parameter_value().double_value
-        gathering_angle_scale = self.get_parameter("gathering_angle_scale").get_parameter_value().double_value
-        gathering_rz_begining = self.get_parameter("gathering_rz_begining").get_parameter_value().double_value
-        gathering_rz_end = self.get_parameter("gathering_rz_end").get_parameter_value().double_value
-        gathering_vel_scale = self.get_parameter("gathering_vel_scale").get_parameter_value().double_value
-        gathering_acc_scale = self.get_parameter("gathering_acc_scale").get_parameter_value().double_value
-        gathering_number_of_waypoints_per_circle = self.get_parameter("gathering_number_of_waypoints_per_circle").get_parameter_value().integer_value
-        gathering_yaw_bias = self.get_parameter("gathering_yaw_bias").get_parameter_value().double_value
-        gathering_joint_difference_limit_for_motion_planning = self.get_parameter("gathering_joint_difference_limit_for_motion_planning").get_parameter_value().double_value
+        # 収集動作実行
+        logger.info("--- Executing Gathering Motion ---")
+        # GrindingMotionPrimitive 内で EE リンクが gathering_ee_link に切り替わるはず
+        success_gather, _ = motion_primitive.execute_gathering(
+            waypoints=gathering_waypoints, # Pass numpy array
+            gathering_sec=gathering_sec_per_rotation * gathering_rotations,
+            joint_difference_limit=joint_difference_limit_rad,
+            max_ik_retries_on_jump=max_ik_retries_on_jump,
+            ik_retry_perturbation=ik_retry_perturbation_rad,
+            wait_for_completion=wait_for_completion
+        )
 
-        # Output parameters
-        self.get_logger().info(f"experiment_time: {experiment_time}")
-        self.get_logger().info(f"pouse_time_list: {pouse_time_list}")
-        self.get_logger().info(f"grinding_ee_link: {grinding_ee_link}")
-        self.get_logger().info(f"gathering_ee_link: {gathering_ee_link}")
-        self.get_logger().info(f"joint_trajectory_controller_name: {joint_trajectory_controller_name}")
-        self.get_logger().info(f"urdf_name: {urdf_name}")
-        self.get_logger().info(f"ik_solver: {ik_solver}")
-        self.get_logger().info(f"motion_planner_id: {motion_planner_id}")
-        self.get_logger().info(f"planning_time: {planning_time}")
-        self.get_logger().info(f"max_attempts: {max_attempts}")
-        self.get_logger().info(f"grinding_pos_begining: {grinding_pos_begining}")
-        self.get_logger().info(f"grinding_pos_end: {grinding_pos_end}")
-        self.get_logger().info(f"grinding_center_pos: {grinding_center_pos}")
-        self.get_logger().info(f"grinding_number_of_rotation: {grinding_number_of_rotation}")
-        self.get_logger().info(f"grinding_sec_per_rotation: {grinding_sec_per_rotation}")
-        self.get_logger().info(f"grinding_number_of_waypoints_per_circle: {grinding_number_of_waypoints_per_circle}")
-        self.get_logger().info(f"grinding_angle_scale: {grinding_angle_scale}")
-        self.get_logger().info(f"grinding_rz_begining: {grinding_rz_begining}")
-        self.get_logger().info(f"grinding_rz_end: {grinding_rz_end}")
-        self.get_logger().info(f"grinding_vel_scale: {grinding_vel_scale}")
-        self.get_logger().info(f"grinding_acc_scale: {grinding_acc_scale}")
-        self.get_logger().info(f"grinding_yaw_bias: {grinding_yaw_bias}")
-        self.get_logger().info(f"grinding_joint_difference_limit_for_motion_planning: {grinding_joint_difference_limit_for_motion_planning}")
-        self.get_logger().info(f"gathering_pos_begining: {gathering_pos_begining}")
-        self.get_logger().info(f"gathering_pos_end: {gathering_pos_end}")
-        self.get_logger().info(f"gathering_number_of_rotation: {gathering_number_of_rotation}")
-        self.get_logger().info(f"gathering_sec_per_rotation: {gathering_sec_per_rotation}")
-        self.get_logger().info(f"gathering_angle_scale: {gathering_angle_scale}")
-        self.get_logger().info(f"gathering_rz_begining: {gathering_rz_begining}")
-        self.get_logger().info(f"gathering_rz_end: {gathering_rz_end}")
-        self.get_logger().info(f"gathering_vel_scale: {gathering_vel_scale}")
-        self.get_logger().info(f"gathering_acc_scale: {gathering_acc_scale}")
-        self.get_logger().info(f"gathering_number_of_waypoints_per_circle: {gathering_number_of_waypoints_per_circle}")
-        self.get_logger().info(f"gathering_yaw_bias: {gathering_yaw_bias}")
-        self.get_logger().info(f"gathering_joint_difference_limit_for_motion_planning: {gathering_joint_difference_limit_for_motion_planning}")
+        if not success_gather:
+            logger.error("Gathering motion failed.")
+            # raise RuntimeError("Gathering motion failed")
+        else:
+            logger.info("Gathering motion completed.")
 
-def main():
-    # if len(sys.argv) == 1:
-    #     print("You need to set xml_file file path to arg1")
-    #     exit()
-    # else:
-    #     URDF_path = sys.argv[1]
+        logger.info("Grinding Demo finished successfully.")
 
-    rclpy.init()
-    rclpy.create_node("create_waypoints_node")
-    # kin = ur_kinematics(URDF_path, base_link="base_link", ee_link="tool0")
+    except Exception as e:
+        logger.error(f"An error occurred during the demo: {e}", exc_info=True) # トレースバックも表示
 
-    grinding_waypoints = GrindingWaypoints("create_waypoints_node")
-    waypoints = grinding_waypoints.create_circular_waypoints(debug=False)
-    print(len(waypoints))
-    pose_list = [waypoints[i].position for i in range(len(waypoints))]
-    for p in pose_list:
-        print(p.x, p.y, p.z)
+    finally:
+        # --- クリーンアップ ---
+        logger.info("Shutting down...")
+        if display_marker:
+            display_marker.destroy_node() # マーカーノードも破棄
+        if jtc_helper:
+            jtc_helper.destroy_node() # JTC Helper ノードも破棄
+        # main_node は最後に破棄
+        if 'main_node' in locals() and main_node and rclpy.ok():
+             main_node.destroy_node()
+        if rclpy.ok():
+             rclpy.shutdown()
 
-    marker_display = MarkerDisplay("marker_publisher")
-    marker_display.display_waypoints(waypoints, scale=0.01)
-
-    rclpy.spin(marker_display)
-    grinding_waypoints.destroy_node()
-    marker_display.destroy_node()
-    rclpy.shutdown()
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
