@@ -315,8 +315,8 @@ class GrindingMotionGenerator:
         beginning_position_mm: List[float], # [x, y] relative to center_position_mm (mm)
         end_position_mm: List[float],       # [x, y] relative to center_position_mm (mm)
         # Make z-radii optional, default to None
-        beginning_radius_z_mm: Optional[float] = None, # Ellipsoid z-radius at start (mm). Defaults to mortar's inner z-radius if None.
-        end_radius_z_mm: Optional[float] = None,       # Ellipsoid z-radius at end (mm). Defaults to mortar's inner z-radius if None.
+        beginning_depth_mm: Optional[float] = None, # Ellipsoid z-radius at start (mm). Defaults to mortar's inner z-radius if None.
+        end_depth_mm: Optional[float] = None,       # Ellipsoid z-radius at end (mm). Defaults to mortar's inner z-radius if None.
         angle_scale: float = 0.5,
         yaw_bias: Optional[float] = None,
         yaw_twist_per_rotation: float = 0,
@@ -330,8 +330,8 @@ class GrindingMotionGenerator:
         Args:
             beginning_position_mm: Start XY position relative to center_position_mm (mm).
             end_position_mm: End XY position relative to center_position_mm (mm).
-            beginning_radius_z_mm: Ellipsoid Z-radius at the start (mm). Defaults to mortar's inner z-radius if None.
-            end_radius_z_mm: Ellipsoid Z-radius at the end (mm). Defaults to mortar's inner z-radius if None.
+            beginning_depth_mm: Ellipsoid Z-radius at the start (mm). Defaults to mortar's inner z-radius if None.
+            end_depth_mm: Ellipsoid Z-radius at the end (mm). Defaults to mortar's inner z-radius if None.
             angle_scale: Tool orientation interpolation factor (0=vertical, 1=normal).
             yaw_bias: Fixed yaw offset (radians). Used if yaw_twist_per_rotation is 0.
             yaw_twist_per_rotation: Yaw change per full rotation (radians).
@@ -357,13 +357,13 @@ class GrindingMotionGenerator:
         # --- Set default Z radii if not provided ---
         default_rz_m = self.mortar_inner_radii["z"]
         default_rz_mm = default_rz_m / MM_TO_M
-        start_rz_mm_to_use = beginning_radius_z_mm if beginning_radius_z_mm is not None else default_rz_mm
-        end_rz_mm_to_use = end_radius_z_mm if end_radius_z_mm is not None else default_rz_mm
+        start_rz_mm_to_use = beginning_depth_mm if beginning_depth_mm is not None else default_rz_mm
+        end_rz_mm_to_use = end_depth_mm if end_depth_mm is not None else default_rz_mm
 
         # --- Check if end radius is smaller than beginning radius (after defaults) ---
         if end_rz_mm_to_use < start_rz_mm_to_use:
              if not np.isclose(end_rz_mm_to_use, start_rz_mm_to_use):
-                 raise ValueError(f"Effective end_radius_z_mm ({end_rz_mm_to_use:.2f}) cannot be smaller than effective beginning_radius_z_mm ({start_rz_mm_to_use:.2f}).")
+                 raise ValueError(f"Effective end_depth_mm ({end_rz_mm_to_use:.2f}) cannot be smaller than effective beginning_depth_mm ({start_rz_mm_to_use:.2f}).")
 
         # --- Convert inputs to meters and numpy arrays ---
         start_pos_xy_offset = np.array(beginning_position_mm) * MM_TO_M
@@ -373,7 +373,7 @@ class GrindingMotionGenerator:
         end_rz = end_rz_mm_to_use * MM_TO_M
         center_offset_xy = np.array(center_position_mm) * MM_TO_M
 
-        total_number_of_waypoints = number_of_rotations * number_of_waypoints_per_circle
+        total_number_of_waypoints = int(number_of_rotations * number_of_waypoints_per_circle)
         if total_number_of_waypoints == 0:
              return np.empty((0, 7))
 
@@ -431,8 +431,8 @@ class GrindingMotionGenerator:
         beginning_position_mm: List[float], # [x, y] relative to mortar center (mm)
         end_position_mm: List[float],       # [x, y] relative to mortar center (mm)
         # Make z-radii optional, default to None
-        beginning_radius_z_mm: Optional[float] = None, # Ellipsoid z-radius at start (mm). Defaults to mortar's inner z-radius if None.
-        end_radius_z_mm: Optional[float] = None,       # Ellipsoid z-radius at end (mm). Defaults to mortar's inner z-radius if None.
+        beginning_depth_mm: Optional[float] = None, # Ellipsoid z-radius at start (mm). Defaults to mortar's inner z-radius if None.
+        end_depth_mm: Optional[float] = None,       # Ellipsoid z-radius at end (mm). Defaults to mortar's inner z-radius if None.
         angle_scale: float = 0.5,
         fixed_quaternion: bool = False,
         yaw_bias: Optional[float] = None,
@@ -444,8 +444,8 @@ class GrindingMotionGenerator:
         Args:
             beginning_position_mm: Start XY position relative to mortar center (mm).
             end_position_mm: End XY position relative to mortar center (mm).
-            beginning_radius_z_mm: Ellipsoid Z-radius at the start (mm). Defaults to mortar's inner z-radius if None.
-            end_radius_z_mm: Ellipsoid Z-radius at the end (mm). Defaults to mortar's inner z-radius if None.
+            beginning_depth_mm: Ellipsoid Z-radius at the start (mm). Defaults to mortar's inner z-radius if None.
+            end_depth_mm: Ellipsoid Z-radius at the end (mm). Defaults to mortar's inner z-radius if None.
             angle_scale: Tool orientation interpolation factor (0=vertical, 1=normal).
             fixed_quaternion: If True, use the orientation of the first waypoint for all points.
             yaw_bias: Fixed yaw offset (radians).
@@ -470,14 +470,14 @@ class GrindingMotionGenerator:
         default_rz_mm = default_rz_m / MM_TO_M
 
         # Use provided value or default if None
-        start_rz_mm_to_use = beginning_radius_z_mm if beginning_radius_z_mm is not None else default_rz_mm
-        end_rz_mm_to_use = end_radius_z_mm if end_radius_z_mm is not None else default_rz_mm
+        start_rz_mm_to_use = beginning_depth_mm if beginning_depth_mm is not None else default_rz_mm
+        end_rz_mm_to_use = end_depth_mm if end_depth_mm is not None else default_rz_mm
 
         # --- Check if end radius is smaller than beginning radius ---
         # This check should happen *after* defaults are applied
         if end_rz_mm_to_use < start_rz_mm_to_use:
              if not np.isclose(end_rz_mm_to_use, start_rz_mm_to_use):
-                 raise ValueError(f"Effective end_radius_z_mm ({end_rz_mm_to_use:.2f}) cannot be smaller than effective beginning_radius_z_mm ({start_rz_mm_to_use:.2f}).")
+                 raise ValueError(f"Effective end_depth_mm ({end_rz_mm_to_use:.2f}) cannot be smaller than effective beginning_depth_mm ({start_rz_mm_to_use:.2f}).")
 
         # --- Convert inputs to meters and numpy arrays ---
         start_pos_xy = np.array(beginning_position_mm) * MM_TO_M
@@ -537,8 +537,8 @@ class GrindingMotionGenerator:
         beginning_length_from_center_mm: float, # Start radius (mm)
         end_length_from_center_mm: float,       # End radius (mm)
         # Make z-radii optional, default to None
-        beginning_radius_z_mm: Optional[float] = None, # Ellipsoid z-radius at start radius (mm). Defaults to mortar's inner z-radius if None.
-        end_radius_z_mm: Optional[float] = None,       # Ellipsoid z-radius at end radius (mm). Defaults to mortar's inner z-radius if None.
+        beginning_depth_mm: Optional[float] = None, # Ellipsoid z-radius at start radius (mm). Defaults to mortar's inner z-radius if None.
+        end_depth_mm: Optional[float] = None,       # Ellipsoid z-radius at end radius (mm). Defaults to mortar's inner z-radius if None.
         angle_scale: float = 0.5,
         fixed_quaternion: bool = False,
         yaw_bias: Optional[float] = None,
@@ -554,8 +554,8 @@ class GrindingMotionGenerator:
             end_theta: End angle for the range of lines (radians).
             beginning_length_from_center_mm: Start radius for each line (mm).
             end_length_from_center_mm: End radius for each line (mm).
-            beginning_radius_z_mm: Ellipsoid Z-radius at the start radius of each line (mm). Defaults to mortar's inner z-radius if None.
-            end_radius_z_mm: Ellipsoid Z-radius at the end radius of each line (mm). Defaults to mortar's inner z-radius if None.
+            beginning_depth_mm: Ellipsoid Z-radius at the start radius of each line (mm). Defaults to mortar's inner z-radius if None.
+            end_depth_mm: Ellipsoid Z-radius at the end radius of each line (mm). Defaults to mortar's inner z-radius if None.
             angle_scale: Tool orientation interpolation factor (0=vertical, 1=normal).
             fixed_quaternion: If True, use the orientation of the first waypoint for all points in a line.
             yaw_bias: Fixed yaw offset for all lines (radians).
@@ -576,13 +576,13 @@ class GrindingMotionGenerator:
         # --- Set default Z radii if not provided ---
         default_rz_m = self.mortar_inner_radii["z"]
         default_rz_mm = default_rz_m / MM_TO_M
-        start_rz_mm_to_use = beginning_radius_z_mm if beginning_radius_z_mm is not None else default_rz_mm
-        end_rz_mm_to_use = end_radius_z_mm if end_radius_z_mm is not None else default_rz_mm
+        start_rz_mm_to_use = beginning_depth_mm if beginning_depth_mm is not None else default_rz_mm
+        end_rz_mm_to_use = end_depth_mm if end_depth_mm is not None else default_rz_mm
 
         # --- Check if end radius is smaller than beginning radius (after defaults) ---
         if end_rz_mm_to_use < start_rz_mm_to_use:
              if not np.isclose(end_rz_mm_to_use, start_rz_mm_to_use):
-                 raise ValueError(f"Effective end_radius_z_mm ({end_rz_mm_to_use:.2f}) cannot be smaller than effective beginning_radius_z_mm ({start_rz_mm_to_use:.2f}).")
+                 raise ValueError(f"Effective end_depth_mm ({end_rz_mm_to_use:.2f}) cannot be smaller than effective beginning_depth_mm ({start_rz_mm_to_use:.2f}).")
 
         # --- Convert scalar radial inputs to meters ---
         start_r_m = beginning_length_from_center_mm * MM_TO_M
@@ -605,8 +605,8 @@ class GrindingMotionGenerator:
             line_waypoints = self.create_cartesian_waypoints(
                 beginning_position_mm=[start_x_m / MM_TO_M, start_y_m / MM_TO_M],
                 end_position_mm=[end_x_m / MM_TO_M, end_y_m / MM_TO_M],
-                beginning_radius_z_mm=start_rz_mm_to_use, # Pass determined mm value
-                end_radius_z_mm=end_rz_mm_to_use,         # Pass determined mm value
+                beginning_depth_mm=start_rz_mm_to_use, # Pass determined mm value
+                end_depth_mm=end_rz_mm_to_use,         # Pass determined mm value
                 angle_scale=angle_scale,
                 fixed_quaternion=fixed_quaternion,
                 yaw_bias=yaw_bias, # Apply same yaw bias to all lines
@@ -659,14 +659,14 @@ def main():
         # Example: Spiral inwards on offset circle, using default Z radius
         circ_pos_begin_mm = [15.0, 0.0] # Start 15mm radius
         circ_pos_end_mm = [5.0, 0.0]   # End 5mm radius
-        # beginning_radius_z_mm and end_radius_z_mm are omitted -> use default
+        # beginning_depth_mm and end_depth_mm are omitted -> use default
         circ_center_offset_mm = [0.0, 0.0] # Centered circle
 
         waypoints_circ_def = motion_generator.create_circular_waypoints(
             beginning_position_mm=circ_pos_begin_mm,
             end_position_mm=circ_pos_end_mm,
-            # beginning_radius_z_mm=None, # Explicitly None or omitted
-            # end_radius_z_mm=None,       # Explicitly None or omitted
+            # beginning_depth_mm=None, # Explicitly None or omitted
+            # end_depth_mm=None,       # Explicitly None or omitted
             angle_scale=0.7, # More towards normal
             yaw_bias=None,
             yaw_twist_per_rotation= -pi / 4, # -45 deg twist per rotation
@@ -737,8 +737,8 @@ def main():
         waypoints_cart_def = motion_generator.create_cartesian_waypoints(
             beginning_position_mm=cart_pos_begin_mm,
             end_position_mm=cart_pos_end_mm,
-            # beginning_radius_z_mm=None, # Omitted
-            # end_radius_z_mm=None,       # Omitted
+            # beginning_depth_mm=None, # Omitted
+            # end_depth_mm=None,       # Omitted
             angle_scale=0.1,
             fixed_quaternion=False,
             yaw_bias=pi/2,
@@ -771,8 +771,8 @@ def main():
             end_theta=pi,              # Go up to 180 degrees
             beginning_length_from_center_mm=5.0,  # Start 5mm from center
             end_length_from_center_mm=20.0, # End 20mm from center
-            # beginning_radius_z_mm=None, # Omitted
-            # end_radius_z_mm=None,       # Omitted
+            # beginning_depth_mm=None, # Omitted
+            # end_depth_mm=None,       # Omitted
             angle_scale=0.9,           # Mostly normal
             fixed_quaternion=True,     # Keep orientation constant along each line
             yaw_bias=0.0,              # No yaw bias
