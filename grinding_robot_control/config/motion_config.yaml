@@ -1,0 +1,68 @@
+grinding_demo_node:
+  ros__parameters:
+    # Robot and Controller Parameters
+    controller_name: "scaled_joint_trajectory_controller"
+    joint_names: [
+      "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
+      "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"
+    ]
+    base_link: "base_link"
+    grinding_ee_link: "pestle_tip"
+    gathering_ee_link: "spatula_tip"
+    robot_description_package: "grinding_robot_description"
+    robot_description_file: "ur5e_with_pestle"
+
+    # Mortar Parameters
+    mortar:
+      inner_size:
+        x: 0.04
+        y: 0.04
+        z: 0.035
+      top_position:
+        x: -0.245
+        y: 0.372
+        z: 0.045
+
+    # Initial Pose Parameters
+    init_pose:
+      offset_z: 0.05
+      orientation:
+        x: 1.0
+        y: 0.0
+        z: 0.0
+        w: 0.0
+
+    # Grinding Parameters
+    grinding:
+      depth_mm: -10.0
+      radius_mm: 15.0
+      rotations: 2.0
+      angle_scale: 0.8
+      yaw_twist_per_rotation_deg: 90.0
+      waypoints_per_circle: 30
+      sec_per_rotation: 2.0
+      center_offset_mm:
+        x: 0.0
+        y: 0.0
+
+    # Gathering Parameters
+    gathering:
+      depth_mm: -5.0
+      start_radius_mm: 18.0
+      end_radius_mm: 2.0 # 中心ぴったりは避ける
+      rotations: 1.5
+      angle_scale: 0.1
+      waypoints_per_circle: 40
+      sec_per_rotation: 3.0
+      center_offset_mm:
+        x: 0.0
+        y: 0.0
+
+    # Motion Execution Parameters
+    motion:
+      joint_difference_limit_rad: 0.1
+      max_ik_retries_on_jump: 100
+      ik_retry_perturbation_rad: 0.05
+      pre_motion: true
+      post_motion: true
+      wait_for_completion: true
