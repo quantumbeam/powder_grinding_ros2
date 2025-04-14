@@ -3,3 +3,8 @@ catkin_pkg
 pyyaml
 jinja2
 typeguard
+# basic module
+numpy
+scipy
+matplotlib
+transforms3d
