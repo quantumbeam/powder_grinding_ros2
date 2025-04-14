@@ -7,6 +7,8 @@ from scipy.spatial.transform import Rotation, Slerp
 
 # constants
 from numpy import pi, nan
+from display_marker import DisplayMarker
+import rclpy
 
 MM_TO_M = 0.001
 
@@ -620,6 +622,7 @@ class GrindingMotionGenerator:
 # --- Main function for testing ---
 
 def main():
+    rclpy.init()
     # Parameters
     # Mortar size (diameter/depth) in mm
     mortar_inner_size_mm = {
@@ -629,9 +632,9 @@ def main():
     }
     # Mortar center position in meters
     mortar_top_center_pos_m = {
-        "x": -0.2448,
-        "y": 0.3722,
-        "z": 0.0451,
+        "x": 0,
+        "y": 0,
+        "z": 35,
     }
 
     # Create GrindingMotionGenerator instance
@@ -658,7 +661,7 @@ def main():
     try:
         # Example: Spiral inwards on offset circle, using default Z radius
         circ_pos_begin_mm = [15.0, 0.0] # Start 15mm radius
-        circ_pos_end_mm = [5.0, 0.0]   # End 5mm radius
+        circ_pos_end_mm = [4, 0.0]   # End 5mm radius
         # beginning_depth_mm and end_depth_mm are omitted -> use default
         circ_center_offset_mm = [0.0, 0.0] # Centered circle
 
@@ -793,29 +796,25 @@ def main():
                 print(f"  Z range: [{np.min(rel_pos_lin[:, 2])*1000:.1f}, {np.max(rel_pos_lin[:, 2])*1000:.1f}] (Default Radius: {default_rz_mm:.1f})")
             else:
                 print("No waypoints generated for this list.")
-
-
-        waypoints = motion_generator.create_circular_waypoints(
-            begining_position=grinding_pos_begining,
-            end_position=grinding_pos_end,
-            begining_radious_z=grinding_rz_begining,
-            end_radious_z=grinding_rz_end,
-            angle_scale=0.5,  # Adjust as needed
-            yaw_bias=None,  # Adjust as needed
-            yaw_twist_per_rotation=0.1,  # Adjust as needed
-            number_of_rotations=1,  # Adjust as needed
-            number_of_waypoints_per_circle=20,  # Adjust as needed
-            center_position=[0,0]
-        )
-        print(f"Circular waypoints generated successfully. Shape: {waypoints.shape}")
-        print(f"Example waypoints:\n{waypoints[:5]}")  # Print first 5 waypoints
     except ValueError as e:
         print(f"ERROR generating linear waypoints list (default Z): {e}")
     except Exception as e:
         print(f"UNEXPECTED ERROR during linear list generation (default Z): {e}")
         import traceback
         traceback.print_exc()
+    # check display_marker
+    print("\n--- Testing display_marker ---")
+    
+    waypoints = waypoints_circ_def
+    marker_display = DisplayMarker("display_grinding_motion")
+    marker_display.display_waypoints(waypoints)
 
+    # marker_display.display_waypoints(waypoints)
+    
+    # marker_display.create_timer(1.0, marker_display.display_waypoints(waypoints))  # replace 'waypoints' with your waypoints data
+    rclpy.spin(marker_display)
+    marker_display.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == "__main__":
     main()
