@@ -32,7 +32,7 @@ class DisplayMarker(Node):
         marker_array = MarkerArray()
 
         if type is None:
-            type = Marker().SPHERE
+            type = Marker.SPHERE
         for index, points in enumerate(waypoints):
             # pointsの型がPoseでなければ変換
             if not isinstance(points, Pose):
@@ -121,7 +121,7 @@ def main(args=None):
     rclpy.init()
     waypoints = generate_spiral_waypoints(100)
     marker_display = DisplayMarker("marker_publisher")
-    marker_display.display_waypoints(waypoints)
+    marker_display.display_waypoints(waypoints, scale=0.01, type=Marker.SPHERE)
 
     # marker_display.display_waypoints(waypoints)
     
