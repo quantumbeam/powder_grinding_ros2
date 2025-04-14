@@ -60,7 +60,7 @@ class DisplayMarker(Node):
             marker.pose.orientation = points.orientation
             red_strength= 1.0*index/(len(waypoints)-1)
             blue_strength= 1.0*(len(waypoints)-index-1)/(len(waypoints)-1)
-            print(red_strength,blue_strength)
+            print(index,red_strength,blue_strength)
             marker.color.r = red_strength
             marker.color.g = 0.0
             marker.color.b = blue_strength

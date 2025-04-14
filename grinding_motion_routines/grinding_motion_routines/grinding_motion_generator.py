@@ -795,6 +795,20 @@ def main():
                 print("No waypoints generated for this list.")
 
 
+        waypoints = motion_generator.create_circular_waypoints(
+            begining_position=grinding_pos_begining,
+            end_position=grinding_pos_end,
+            begining_radious_z=grinding_rz_begining,
+            end_radious_z=grinding_rz_end,
+            angle_scale=0.5,  # Adjust as needed
+            yaw_bias=None,  # Adjust as needed
+            yaw_twist_per_rotation=0.1,  # Adjust as needed
+            number_of_rotations=1,  # Adjust as needed
+            number_of_waypoints_per_circle=20,  # Adjust as needed
+            center_position=[0,0]
+        )
+        print(f"Circular waypoints generated successfully. Shape: {waypoints.shape}")
+        print(f"Example waypoints:\n{waypoints[:5]}")  # Print first 5 waypoints
     except ValueError as e:
         print(f"ERROR generating linear waypoints list (default Z): {e}")
     except Exception as e:
