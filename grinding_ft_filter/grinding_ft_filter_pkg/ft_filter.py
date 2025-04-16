@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/ubuntu/user/grinding_ws/venv/bin/python3
 import rclpy
 from rclpy.node import Node
 from rclpy.parameter import Parameter
@@ -50,6 +50,8 @@ class FTFilterNode(Node):
         self.declare_parameter('cutoff_frequency', 2.5)
         self.declare_parameter('filter_order', 3)
         self.declare_parameter('data_window', 100)
+        self.declare_parameter('initial_zero', True)
+        self.declare_parameter('disable_filtering', False)
 
         self.input_topic = self.get_parameter('input_topic').get_parameter_value().string_value
         self.output_topic = self.get_parameter('output_topic').get_parameter_value().string_value
@@ -57,6 +59,9 @@ class FTFilterNode(Node):
         self.cutoff_frequency = self.get_parameter('cutoff_frequency').get_parameter_value().double_value
         self.filter_order = self.get_parameter('filter_order').get_parameter_value().integer_value
         self.data_window = self.get_parameter('data_window').get_parameter_value().integer_value
+        self.initial_zero = self.get_parameter('initial_zero').get_parameter_value().bool_value
+        self.disable_filtering = self.get_parameter('disable_filtering').get_parameter_value().bool_value
+
 
         self.get_logger().info(f"Subscribing to: {self.input_topic}")
         self.get_logger().info(f"Publishing to: {self.output_topic}")
@@ -69,14 +74,25 @@ class FTFilterNode(Node):
         self.publisher = self.create_publisher(WrenchStamped, self.output_topic, 10)
         self.zero_service = self.create_service(Empty, self.output_topic + '/zero_ftsensor', self.handle_zero)
 
+        # 自動ゼロ初期化
+        if self.initial_zero:
+            self.zero_initialized = False
+            self.timer = self.create_timer(1.0, self._check_and_zero_init)
+        else:
+            self.zero_initialized = True  # 無効化するなら初期化済みにしておく
+
     def wrench_callback(self, msg):
         wrench_np = from_wrench(msg.wrench)
         self.data_queue.append(wrench_np)
 
         if len(self.data_queue) < self.data_window:
             return
+        
+        if self.disable_filtering:
+            filtered_data = wrench_np - self.wrench_offset
+        else:
+            filtered_data = self.filter(np.array(self.data_queue))[-1] - self.wrench_offset
 
-        filtered_data = self.filter(np.array(self.data_queue))[-1] - self.wrench_offset
         filtered_msg = WrenchStamped()
         filtered_msg.header = msg.header
         filtered_msg.wrench = to_wrench(filtered_data)
@@ -90,6 +106,15 @@ class FTFilterNode(Node):
         self.wrench_offset = filtered_data
         self.get_logger().info("FT sensor zeroed (offset updated).")
         return response
+    
+    def _check_and_zero_init(self):
+        if not self.zero_initialized and len(self.data_queue) >= self.data_window:
+            filtered_data = self.filter(np.array(self.data_queue))[-1]
+            self.wrench_offset = filtered_data
+            self.get_logger().info("Auto zeroing complete.")
+            self.zero_initialized = True
+            self.timer.cancel()  # 以降このタイマーは不要なので停止
+   
 
 
 def main(args=None):
