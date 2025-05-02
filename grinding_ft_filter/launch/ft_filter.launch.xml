@@ -11,6 +11,8 @@
     <param name="cutoff_frequency" value="2.5"/>
     <param name="filter_order" value="3"/>
     <param name="data_window" value="100"/>
+    <param name="initial_zero" value="true"/>
+    <param name="disable_filtering" value="false"/>
 
   </node>
 </launch>
