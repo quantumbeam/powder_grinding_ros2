@@ -57,12 +57,12 @@ cd ./env && ./BUILD-DOCKER-IMAGE.sh
 ## Demo
 Launch UR5e Simulation
 ```bash
-ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.xml
+ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.py
 ```
 
 Launch Real UR5e
 ```bash
-ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.xml use_mock_hardware:=false mock_sensor_commands:=false
+ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.py use_mock_hardware:=false mock_sensor_commands:=false
 ```
 
 Test scaled_joint_trajectory_controller
