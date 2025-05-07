@@ -3,6 +3,7 @@ catkin_pkg
 pyyaml
 jinja2
 typeguard
+empy
 # basic module
 numpy
 scipy
