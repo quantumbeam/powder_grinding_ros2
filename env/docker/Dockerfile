@@ -1,4 +1,4 @@
-ARG ROS_DISTRO=jazzy
+ARG ROS_DISTRO=humble
 FROM osrf/ros:${ROS_DISTRO}-desktop-full
 LABEL maintainer="YusakuNakajima<yusaku_nakajima@ap.eng.osaka-u.ac.jp>"
 
@@ -39,7 +39,6 @@ RUN apt-get update -q && \
     ros-${ROS_DISTRO}-ur \
     ros-${ROS_DISTRO}-moveit-visual-tools \
     ros-${ROS_DISTRO}-tf-transformations \
-    ros-${ROS_DISTRO}-trac-ik \
     ros-${ROS_DISTRO}-moveit \
     && apt-get clean \ 
     && rm -rf /var/lib/apt/lists/*
