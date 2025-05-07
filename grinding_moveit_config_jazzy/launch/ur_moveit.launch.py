@@ -111,7 +111,7 @@ def generate_launch_description():
     publish_robot_description_semantic = LaunchConfiguration("publish_robot_description_semantic")
 
     moveit_config = (
-        MoveItConfigsBuilder(robot_name="ur", package_name="grinding_moveit_config")
+        MoveItConfigsBuilder(robot_name="ur", package_name="grinding_moveit_config_jazzy")
         .robot_description_semantic(Path("srdf") / "ur.srdf.xacro", {"name": ur_type})
         .to_moveit_configs()
     )
@@ -145,7 +145,7 @@ def generate_launch_description():
         ],
     )
 
-    servo_yaml = load_yaml("grinding_moveit_config", "config/ur_servo.yaml")
+    servo_yaml = load_yaml("grinding_moveit_config_jazzy", "config/ur_servo.yaml")
     servo_params = {"moveit_servo": servo_yaml}
     servo_node = Node(
         package="moveit_servo",
@@ -159,7 +159,7 @@ def generate_launch_description():
     )
 
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("grinding_moveit_config"), "config", "moveit.rviz"]
+        [FindPackageShare("grinding_moveit_config_jazzy"), "config", "moveit.rviz"]
     )
     rviz_node = Node(
         package="rviz2",
