@@ -2,20 +2,22 @@
     <!-- Declare launch arguments -->
     <arg name="ur_type" default="ur5e" />
     <arg name="robot_ip" default="192.168.58.42" />
-    <arg name="use_mock_hardware" default="true" />
-    <arg name="mock_sensor_commands" default="true" />
+    <arg name="use_fake_hardware" default="true" />
+    <arg name="fake_sensor_commands" default="true" />
     <arg name="launch_moveit_rviz" default="true" />
     <arg name="use_moveit" default="true" />
+    <arg name="initial_joint_controller" default="joint_trajectory_controller" />
 
     <arg name="planning_scene_config" default="$(find-pkg-share grinding_scene_description)/config/planning_scene_config.yaml" />
 
     <!-- Include ur_robot_driver launch file -->
-    <include file="$(find-pkg-share grinding_robot_bringup)/launch/include/ur_control.launch.py">
+    <include file="$(find-pkg-share ur_robot_driver)/launch/ur_control.launch.py">
         <arg name="ur_type" value="$(var ur_type)" />
         <arg name="robot_ip" value="$(var robot_ip)" />
-        <arg name="use_mock_hardware" value="$(var use_mock_hardware)" />
-        <arg name="mock_sensor_commands" value="$(var mock_sensor_commands)" />
+        <arg name="use_fake_hardware" value="$(var use_fake_hardware)" />
+        <arg name="fake_sensor_commands" value="$(var fake_sensor_commands)" />
         <arg name="launch_rviz" value="false" />
+        <arg name="initial_joint_controller" value="$(var initial_joint_controller)" />
     </include>
 
     <!-- Include grinding_ft_filter launch file --><!-- FT Filter Node -->
