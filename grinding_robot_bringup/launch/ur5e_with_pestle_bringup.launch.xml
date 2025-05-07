@@ -26,7 +26,7 @@
     </include>
 
     <!-- Include grinding_ft_filter launch file --><!-- FT Filter Node -->
-    <!-- <node
+    <node
         pkg="grinding_ft_filter"
         exec="ft_filter.py"
         name="ft_filter"
@@ -40,7 +40,7 @@
         <param name="data_window" value="100"/>
         <param name="initial_zero" value="true"/>
         <param name="disable_filtering" value="false"/>
-    </node> -->
+    </node>
 
     <!-- Include ur_moveit_config launch file -->
     <include file="$(find-pkg-share ur_moveit_config)/launch/ur_moveit.launch.py">
@@ -49,8 +49,8 @@
     </include>
 
     <!-- Include grinding_scene_description launch file -->
-    <!-- <include file="$(find-pkg-share grinding_scene_description)/launch/load_planning_scene.launch.xml">
+    <include file="$(find-pkg-share grinding_scene_description)/launch/load_planning_scene.launch.xml">
         <arg name="planning_scene_config" value="$(var planning_scene_config)" />
-    </include> -->
+    </include>
 
 </launch>
