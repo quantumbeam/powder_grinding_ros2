@@ -3,6 +3,7 @@
 import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
+from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import IfCondition # Potentially needed if 'use_moveit' controls inclusion
@@ -72,11 +73,32 @@ def launch_setup(context, *args, **kwargs):
         condition=IfCondition(use_moveit)
     )
 
+
+
+    # --- Launch ft_filter node ---
+    ft_filter_node = Node(
+        package='grinding_ft_filter',
+        executable='ft_filter.py',
+        name='ft_filter',
+        output='screen',
+        parameters=[
+            {'input_topic': '/wrench_raw'},
+            {'output_topic': '/wrench_filtered'},
+            {'sampling_frequency': 500.0},
+            {'cutoff_frequency': 2.5},
+            {'filter_order': 3},
+            {'data_window': 100},
+            {'initial_zero': True},
+            {'disable_filtering': False}
+        ]
+    )
+
     # --- List of actions to execute ---
     actions_to_start = [
         ur_control_launch,
         ur_moveit_launch,
         load_planning_scene_launch,
+        ft_filter_node
     ]
 
     return actions_to_start
