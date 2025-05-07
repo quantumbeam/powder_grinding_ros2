@@ -16,7 +16,7 @@ class TFPublisher(Node):
         self.waypoints = waypoints
         self.parent_link = parent_link
         self.child_link = child_link
-        self.create_timer(0.1, self.broadcast_tf_with_waypoints)
+        self.create_timer(0.1, self.broadcast_tf_with_waypoints)# iranai
 
 
     def broadcast_tf_with_waypoints(
@@ -24,7 +24,7 @@ class TFPublisher(Node):
     ):
         # rate = rospy.Rate(10)
         for index, pose in enumerate(self.waypoints):
-            print(pose)
+            # print(pose)
             pub_trans = Vector3()
             pub_trans.x = pose[0]
             pub_trans.y = pose[1]
@@ -66,22 +66,22 @@ class TFPublisher(Node):
         self.tf.transform.rotation = tf_rot
         self.broadcaster.sendTransform(self.tf)
 
-    # def listen_tf(self, child, parent):
-    #     tfBuffer = tf2_ros.Buffer()
-    #     listener = tf2_ros.TransformListener(tfBuffer)
-    #     rate = rospy.Rate(10.0)
-    #     rate.sleep()
+    def listen_tf(self, child, parent):
+        tfBuffer = tf2_ros.Buffer()
+        listener = tf2_ros.TransformListener(tfBuffer)
+        rate = rospy.Rate(10.0)
+        rate.sleep()
 
-    #     try:
-    #         trans = tfBuffer.lookup_transform(child, parent, rospy.Time())
-    #         return trans
-    #     except (
-    #         tf2_ros.LookupException,
-    #         tf2_ros.ConnectivityException,
-    #         tf2_ros.ExtrapolationException,
-    #     ) as err:
-    #         rospy.loginfo("tf listen error%s" % err)
-    #         return err
+        try:
+            trans = tfBuffer.lookup_transform(child, parent, rospy.Time())
+            return trans
+        except (
+            tf2_ros.LookupException,
+            tf2_ros.ConnectivityException,
+            tf2_ros.ExtrapolationException,
+        ) as err:
+            rospy.loginfo("tf listen error%s" % err)
+            return err
         
 def generate_spiral_waypoints(num_points):
     waypoints = []
