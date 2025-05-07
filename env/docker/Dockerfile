@@ -64,6 +64,9 @@ RUN echo "source /home/ubuntu/user/grinding_ws/install/setup.bash" >> /root/.bas
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /root/.bashrc
 # Add alias for easy build
 RUN echo "alias b='cd /home/ubuntu/user/grinding_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source /home/ubuntu/user/grinding_ws/install/setup.bash'" >> /root/.bashrc
+# Add lib path
+RUN echo "export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" >> /root/.bashrc
+
 
 
 WORKDIR /home/ubuntu/user/grinding_ws
