@@ -3,10 +3,13 @@
     <arg name="ur_type" default="ur5e" />
     <arg name="robot_ip" default="192.168.58.42" />
     <arg name="use_mock_hardware" default="true" />
-    <arg name="mock_sensor_commands" default="true" />
+    <arg name="mock_sensor_commands" default="false" />
     <arg name="launch_moveit_rviz" default="true" />
     <arg name="use_moveit" default="true" />
     <arg name="initial_joint_controller" default="scaled_joint_trajectory_controller" />
+    <arg name="description_package" default="grinding_robot_description" />
+    <arg name="description_file" default="ur5e_with_pestle.urdf" />
+
 
     <arg name="planning_scene_config" default="$(find-pkg-share grinding_scene_description)/config/planning_scene_config.yaml" />
 
@@ -15,13 +18,15 @@
         <arg name="ur_type" value="$(var ur_type)" />
         <arg name="robot_ip" value="$(var robot_ip)" />
         <arg name="use_fake_hardware" value="$(var use_mock_hardware)" />
-        <arg name="fake_sensor_commands" value="$(var mock_sensor_commands)" />
+        <!-- <arg name="fake_sensor_commands" value="$(var mock_sensor_commands)" /> -->
         <arg name="launch_rviz" value="false" />
         <arg name="initial_joint_controller" value="$(var initial_joint_controller)" />
+        <!-- <arg name="description_package" value="$(var description_package)" />
+        <arg name="description_file" value="$(var description_file)" /> -->
     </include>
 
     <!-- Include grinding_ft_filter launch file --><!-- FT Filter Node -->
-    <node
+    <!-- <node
         pkg="grinding_ft_filter"
         exec="ft_filter.py"
         name="ft_filter"
@@ -35,7 +40,7 @@
         <param name="data_window" value="100"/>
         <param name="initial_zero" value="true"/>
         <param name="disable_filtering" value="false"/>
-    </node>
+    </node> -->
 
     <!-- Include ur_moveit_config launch file -->
     <include file="$(find-pkg-share ur_moveit_config)/launch/ur_moveit.launch.py">
@@ -44,8 +49,8 @@
     </include>
 
     <!-- Include grinding_scene_description launch file -->
-    <include file="$(find-pkg-share grinding_scene_description)/launch/load_planning_scene.launch.xml">
+    <!-- <include file="$(find-pkg-share grinding_scene_description)/launch/load_planning_scene.launch.xml">
         <arg name="planning_scene_config" value="$(var planning_scene_config)" />
-    </include>
+    </include> -->
 
 </launch>
