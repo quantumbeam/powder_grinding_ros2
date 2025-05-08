@@ -7,11 +7,20 @@
   <maintainer email="yusaku_nakajima@ap.eng.osaka-u.ac.jp">ubuntu</maintainer>
   <license>Apache-2.0</license>
 
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>rclcpp</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>moveit_ros_planning_interface</build_depend>
+
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
 
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>moveit_ros_planning_interface</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>trac_ik_kinematics_plugin</exec_depend>
   <exec_depend>pytracik</exec_depend>
@@ -22,6 +31,6 @@
   <exec_depend>python3-tqdm</exec_depend>
   
   <export>
-    <build_type>ament_python</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
