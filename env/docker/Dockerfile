@@ -1,4 +1,4 @@
-ARG ROS_DISTRO=jazzy
+ARG ROS_DISTRO=humble
 FROM osrf/ros:${ROS_DISTRO}-desktop-full
 LABEL maintainer="YusakuNakajima<yusaku_nakajima@ap.eng.osaka-u.ac.jp>"
 
@@ -39,7 +39,6 @@ RUN apt-get update -q && \
     ros-${ROS_DISTRO}-ur \
     ros-${ROS_DISTRO}-moveit-visual-tools \
     ros-${ROS_DISTRO}-tf-transformations \
-    ros-${ROS_DISTRO}-trac-ik \
     ros-${ROS_DISTRO}-moveit \
     && apt-get clean \ 
     && rm -rf /var/lib/apt/lists/*
@@ -65,6 +64,9 @@ RUN echo "source /home/ubuntu/user/grinding_ws/install/setup.bash" >> /root/.bas
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /root/.bashrc
 # Add alias for easy build
 RUN echo "alias b='cd /home/ubuntu/user/grinding_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source /home/ubuntu/user/grinding_ws/install/setup.bash'" >> /root/.bashrc
+# Add lib path
+RUN echo "export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" >> /root/.bashrc
+
 
 
 WORKDIR /home/ubuntu/user/grinding_ws

@@ -3,7 +3,6 @@
 import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
-from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import IfCondition # Potentially needed if 'use_moveit' controls inclusion
@@ -18,7 +17,6 @@ def launch_setup(context, *args, **kwargs):
     use_moveit = LaunchConfiguration('use_moveit') # Evaluate the condition
     launch_moveit_rviz = LaunchConfiguration('launch_moveit_rviz') # Unified RViz argument
     planning_scene_config = LaunchConfiguration('planning_scene_config')
-    initial_joint_controller = LaunchConfiguration('initial_joint_controller')
 
     # --- Get Package Share Directories ---
     grinding_robot_bringup_share = get_package_share_directory('grinding_robot_bringup')
@@ -34,12 +32,11 @@ def launch_setup(context, *args, **kwargs):
         launch_arguments={
             'ur_type': ur_type,
             'robot_ip': robot_ip,
-            'use_fake_hardware': use_mock_hardware,
-            'fake_sensor_commands': mock_sensor_commands,
+            'use_mock_hardware': use_mock_hardware,
+            'mock_sensor_commands': mock_sensor_commands,
             # Always set launch_rviz to 'false' for ur_control,
             # as we want to use the MoveIt RViz configuration if RViz is launched at all.
             'launch_rviz': 'false',
-            'initial_joint_controller': initial_joint_controller,
         }.items()
     )
 
@@ -55,6 +52,8 @@ def launch_setup(context, *args, **kwargs):
             # Pass the unified 'launch_rviz' argument.
             # ur_moveit.launch.py will handle launching RViz with its config if this is 'true'.
             'launch_rviz': launch_moveit_rviz,
+            # Pass other arguments that ur_moveit.launch.py might need, like use_mock_hardware
+            'use_mock_hardware': use_mock_hardware,
         }.items(),
         # Only include this if 'use_moveit' is true
         condition=IfCondition(use_moveit)
@@ -73,32 +72,11 @@ def launch_setup(context, *args, **kwargs):
         condition=IfCondition(use_moveit)
     )
 
-
-
-    # --- Launch ft_filter node ---
-    ft_filter_node = Node(
-        package='grinding_ft_filter',
-        executable='ft_filter.py',
-        name='ft_filter',
-        output='screen',
-        parameters=[
-            {'input_topic': '/wrench_raw'},
-            {'output_topic': '/wrench_filtered'},
-            {'sampling_frequency': 500.0},
-            {'cutoff_frequency': 2.5},
-            {'filter_order': 3},
-            {'data_window': 100},
-            {'initial_zero': True},
-            {'disable_filtering': False}
-        ]
-    )
-
     # --- List of actions to execute ---
     actions_to_start = [
         ur_control_launch,
         ur_moveit_launch,
         load_planning_scene_launch,
-        ft_filter_node
     ]
 
     return actions_to_start
@@ -131,11 +109,6 @@ def generate_launch_description():
         'use_moveit',
         default_value='true',
         description='Whether to launch MoveIt related nodes and load the planning scene.'
-    ))
-    declared_arguments.append(DeclareLaunchArgument(
-        'initial_joint_controller',
-        default_value='scaled_joint_trajectory_controller',
-        description='Initial robot controller.'
     ))
     # --- Unified RViz Argument ---
     declared_arguments.append(DeclareLaunchArgument(

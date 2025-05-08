@@ -25,6 +25,14 @@ ament_auto_add_library(planning_scene_loader SHARED src/load_planning_scene.cpp)
 # The shared library load_planning_scene in 
 rclcpp_components_register_nodes(planning_scene_loader "grinding_scene_description::PlanningSceneLoader")
 
+# Add dependencies
+ament_target_dependencies(
+ planning_scene_loader
+ rclcpp_components
+)
+
+
+
 # Install files
 install(DIRECTORY config launch meshes
   DESTINATION share/${PROJECT_NAME}

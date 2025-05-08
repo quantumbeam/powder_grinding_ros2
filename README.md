@@ -57,12 +57,12 @@ cd ./env && ./BUILD-DOCKER-IMAGE.sh
 ## Demo
 Launch UR5e Simulation
 ```bash
-ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.xml
+ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.py
 ```
 
 Launch Real UR5e
 ```bash
-ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.xml use_mock_hardware:=false mock_sensor_commands:=false
+ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.py use_mock_hardware:=false mock_sensor_commands:=false
 ```
 
 Test scaled_joint_trajectory_controller
@@ -124,7 +124,7 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 - PEP668のせいでpython 3.11以上は仮想環境を使わないといけなくなりました
 - 一応仮想環境の構築はDockerファイル内でしてあるのですが、現状パスがうまく通っていないみたいです
   - ros2のビルドシステムのcolconの仕様の問題です
-  - 一時しのぎですが、`sys.path.append('/home/ubuntu/user/grinding_ws/venv/lib/python3.12/site-packages')`でパスを通せばとりあえず動きます
+  - 一時しのぎですが、`sys.path.append('/home/ubuntu/user/grinding_ws/venv/lib/python3.10/site-packages')`でパスを通せばとりあえず動きます
 - [公式ドキュメント](https://docs.ros.org/en/jazzy/How-To-Guides/Using-Python-Packages.html)にはrosdepを使うのが推奨されています
   - この記事に仮想環境も使えるっぽい記述がありますが、venvではなく古いvertualenvを使っているので記事は古そうです
 - というわけで、[rosdepのリポジトリ](https://github.com/ros/rosdistro/blob/master/rosdep/python.yaml)に登録されているpythonパッケージはpackage.xmlのexec_dependで書くようにしてください

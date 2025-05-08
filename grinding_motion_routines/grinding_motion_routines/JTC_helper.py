@@ -1,6 +1,6 @@
 #!/home/ubuntu/user/grinding_ws/venv/bin/python3
 import sys
-sys.path.append('/home/ubuntu/user/grinding_ws/venv/lib/python3.12/site-packages')
+sys.path.append('/home/ubuntu/user/grinding_ws/venv/lib/python3.10/site-packages')
 
 import time
 from enum import Enum, auto

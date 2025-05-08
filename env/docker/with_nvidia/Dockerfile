@@ -2,7 +2,7 @@
 # Add OpenGL and ROS install below
 FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04
 LABEL maintainer="YusakuNakajima<yusaku_nakajima@ap.eng.osaka-u.ac.jp>"
-ARG ROS_DISTRO=jazzy
+ARG ROS_DISTRO=humble
 
 # Ignore keyboard layout setting
 ENV DEBIAN_FRONTEND=noninteractive
