@@ -2,42 +2,42 @@
 # import rospy
 import tf2_ros
 import geometry_msgs.msg
-from geometry_msgs.msg import Pose, Quaternion,Vector3
+from geometry_msgs.msg import Pose, Quaternion,Vector3,Transform
 import numpy as np
 import rclpy
 from rclpy.node import Node
 
 
 class TFPublisher(Node):
-    def __init__(self,waypoints,parent_link="base_link", child_link="debug_") -> None:
+    def __init__(self,parent_link="base_link", child_link="debug_") -> None:
         super().__init__("tf_display")
         self.broadcaster = tf2_ros.TransformBroadcaster(self)
         self.tf = geometry_msgs.msg.TransformStamped()
-        self.waypoints = waypoints
+        self.waypoints =  []
         self.parent_link = parent_link
         self.child_link = child_link
-        self.create_timer(0.1, self.broadcast_tf_with_waypoints)# iranai
-
+        # self.create_timer(0.1, self.broadcast_tf_with_waypoints)# iranai
+    def set_waypoints(self,waypoints):
+        self.waypoints=waypoints
 
     def broadcast_tf_with_waypoints(
         self
     ):
         # rate = rospy.Rate(10)
         for index, pose in enumerate(self.waypoints):
-            # print(pose)
-            pub_trans = Vector3()
-            pub_trans.x = pose[0]
-            pub_trans.y = pose[1]
-            pub_trans.z = pose[2]
-            pub_rot = Quaternion()
-            pub_rot.x = pose[3]
-            pub_rot.y = pose[4]
-            pub_rot.z = pose[5]
-            pub_rot.w = pose[6]
+            print(pose)
+            pub_pose=Transform()
+            
+            pub_pose.translation.x = pose[0]
+            pub_pose.translation.y = pose[1]
+            pub_pose.translation.z = pose[2]
+            pub_pose.rotation.x = pose[3]
+            pub_pose.rotation.y = pose[4]
+            pub_pose.rotation.z = pose[5]
+            pub_pose.rotation.w = pose[6]
 
             self.breadcast_tf(
-                pub_trans,
-                pub_rot,
+                pub_pose,
                 self.parent_link,
                 self.child_link + str(index),
             )
@@ -58,12 +58,12 @@ class TFPublisher(Node):
     #         pub_pose.position, pub_pose.orientation, parent_link, child_link
     #     )
 
-    def breadcast_tf(self, tf_pos, tf_rot, parent_link, child_link):
+    def breadcast_tf(self, tf, parent_link, child_link):
         self.tf.header.stamp = self.get_clock().now().to_msg()
         self.tf.header.frame_id = parent_link
         self.tf.child_frame_id = child_link
-        self.tf.transform.translation = tf_pos
-        self.tf.transform.rotation = tf_rot
+        self.tf.transform.translation = tf.translation
+        self.tf.transform.rotation = tf.rotation
         self.broadcaster.sendTransform(self.tf)
 
     def listen_tf(self, child, parent):
@@ -113,7 +113,9 @@ def generate_spiral_waypoints(num_points):
 def main(args=None):
     rclpy.init(args=args)
     waypoints = generate_spiral_waypoints(10)
-    broadcaster = TFPublisher(waypoints)
+    broadcaster = TFPublisher()
+    broadcaster.set_waypoints(waypoints)
+    broadcaster.broadcast_tf_with_waypoints()
     rclpy.spin(broadcaster)
     broadcaster.destroy_node()
     rclpy.shutdown()
