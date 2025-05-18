@@ -15,5 +15,5 @@ fi
 ################################################################################
 
 # Run Terminator with the project's custom layout.
-terminator -m -l onolab-split &
+terminator -m -l onolab-ros2-split &
 sleep 1

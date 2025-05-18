@@ -19,7 +19,7 @@
     [[[window0]]]
       parent = ""
       type = Window
-  [[onolab-split]]
+  [[onolab-ros2-split]]
     [[[child0]]]
       fullscreen = False
       last_active_window = True
