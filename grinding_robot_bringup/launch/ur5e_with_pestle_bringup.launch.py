@@ -21,6 +21,8 @@ def launch_setup(context, *args, **kwargs):
     initial_joint_controller = LaunchConfiguration('initial_joint_controller')
 
     # --- Get Package Share Directories ---
+    ur_robot_driver_share = get_package_share_directory('ur_robot_driver')
+    ur_moveit_config_share = get_package_share_directory('ur_moveit_config')
     grinding_robot_bringup_share = get_package_share_directory('grinding_robot_bringup')
     grinding_moveit_config_share = get_package_share_directory('grinding_moveit_config')
     grinding_scene_description_share = get_package_share_directory('grinding_scene_description')
