@@ -17,6 +17,11 @@
   <exec_depend>pytracik</exec_depend>
   <exec_depend>moveit_py</exec_depend> -->
 
+
+
+  <build_depend>moveit_ros_planning_interface</build_depend>
+  <exec_depend>moveit_ros_planning_interface</exec_depend>
+
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-scipy</exec_depend>
   <exec_depend>python3-tqdm</exec_depend>
