@@ -72,7 +72,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "description_file",
             default_value=PathJoinSubstitution(
-                [FindPackageShare("grinding_robot_description"), "urdf", "ur5e_with_pestle.urdf.xacro"]
+                [FindPackageShare("grinding_robot_description"), "urdf","ur","ur5e_with_pestle.urdf.xacro"]
             ),
             description="URDF/XACRO description file (absolute path) with the robot.",
         )

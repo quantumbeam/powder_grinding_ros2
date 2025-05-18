@@ -106,7 +106,7 @@ def launch_setup(context, *args, **kwargs):
         [
             PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
-            PathJoinSubstitution([FindPackageShare(description_package), "urdf", description_file]),
+            PathJoinSubstitution([FindPackageShare(description_package), "urdf","ur",description_file]),
             " ",
             "robot_ip:=",
             robot_ip,
@@ -442,7 +442,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "runtime_config_package",
-            default_value="ur_robot_driver",
+            default_value="grinding_robot_bringup",
             description='Package with the controller\'s configuration in "config" folder. '
             "Usually the argument is not set, it enables use of a custom setup.",
         )
@@ -457,7 +457,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "description_package",
-            default_value="ur_description",
+            default_value="grinding_robot_description",
             description="Description package with robot URDF/XACRO files. Usually the argument "
             "is not set, it enables use of a custom description.",
         )
@@ -465,7 +465,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "description_file",
-            default_value="ur.urdf.xacro",
+            default_value="ur5e_with_pestle.urdf.xacro",
             description="URDF/XACRO description file with the robot.",
         )
     )
