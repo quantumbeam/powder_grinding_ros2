@@ -27,10 +27,6 @@ ament_auto_find_build_dependencies()
 # The shared library load_planning_scene in 
 # rclcpp_components_register_nodes(planning_scene_loader "grinding_scene_description::PlanningSceneLoader")
 
-# Install files
-install(DIRECTORY config launch
-  DESTINATION share/${PROJECT_NAME}
-)
 
 # Add executable
 # Execute add_executable, target_include_directories, target_link_libraries, and ament_target_dependencies together
@@ -51,8 +47,19 @@ endif()
 ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
+  grinding_robot_control/JTC_helper.py
+  grinding_robot_control/grinding_motion_generator.py
+  scripts/ik_test.py
   DESTINATION lib/${PROJECT_NAME}
 )
 #--- end Python
+
+#-- for Install Directry
+install(DIRECTORY
+  config
+  launch
+  scripts
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_auto_package()

@@ -1,3 +1,5 @@
+#!/home/ubuntu/user/grinding_ws/venv/bin/python3
+
 import sys
 import os
 import numpy as np
@@ -18,7 +20,7 @@ class UR5eIKTestNode(Node):
         # URDF path - Now using ur5e_with_pestle.urdf.xacro
         # Get the package share directory
         pkg_share_dir = get_package_share_directory('grinding_robot_description')
-        urdf_path = os.path.join(pkg_share_dir, "urdf/ur5e_with_pestle.urdf")
+        urdf_path = os.path.join(pkg_share_dir, "urdf/ur/ur5e_with_pestle.urdf")
         
         if not os.path.exists(urdf_path):
             self.get_logger().error(f"URDF file not found at: {urdf_path}")

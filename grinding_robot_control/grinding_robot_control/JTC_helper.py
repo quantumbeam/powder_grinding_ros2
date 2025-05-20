@@ -438,7 +438,7 @@ def main(args: Optional[List[str]] = None) -> None:
         tool_link="pestle_tip",
         base_link="base_link",
         robot_urdf_package="grinding_robot_description",
-        robot_urdf_file_name="ur5e_with_pestle",
+        robot_urdf_file_name="ur/ur5e_with_pestle",
         ik_solver=IKType.TRACK_IK
     )
 
