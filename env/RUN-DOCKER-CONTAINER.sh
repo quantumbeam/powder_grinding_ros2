@@ -38,4 +38,4 @@ xhost +local:
 ################################################################################
 
 # Enter the Docker container with a Bash shell
-docker exec -it  -w /home/ubuntu/user/grinding_ws ${CONTAINER} bash -i
+docker exec -it  -w /home/ubuntu/user/ros2_ws ${CONTAINER} bash -i

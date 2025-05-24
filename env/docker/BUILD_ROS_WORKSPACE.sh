@@ -19,4 +19,4 @@ colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install --cmake-c
 
 # Update environmental variables
 source /opt/ros/$ROS_DISTRO/setup.bash
-source /home/ubuntu/user/grinding_ws/install/setup.bash
+source /home/ubuntu/user/ros2_ws/install/setup.bash

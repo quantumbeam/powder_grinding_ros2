@@ -16,7 +16,7 @@ rosdep install -r -y -i --from-paths src --rosdistro $ROS_DISTRO
 cd src/pytracik
 chmod +x *.sh
 ./install.sh
-cd /home/ubuntu/user/grinding_ws
+cd /home/ubuntu/user/ros2_ws
 
 
 # Build
@@ -24,4 +24,4 @@ colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --cmake-clean-cache
 
 # Update environmental variables
 source /opt/ros/$ROS_DISTRO/setup.bash
-source /home/ubuntu/user/grinding_ws/install/setup.bash
+source /home/ubuntu/user/ros2_ws/install/setup.bash

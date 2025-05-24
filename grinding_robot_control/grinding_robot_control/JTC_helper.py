@@ -1,6 +1,6 @@
-#!/home/ubuntu/user/grinding_ws/venv/bin/python3
+#!/home/ubuntu/user/ros2_ws/venv/bin/python3
 import sys
-sys.path.append('/home/ubuntu/user/grinding_ws/venv/lib/python3.10/site-packages')
+sys.path.append('/home/ubuntu/user/ros2_ws/venv/lib/python3.10/site-packages')
 
 import time
 from enum import Enum, auto
@@ -21,7 +21,7 @@ from ament_index_python.packages import get_package_share_directory
 from sensor_msgs.msg import JointState
 
 # パスを通して pytracik を参照
-sys.path.append('/home/ubuntu/user/grinding_ws/src/powder_grinding/pytracik')
+sys.path.append('/home/ubuntu/user/ros2_ws/src/powder_grinding/pytracik')
 from pytracik.trac_ik import TracIK as TRACK_IK_SOLVER
 
 
