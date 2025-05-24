@@ -32,8 +32,8 @@ locale
 echo "### 3. Setting up ROS 2 sources ###"
 # Ubuntu Universe リポジトリを有効にする
 echo "Enabling Ubuntu Universe repository..."
-sudo apt install software-properties-common
-sudo add-apt-repository universe
+sudo apt install software-properties-common -y
+sudo add-apt-repository universe -y
 
 # ROS 2 GPG キーを追加
 echo "Adding ROS 2 GPG key..."
@@ -92,11 +92,49 @@ sh -c 'echo "export ROS_DISTRO=humble" >> ~/.bashrc'
 # sh -c 'echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc' # ワークスペースビルド後に必要
 
 # ビルドエイリアス (colcon build を使用)
-sh -c "echo \"alias b='colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release; source install/setup.bash'\" >> ~/.bashrc"
+sh -c "echo \"alias b='cd ~/ros2_ws; colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release; source install/setup.bash'\" >> ~/.bashrc"
+
+# Copy build ros workspace script
+cp ./docker/INITIAL_SETUP_ROS_ENVIROMENTS.sh ~/ros2_ws/
+cp ./docker/BUILD_ROS_WORKSPACE.sh ~/ros2_ws/
+
+
+# ---------------------------------------------------
+# 7. Python 仮想環境の作成
+# ---------------------------------------------------
+echo "### 7. Creating Python Virtual Environment ###"
+# 仮想環境を作成するディレクトリ
+VENV_DIR="$HOME/ros2_ws/venv"
+ROS2_WS_DIR="$HOME/ros2_ws"
+
+# ROS 2 ワークスペースディレクトリが存在しない場合は作成
+mkdir -p "$ROS2_WS_DIR"
+
+# Python 仮想環境を作成
+echo "Creating virtual environment at $VENV_DIR..."
+python3 -m venv "$VENV_DIR"
+
+# .bashrc に仮想環境のアクティベーションと設定を追加
+sh -c 'echo "" >> ~/.bashrc' # 空行を追加して区切りを明確にする
+sh -c 'echo "# Python Virtual Environment for ROS 2" >> ~/.bashrc'
+sh -c "echo \"source \\\"$VENV_DIR/bin/activate\\\"\" >> ~/.bashrc"
+sh -c 'echo "export VIRTUAL_ENV=\"$VENV_DIR\"" >> ~/.bashrc'
+sh -c 'echo "export PATH=\"$VIRTUAL_ENV/bin:$PATH\"" >> ~/.bashrc'
+sh -c 'echo "" >> ~/.bashrc'
+
+# colcon が venv ディレクトリを検索しないように COLCON_IGNORE ファイルを作成
+echo "Creating COLCON_IGNORE in $VENV_DIR to prevent colcon from searching it..."
+touch "$VENV_DIR/COLCON_IGNORE"
+
+# 現在のシェルセッションに仮想環境をアクティベート
+echo "Activating virtual environment in current session..."
+source "$VENV_DIR/bin/activate"
+
 
 # 設定を現在のシェルに反映
 echo "Sourcing ~/.bashrc to apply changes..."
 source ~/.bashrc
+
 
 echo "---------------------------------------------------"
 echo "ROS 2 Humble Installation Complete!"
