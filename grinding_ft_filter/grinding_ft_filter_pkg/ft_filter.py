@@ -1,4 +1,4 @@
-#!/home/ubuntu/user/ros2_ws/venv/bin/python3
+#!~/ros2_ws/venv/bin/python3
 import rclpy
 from rclpy.node import Node
 from rclpy.parameter import Parameter

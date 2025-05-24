@@ -103,17 +103,17 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Setup catkin workspace
-RUN mkdir -p /home/ubuntu/user/ros2_ws/src
-COPY BUILD_ROS_WORKSPACE.sh /home/ubuntu/user/ros2_ws
+RUN mkdir -p ~/ros2_ws/src
+COPY BUILD_ROS_WORKSPACE.sh ~/ros2_ws
 RUN chmod +x ~/catkin_ws/BUILD_ROS_WORKSPACE.sh
-COPY INITIAL_SETUP_ROS_ENVIROMENTS.sh /home/ubuntu/user/ros2_ws
+COPY INITIAL_SETUP_ROS_ENVIROMENTS.sh ~/ros2_ws
 RUN chmod +x ~/catkin_ws/INITIAL_SETUP_ROS_ENVIROMENTS.sh
 
 # Setup ROS environments
-RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc
-RUN echo "source /home/ubuntu/user/ros2_ws/install/setup.bash" >> /root/.bashrc
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc
+RUN echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
 # Argcomplete for colcon
-RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /root/.bashrc
+RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> ~/.bashrc
 # Add alias for easy build
-RUN echo "alias b='cd /home/ubuntu/user/ros2_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source /home/ubuntu/user/ros2_ws/install/setup.bash'" >> /root/.bashrc
+RUN echo "alias b='cd ~/ros2_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source ~/ros2_ws/install/setup.bash'" >> ~/.bashrc
 

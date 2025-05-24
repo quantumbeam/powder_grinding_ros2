@@ -72,7 +72,7 @@ rosdep update
 # 5. 追加のAPTパッケージのインストール
 # ---------------------------------------------------
 echo "### 5. Installing additional common APT packages ###"
-./docker/isntall_packages.sh
+./docker/install_packages.sh
 
 # ---------------------------------------------------
 # 6. 環境設定

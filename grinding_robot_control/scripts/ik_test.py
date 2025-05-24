@@ -1,4 +1,4 @@
-#!/home/ubuntu/user/ros2_ws/venv/bin/python3
+#!~/ros2_ws/venv/bin/python3
 
 import sys
 import os
@@ -9,7 +9,7 @@ from sensor_msgs.msg import JointState
 from ament_index_python.packages import get_package_share_directory
 
 # Add pytracik to the path if it's not in the standard locations
-sys.path.append('/home/ubuntu/user/ros2_ws/src/powder_grinding/pytracik')
+sys.path.append('~/ros2_ws/src/powder_grinding_ros2/pytracik')
 from pytracik.trac_ik import TracIK
 
 class UR5eIKTestNode(Node):

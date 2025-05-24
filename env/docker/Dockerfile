@@ -12,63 +12,44 @@ RUN apt-get update \
 RUN date
 
 # Install apt packages
-RUN apt-get update && apt-get install -y \
-    git \
-    vim \
-    nano \
-    wget \
-    tmux \
-    curl \
-    terminator \
-    iputils-ping \
-    net-tools \
-    python3-pip \
-    python3-venv \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+COPY install_packages.sh /tmp/install_packages.sh
+RUN chmod +x /tmp/install_packages.sh
+RUN /tmp/install_packages.sh
 
-# Install ROS packages
-RUN apt-get update -q && \
-    apt-get install -y \
-    ros-${ROS_DISTRO}-ros2-control \
-    ros-${ROS_DISTRO}-ros2-controllers \
-    ros-${ROS_DISTRO}-rqt-controller-manager \
-    ros-${ROS_DISTRO}-rqt-joint-trajectory-controller \
-    ros-${ROS_DISTRO}-rviz-visual-tools \
-    ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
-    ros-${ROS_DISTRO}-ur \
-    ros-${ROS_DISTRO}-moveit-visual-tools \
-    ros-${ROS_DISTRO}-tf-transformations \
-    ros-${ROS_DISTRO}-moveit \
-    ros-${ROS_DISTRO}-tf2-ros-py \
-    && apt-get clean \ 
-    && rm -rf /var/lib/apt/lists/*
+# Create a non-root user (ros) and set up passwordless sudo
+RUN apt-get update && apt-get install -y sudo \
+    && useradd -m -s /bin/bash ros \
+    && echo "ros ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set up ROS environments for ros user
+USER ros
 
 # # # Create python virtual environment for PEP668
-RUN python3 -m venv /home/ubuntu/user/ros2_ws/venv
-ENV VIRTUAL_ENV="/home/ubuntu/user/ros2_ws/venv"
+RUN python3 -m venv /home/ros/ros2_ws/venv
+ENV VIRTUAL_ENV="/home/ros/ros2_ws/venv"
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+RUN echo "source venv/bin/activate" >> /home/ros/.bashrc
 # Prevent colcon from searching the venv directory for packages
-RUN touch /home/ubuntu/user/ros2_ws/venv/COLCON_IGNORE 
+RUN touch /home/ros/ros2_ws/venv/COLCON_IGNORE 
 
 # Setup workspace
-RUN mkdir -p /home/ubuntu/user/ros2_ws/src
-COPY BUILD_ROS_WORKSPACE.sh /home/ubuntu/user/ros2_ws
-RUN chmod +x /home/ubuntu/user/ros2_ws/BUILD_ROS_WORKSPACE.sh
-COPY INITIAL_SETUP_ROS_ENVIROMENTS.sh /home/ubuntu/user/ros2_ws
-RUN chmod +x /home/ubuntu/user/ros2_ws/INITIAL_SETUP_ROS_ENVIROMENTS.sh
+RUN mkdir -p /home/ros/ros2_ws/src
+COPY BUILD_ROS_WORKSPACE.sh /home/ros/ros2_ws
+# RUN chmod +x /home/ros/ros2_ws/BUILD_ROS_WORKSPACE.sh
+COPY INITIAL_SETUP_ROS_ENVIROMENTS.sh /home/ros/ros2_ws
+# RUN chmod +x /home/ros/ros2_ws/INITIAL_SETUP_ROS_ENVIROMENTS.sh
 
 # Setup ROS enviroments
-RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc
-RUN echo "source /home/ubuntu/user/ros2_ws/install/setup.bash" >> /root/.bashrc
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/ros/.bashrc
+RUN echo "source /home/ros/ros2_ws/install/setup.bash" >> /home/ros/.bashrc
 # Argcomplete for colcon
-RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /root/.bashrc
+RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /home/ros/.bashrc
 # Add alias for easy build
-RUN echo "alias b='cd /home/ubuntu/user/ros2_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source /home/ubuntu/user/ros2_ws/install/setup.bash'" >> /root/.bashrc
+RUN echo "alias b='cd /home/ros/ros2_ws; colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install; source /home/ros/ros2_ws/install/setup.bash'" >> /home/ros/.bashrc
 # Add lib path
-RUN echo "export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" >> /root/.bashrc
+RUN echo "export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" >> /home/ros/.bashrc
 
 
 
-WORKDIR /home/ubuntu/user/ros2_ws
+WORKDIR /home/ros/ros2_ws
 ENTRYPOINT [ "/bin/bash", "-c", ". venv/bin/activate && bash" ]
