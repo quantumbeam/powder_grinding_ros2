@@ -24,9 +24,8 @@ find_package(std_srvs REQUIRED)
 # Find package from package.xml
 ament_auto_find_build_dependencies()
 
-# Install Python modules
-ament_python_install_package(grinding_motion_routines)
 
+#--- for C++
 
 # Add executable
 # Execute add_executable, target_include_directories, target_link_libraries, and ament_target_dependencies together
@@ -35,19 +34,24 @@ ament_auto_add_executable(moveit_example_node src/moveit_example_node.cpp)
 # Add message and service
 ament_auto_generate_code()
 
+
+#-- for Python
+# Install Entry Point
+ament_python_install_package(${PROJECT_NAME})
 # Install scripts
+
 install(
   PROGRAMS
-  grinding_motion_routines/display_marker.py
-  grinding_motion_routines/display_tf.py
-  grinding_motion_routines/grinding_demo.py
-  grinding_motion_routines/grinding_motion_generator.py
-  grinding_motion_routines/ik_test.py
-  grinding_motion_routines/test_marker.py
-
+  ${PROJECT_NAME}/display_marker.py
+  ${PROJECT_NAME}/display_tf.py
+  ${PROJECT_NAME}/grinding_motion_generator.py
+  ${PROJECT_NAME}/grinding_motion_primitive.py
+  scripts/test_marker.py
+  scripts/grinding_demo.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
+#-- for Install Directry
 # Install launch files
 install(
   DIRECTORY launch

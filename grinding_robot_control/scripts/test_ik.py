@@ -1,3 +1,5 @@
+#!~/ros2_ws/venv/bin/python3
+
 import sys
 import os
 import numpy as np
@@ -6,8 +8,6 @@ from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from ament_index_python.packages import get_package_share_directory
 
-# Add pytracik to the path if it's not in the standard locations
-sys.path.append('~/ros2_ws/src/powder_grinding_ros2/pytracik')
 from pytracik.trac_ik import TracIK
 
 class UR5eIKTestNode(Node):
@@ -18,7 +18,7 @@ class UR5eIKTestNode(Node):
         # URDF path - Now using ur5e_with_pestle.urdf.xacro
         # Get the package share directory
         pkg_share_dir = get_package_share_directory('grinding_robot_description')
-        urdf_path = os.path.join(pkg_share_dir, "urdf/ur5e_with_pestle.urdf")
+        urdf_path = os.path.join(pkg_share_dir, "urdf/ur/ur5e_with_pestle.urdf")
         
         if not os.path.exists(urdf_path):
             self.get_logger().error(f"URDF file not found at: {urdf_path}")

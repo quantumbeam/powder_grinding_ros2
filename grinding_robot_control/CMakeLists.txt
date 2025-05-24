@@ -47,9 +47,9 @@ endif()
 ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
-  grinding_robot_control/JTC_helper.py
-  grinding_robot_control/grinding_motion_generator.py
-  scripts/ik_test.py
+  ${PROJECT_NAME}/JTC_helper.py
+  ${PROJECT_NAME}/moveit_helper.py
+  scripts/test_ik.py
   DESTINATION lib/${PROJECT_NAME}
 )
 #--- end Python

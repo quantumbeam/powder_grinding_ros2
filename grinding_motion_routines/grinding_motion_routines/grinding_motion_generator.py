@@ -351,11 +351,10 @@ class GrindingMotionGenerator:
             raise ValueError("number_of_rotations must be >= 1")
         if number_of_waypoints_per_circle < 1:
             raise ValueError("number_of_waypoints_per_circle must be >= 1")
-        if abs(yaw_twist_per_rotation) > pi:
+        if abs(yaw_twist_per_rotation) > np.pi: # Use np.pi for consistency
             warnings.warn(
                 f"Absolute yaw_twist_per_rotation ({abs(yaw_twist_per_rotation):.2f} rad) exceeds pi (180 deg/rot)."
             )
-
         # --- Set default Z radii if not provided ---
         default_rz_m = self.mortar_inner_radii["z"]
         default_rz_mm = default_rz_m / MM_TO_M
@@ -379,51 +378,132 @@ class GrindingMotionGenerator:
         if total_number_of_waypoints == 0:
              return np.empty((0, 7))
 
-        # --- Calculate XY positions (relative to center_offset_xy) ---
-        x_rel_offset, y_rel_offset = lerp_in_polar(
-            start_pos_xy_offset,
-            end_pos_xy_offset,
-            total_number_of_waypoints,
-            number_of_rotations,
-            max_radius=self.mortar_inner_radii["x"]
-        )
-
-        # --- Calculate XY positions (relative to mortar center) ---
-        x_rel_mortar = x_rel_offset + center_offset_xy[0]
-        y_rel_mortar = y_rel_offset + center_offset_xy[1]
-
-        # --- Check if path exceeds mortar XY boundaries ---
-        max_rx = self.mortar_inner_radii["x"]
-        max_ry = self.mortar_inner_radii["y"]
-        if np.any(np.abs(x_rel_mortar) > max_rx + 1e-6): # Add tolerance
-             exceeding_indices = np.where(np.abs(x_rel_mortar) > max_rx + 1e-6)[0]
-             raise ValueError(f"Calculated X path exceeds mortar radius ({max_rx*1000:.1f} mm) at indices {exceeding_indices}.")
-        if np.any(np.abs(y_rel_mortar) > max_ry + 1e-6): # Add tolerance
-             exceeding_indices = np.where(np.abs(y_rel_mortar) > max_ry + 1e-6)[0]
-             raise ValueError(f"Calculated Y path exceeds mortar radius ({max_ry*1000:.1f} mm) at indices {exceeding_indices}.")
-
-        # --- Calculate Z positions (relative to mortar center) ---
-        # Interpolate the z-radius along the path (using determined start/end in meters)
-        radius_z_interp = np.linspace(start_rz, end_rz, total_number_of_waypoints, endpoint=False)
-        z_rel_mortar = self._calculate_ellipsoid_z(x_rel_mortar, y_rel_mortar, radius_z_interp)
-
-        position_relative = np.stack([x_rel_mortar, y_rel_mortar, z_rel_mortar], axis=0) # Shape (3, N)
-
         # --- Calculate Global Positions ---
         mortar_center = self.mortar_top_center_position
-        pos_global_x = position_relative[0] + mortar_center["x"]
-        pos_global_y = position_relative[1] + mortar_center["y"]
-        pos_global_z = position_relative[2] + mortar_center["z"]
-        position_global = np.stack([pos_global_x, pos_global_y, pos_global_z], axis=0) # Shape (3, N)
 
-        # --- Calculate Orientations ---
         total_yaw_twist = yaw_twist_per_rotation * number_of_rotations
-        orientations = self._calculate_orientation(
-            position_relative, angle_scale, yaw_bias, total_yaw_twist
-        )
+        segment_max_twist = self.max_abs_yaw_twist # From __init__'s yaw_twist_limit
 
-        # --- Create Final Waypoints ---
-        waypoints = self._create_waypoints_array(position_global, orientations)
+        # Condition for segmentation
+        if abs(total_yaw_twist) > segment_max_twist and segment_max_twist > 0 and not np.isclose(yaw_twist_per_rotation, 0):
+            warnings.warn(
+                f"Total yaw_twist ({total_yaw_twist:.2f} rad) exceeds segment_max_twist ({segment_max_twist:.2f} rad). "
+                f"Segmenting the motion."
+            )
+            yaw_sign = np.sign(total_yaw_twist)
+
+            # Rotations and waypoints for one repeatable base segment
+            num_rotations_for_base_segment = segment_max_twist / abs(yaw_twist_per_rotation)
+            num_wp_for_base_segment = max(2, int(num_rotations_for_base_segment * number_of_waypoints_per_circle))
+
+            # --- Generate the base segment (partial_segment_wps) ---
+            # XY for the base segment (relative to center_offset_xy)
+            x_rel_offset_s, y_rel_offset_s = lerp_in_polar(
+                start_pos_xy_offset, # Overall start radial position
+                end_pos_xy_offset,   # Overall end radial position
+                num_wp_for_base_segment,
+                num_rotations_for_base_segment, # Angular sweep for this base segment
+                max_radius=self.mortar_inner_radii["x"]
+            )
+            # XY relative to mortar center
+            x_rel_mortar_s = x_rel_offset_s + center_offset_xy[0]
+            y_rel_mortar_s = y_rel_offset_s + center_offset_xy[1]
+
+            # Check boundaries for the segment's XY
+            if np.any(np.abs(x_rel_mortar_s) > self.mortar_inner_radii["x"] + 1e-6) or \
+               np.any(np.abs(y_rel_mortar_s) > self.mortar_inner_radii["y"] + 1e-6):
+                raise ValueError("Base segment path exceeds mortar XY boundaries.")
+
+            # Z for the base segment (interpolating overall start_rz to end_rz over this segment's waypoints)
+            radius_z_interp_s = np.linspace(start_rz, end_rz, num_wp_for_base_segment, endpoint=False)
+            z_rel_mortar_s = self._calculate_ellipsoid_z(x_rel_mortar_s, y_rel_mortar_s, radius_z_interp_s)
+            position_relative_s = np.stack([x_rel_mortar_s, y_rel_mortar_s, z_rel_mortar_s], axis=0)
+
+            # Global positions for the base segment
+            pos_global_x_s = position_relative_s[0] + mortar_center["x"]
+            pos_global_y_s = position_relative_s[1] + mortar_center["y"]
+            pos_global_z_s = position_relative_s[2] + mortar_center["z"]
+            position_global_s = np.stack([pos_global_x_s, pos_global_y_s, pos_global_z_s], axis=0)
+
+            # Orientation for the base segment (this segment has `segment_max_twist` amount of twist)
+            orientations_s = self._calculate_orientation(
+                position_relative_s, angle_scale, yaw_bias, segment_max_twist * yaw_sign
+            )
+            partial_segment_wps = self._create_waypoints_array(position_global_s, orientations_s)
+
+            if partial_segment_wps.shape[0] < 2:
+                warnings.warn(
+                    "Base segment generation for yaw-segmented motion resulted in < 2 waypoints. "
+                    "Falling back to non-segmented motion with total_yaw_twist."
+                )
+                # Fallback to non-segmented logic (copied and adapted from else block)
+                x_rel_offset, y_rel_offset = lerp_in_polar(start_pos_xy_offset, end_pos_xy_offset, total_number_of_waypoints, number_of_rotations, max_radius=self.mortar_inner_radii["x"])
+                x_rel_mortar = x_rel_offset + center_offset_xy[0]
+                y_rel_mortar = y_rel_offset + center_offset_xy[1]
+                if np.any(np.abs(x_rel_mortar) > self.mortar_inner_radii["x"] + 1e-6) or np.any(np.abs(y_rel_mortar) > self.mortar_inner_radii["y"] + 1e-6):
+                    raise ValueError("Calculated path exceeds mortar XY boundaries.")
+                radius_z_interp = np.linspace(start_rz, end_rz, total_number_of_waypoints, endpoint=False)
+                z_rel_mortar = self._calculate_ellipsoid_z(x_rel_mortar, y_rel_mortar, radius_z_interp)
+                position_relative = np.stack([x_rel_mortar, y_rel_mortar, z_rel_mortar], axis=0)
+                pos_global_x = position_relative[0] + mortar_center["x"]
+                pos_global_y = position_relative[1] + mortar_center["y"]
+                pos_global_z = position_relative[2] + mortar_center["z"]
+                position_global = np.stack([pos_global_x, pos_global_y, pos_global_z], axis=0)
+                orientations = self._calculate_orientation(position_relative, angle_scale, yaw_bias, total_yaw_twist)
+                waypoints = self._create_waypoints_array(position_global, orientations)
+                return waypoints
+
+            num_total_segments = int(np.ceil(abs(total_yaw_twist) / segment_max_twist))
+            
+            list_of_segments_to_concatenate = []
+            for i in range(num_total_segments):
+                current_segment_data = np.copy(partial_segment_wps)
+                if i % 2 != 0: # Odd-indexed segments (0-indexed: 1, 3, ...) are reversed
+                    current_segment_data = current_segment_data[::-1]
+                
+                if i == num_total_segments - 1: # Last segment, keep all its points
+                    list_of_segments_to_concatenate.append(current_segment_data)
+                else: # Not the last segment, drop its last point to allow stitching
+                    list_of_segments_to_concatenate.append(current_segment_data[:-1])
+            
+            if list_of_segments_to_concatenate:
+                waypoints = np.vstack(list_of_segments_to_concatenate)
+            else:
+                waypoints = np.empty((0,7)) # Should not happen if num_total_segments > 0
+
+        else: # Original logic for non-segmented motion (or if segmentation conditions not met)
+            # --- Calculate XY positions (relative to center_offset_xy) ---
+            x_rel_offset, y_rel_offset = lerp_in_polar(
+                start_pos_xy_offset,
+                end_pos_xy_offset,
+                total_number_of_waypoints,
+                number_of_rotations,
+                max_radius=self.mortar_inner_radii["x"]
+            )
+            # --- Calculate XY positions (relative to mortar center) ---
+            x_rel_mortar = x_rel_offset + center_offset_xy[0]
+            y_rel_mortar = y_rel_offset + center_offset_xy[1]
+
+            # --- Check if path exceeds mortar XY boundaries ---
+            if np.any(np.abs(x_rel_mortar) > self.mortar_inner_radii["x"] + 1e-6):
+                 raise ValueError(f"Calculated X path exceeds mortar radius ({self.mortar_inner_radii['x']*1000:.1f} mm).")
+            if np.any(np.abs(y_rel_mortar) > self.mortar_inner_radii["y"] + 1e-6):
+                 raise ValueError(f"Calculated Y path exceeds mortar radius ({self.mortar_inner_radii['y']*1000:.1f} mm).")
+
+            # --- Calculate Z positions (relative to mortar center) ---
+            radius_z_interp = np.linspace(start_rz, end_rz, total_number_of_waypoints, endpoint=False)
+            z_rel_mortar = self._calculate_ellipsoid_z(x_rel_mortar, y_rel_mortar, radius_z_interp)
+            position_relative = np.stack([x_rel_mortar, y_rel_mortar, z_rel_mortar], axis=0)
+
+            pos_global_x = position_relative[0] + mortar_center["x"]
+            pos_global_y = position_relative[1] + mortar_center["y"]
+            pos_global_z = position_relative[2] + mortar_center["z"]
+            position_global = np.stack([pos_global_x, pos_global_y, pos_global_z], axis=0)
+
+            orientations = self._calculate_orientation(
+                position_relative, angle_scale, yaw_bias, total_yaw_twist
+            )
+            waypoints = self._create_waypoints_array(position_global, orientations)
 
         return waypoints
 
