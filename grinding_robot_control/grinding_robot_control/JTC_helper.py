@@ -1,4 +1,4 @@
-#!~/ros2_ws/venv/bin/python3
+#!/usr/bin/env python3
 import sys
 sys.path.append('~/ros2_ws/venv/lib/python3.10/site-packages')
 
