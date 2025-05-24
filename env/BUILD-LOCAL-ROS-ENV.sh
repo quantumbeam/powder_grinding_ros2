@@ -75,34 +75,9 @@ echo "### 5. Installing additional common APT packages ###"
 ./docker/install_packages.sh
 
 # ---------------------------------------------------
-# 6. 環境設定
+# 6. Python 仮想環境の作成
 # ---------------------------------------------------
-echo "### 6. Setting up environment variables ###"
-# ROS 2 セットアップスクリプトを ~/.bashrc に追加
-sh -c 'echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc'
-sh -c 'echo "export ROS_DISTRO=humble" >> ~/.bashrc'
-
-# colcon_cd (便利なディレクトリ移動ツール) の設定 (ros-humble-desktop に含まれる場合がありますが、明示的に追加)
-# sh -c 'echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> ~/.bashrc'
-# sh -c 'echo "export _colcon_cd_root=/opt/ros/humble/" >> ~/.bashrc' # 必要であればコメント解除
-
-# ROS 2 ワークスペースの設定例 (既存のROS 1ワークスペースは直接使用できません)
-# 新しいROS 2ワークスペースを作成する例
-# mkdir -p ~/ros2_ws/src
-# sh -c 'echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc' # ワークスペースビルド後に必要
-
-# ビルドエイリアス (colcon build を使用)
-sh -c "echo \"alias b='cd ~/ros2_ws; colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release; source install/setup.bash'\" >> ~/.bashrc"
-
-# Copy build ros workspace script
-cp ./docker/INITIAL_SETUP_ROS_ENVIROMENTS.sh ~/ros2_ws/
-cp ./docker/BUILD_ROS_WORKSPACE.sh ~/ros2_ws/
-
-
-# ---------------------------------------------------
-# 7. Python 仮想環境の作成
-# ---------------------------------------------------
-echo "### 7. Creating Python Virtual Environment ###"
+echo "### 6. Creating Python Virtual Environment ###"
 # 仮想環境を作成するディレクトリ
 VENV_DIR="$HOME/ros2_ws/venv"
 ROS2_WS_DIR="$HOME/ros2_ws"
@@ -114,21 +89,41 @@ mkdir -p "$ROS2_WS_DIR"
 echo "Creating virtual environment at $VENV_DIR..."
 python3 -m venv "$VENV_DIR"
 
-# .bashrc に仮想環境のアクティベーションと設定を追加
-sh -c 'echo "" >> ~/.bashrc' # 空行を追加して区切りを明確にする
-sh -c 'echo "# Python Virtual Environment for ROS 2" >> ~/.bashrc'
-sh -c "echo \"source \\\"$VENV_DIR/bin/activate\\\"\" >> ~/.bashrc"
-sh -c 'echo "export VIRTUAL_ENV=\"$VENV_DIR\"" >> ~/.bashrc'
-sh -c 'echo "export PATH=\"$VIRTUAL_ENV/bin:$PATH\"" >> ~/.bashrc'
-sh -c 'echo "" >> ~/.bashrc'
-
 # colcon が venv ディレクトリを検索しないように COLCON_IGNORE ファイルを作成
 echo "Creating COLCON_IGNORE in $VENV_DIR to prevent colcon from searching it..."
 touch "$VENV_DIR/COLCON_IGNORE"
 
-# 現在のシェルセッションに仮想環境をアクティベート
-echo "Activating virtual environment in current session..."
-source "$VENV_DIR/bin/activate"
+# ---------------------------------------------------
+# 7. 環境設定
+# ---------------------------------------------------
+echo "### 7. Setting up environment variables ###"
+sh -c 'echo "" >> ~/.bashrc' # 空行を追加して区切りを明確にする
+# .bashrc に仮想環境のアクティベーションと設定を追加
+sh -c 'echo "# Python Virtual Environment for ROS 2" >> ~/.bashrc'
+sh -c "echo \"source \\\"$VENV_DIR/bin/activate\\\"\" >> ~/.bashrc"
+sh -c "echo \"export PATH=\\\"${VENV_DIR}/bin:\$PATH\\\"\"" >> ~/.bashrc
+
+# ROS 2 セットアップスクリプトを ~/.bashrc に追加
+sh -c 'echo "# Environment for ROS 2" >> ~/.bashrc'
+sh -c 'echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc'
+sh -c 'echo "export ROS_DISTRO=humble" >> ~/.bashrc'
+
+# colcon_cd (便利なディレクトリ移動ツール) の設定 (ros-humble-desktop に含まれる場合がありますが、明示的に追加)
+# sh -c 'echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> ~/.bashrc'
+# sh -c 'echo "export _colcon_cd_root=/opt/ros/humble/" >> ~/.bashrc' # 必要であればコメント解除
+
+# ROS 2 ワークスペースの設定例 (既存のROS 1ワークスペースは直接使用できません)
+# 新しいROS 2ワークスペースを作成する例
+mkdir -p ~/ros2_ws/src
+sh -c 'echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc' # ワークスペースビルド後に必要
+
+# ビルドエイリアス (colcon build を使用)
+sh -c "echo \"alias b='cd ~/ros2_ws; colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release; source install/setup.bash'\" >> ~/.bashrc"
+sh -c 'echo "" >> ~/.bashrc'
+
+# Copy build ros workspace script
+cp ./docker/INITIAL_SETUP_ROS_ENVIROMENTS.sh ~/ros2_ws/
+cp ./docker/BUILD_ROS_WORKSPACE.sh ~/ros2_ws/
 
 
 # 設定を現在のシェルに反映
