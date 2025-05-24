@@ -9,3 +9,4 @@ numpy
 scipy
 matplotlib
 transforms3d
+tqdm
