@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation, Slerp
 
 # constants
 from numpy import pi, nan
-from display_marker import DisplayMarker
+from grinding_motion_routines.display_marker import DisplayMarker
 import rclpy
 
 MM_TO_M = 0.001
