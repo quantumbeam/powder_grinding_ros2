@@ -51,6 +51,12 @@ RUN echo '' >> /home/ros/.bashrc && \
     echo "export ROS_DISTRO=${ROS_DISTRO}" >> /home/ros/.bashrc && \
     echo "source /home/ros/ros2_ws/install/setup.bash" >> /home/ros/.bashrc
 
+# Configure colcon_cd
+RUN echo '' >> /home/ros/.bashrc && \
+    echo '# colcon_cd configuration' >> /home/ros/.bashrc && \
+    echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> /home/ros/.bashrc && \
+    echo "export _colcon_cd_root=~/" >> /home/ros/.bashrc
+
 # Argcomplete for colcon
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /home/ros/.bashrc
 

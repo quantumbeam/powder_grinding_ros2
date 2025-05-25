@@ -108,9 +108,30 @@ sh -c 'echo "# Environment for ROS 2" >> ~/.bashrc'
 sh -c 'echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc'
 sh -c 'echo "export ROS_DISTRO=humble" >> ~/.bashrc'
 
-# colcon_cd (便利なディレクトリ移動ツール) の設定 (ros-humble-desktop に含まれる場合がありますが、明示的に追加)
-# sh -c 'echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> ~/.bashrc'
-# sh -c 'echo "export _colcon_cd_root=/opt/ros/humble/" >> ~/.bashrc' # 必要であればコメント解除
+# colcon_cd の設定と存在確認を追加
+echo "### Configuring and verifying colcon_cd in ~/.bashrc ###"
+COLCON_CD_SOURCE_LINE='source /usr/share/colcon_cd/function/colcon_cd.sh'
+COLCON_CD_ROOT_LINE='export _colcon_cd_root=~/'
+
+if [ -f ~/.bashrc ]; then
+    # colcon_cd source line を追加
+    if grep -qF "$COLCON_CD_SOURCE_LINE" ~/.bashrc; then
+        echo "'$COLCON_CD_SOURCE_LINE' already exists in ~/.bashrc."
+    else
+        echo "$COLCON_CD_SOURCE_LINE" >> ~/.bashrc
+        echo "'$COLCON_CD_SOURCE_LINE' added to ~/.bashrc."
+    fi
+
+    # colcon_cd root export line を追加
+    if grep -qF "$COLCON_CD_ROOT_LINE" ~/.bashrc; then
+        echo "'$COLCON_CD_ROOT_LINE' already exists in ~/.bashrc."
+    else
+        echo "$COLCON_CD_ROOT_LINE" >> ~/.bashrc
+        echo "'$COLCON_CD_ROOT_LINE' added to ~/.bashrc."
+    fi
+else
+    echo "Error: ~/.bashrc file not found. Skipping colcon_cd configuration."
+fi
 
 # ROS 2 ワークスペースの設定例 (既存のROS 1ワークスペースは直接使用できません)
 # 新しいROS 2ワークスペースを作成する例
@@ -124,7 +145,6 @@ sh -c 'echo "" >> ~/.bashrc'
 # Copy build ros workspace script
 cp ./docker/INITIAL_SETUP_ROS_ENVIROMENTS.sh ~/ros2_ws/
 cp ./docker/BUILD_ROS_WORKSPACE.sh ~/ros2_ws/
-
 
 # 設定を現在のシェルに反映
 echo "Sourcing ~/.bashrc to apply changes..."
