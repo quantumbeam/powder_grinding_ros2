@@ -321,24 +321,28 @@ class JointTrajectoryControllerHelper(Node):
                       send_immediately: bool = False,
                       wait: bool = True) -> None:
         """
-        単一のゴールポーズに対して軌道を生成し送信する
+        単一のゴールポーズ (デカルト座標系 [x,y,z,qx,qy,qz,qw]) に対して軌道を生成し送信する
         """
-        joint_positions = self.solve_ik(goal_pose)
+        if not isinstance(goal_pose, list):
+            self.get_logger().error(
+                f"Goal pose must be a list, but got {type(goal_pose)}. Trajectory not sent."
+            )
+            return
 
-        # --- FIX: Check if solve_ik returned a valid result ---
-        if joint_positions is not None:
-            # IK が成功した場合のみサイズチェックと軌道設定を行う
-            if joint_positions.size == len(self.valid_joint_names):
-                # Convert numpy array to list for set_joint_trajectory if needed
-                self.set_joint_trajectory([joint_positions.tolist()], time_to_reach, send_immediately, wait)
-            else:
-                # This case indicates an unexpected issue in solve_ik logic
-                 self.get_logger().error(f"IK solution for goal pose has unexpected size ({joint_positions.size}). Trajectory not sent.")
-        else:
-            # solve_ik returned None (IK failed)
-            self.get_logger().warn(f"No joint positions found for goal pose: {goal_pose}. Trajectory not sent.")
+        expected_cartesian_pose_len = 7
+        if len(goal_pose) != expected_cartesian_pose_len:
+            self.get_logger().error(
+                f"Cartesian goal pose has an unexpected number of elements: {len(goal_pose)}. "
+                f"Expected {expected_cartesian_pose_len} (for [x,y,z,qx,qy,qz,qw]). Trajectory not sent."
+            )
+            return
 
-
+        self.set_waypoints(
+            waypoints=[goal_pose],  # goal_pose を単一のウェイポイントとしてリストで渡す
+            time_to_reach=time_to_reach,
+            send_immediately=send_immediately,
+            wait=wait
+        )
 
     def set_joint_trajectory(self, joint_trajectory: List[List[float]],
                              time_to_reach: int,
