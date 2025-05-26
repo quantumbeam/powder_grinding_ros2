@@ -194,7 +194,7 @@ class JointTrajectoryControllerHelper(Node):
     def set_waypoints(self,
                       waypoints: List[List[float]],
                       time_to_reach: int,
-                      max_joint_change_per_step: Optional[float] = 0.1, # OptionalにしてNone許容、デフォルト値を少し大きく
+                      max_joint_change_per_step: Optional[float] = np.pi/4, # OptionalにしてNone許容、デフォルト値を少し大きく
                       max_ik_retries_on_jump: int = 100, # 閾値超過時のIKリトライ回数上限
                       ik_retry_perturbation: float = 0.05, # IKリトライ時のシード値の摂動量 (ラジアン)
                       send_immediately: bool = False,
