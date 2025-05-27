@@ -26,6 +26,11 @@ class IKType(Enum):
     TRACK_IK = auto()
     # 今後、他の IK ソルバーを追加する場合はこちらに拡張する
 
+class JointChangeCheckMode(Enum):
+    ALL_INDIVIDUAL_WITHIN_LIMIT = auto()  # 全ての関節が個別の閾値内
+    SUM_TOTAL_WITHIN_LIMIT = auto()       # 全関節の変化量の合計が閾値内
+    # 今後、他の IK ソルバーを追加する場合はこちらに拡張する
+
 
 class JointTrajectoryControllerHelper(Node):
     """
@@ -191,10 +196,72 @@ class JointTrajectoryControllerHelper(Node):
             else:
                 raise Exception(f"Unsupported IK solver: {self.ik_solver.name}")
     
+    def _is_joint_change_within_limit(self,
+                                      current_joint_positions: np.ndarray,
+                                      previous_joint_positions: np.ndarray,
+                                      check_mode: JointChangeCheckMode,
+                                      max_individual_joint_change: Optional[float],
+                                      max_total_joint_change: Optional[float],
+                                      waypoint_index: int,
+                                      attempt_number: int) -> bool:
+        """
+        連続するウェイポイント間のジョイント角度変化が許容範囲内かチェックする。
+
+        Args:
+            current_joint_positions: 現在のウェイポイントのIK解 (numpy配列)。
+            previous_joint_positions: 前のウェイポイントのIK解 (numpy配列)。
+            check_mode: チェックモード (ALL_INDIVIDUAL_WITHIN_LIMIT または SUM_TOTAL_WITHIN_LIMIT)。
+            max_individual_joint_change: ALL_INDIVIDUAL_WITHIN_LIMIT モード時の許容される最大ジョイント角度変化量 (ラジアン)。
+                                         Noneの場合はチェックしない。
+            max_total_joint_change: SUM_TOTAL_WITHIN_LIMIT モード時の許容される全関節の合計最大角度変化量 (ラジアン)。
+                                    Noneの場合はチェックしない。
+            waypoint_index: 現在のウェイポイントのインデックス (ログ用)。
+            attempt_number: 現在のIKリトライ試行回数 (ログ用)。
+
+        Returns:
+            角度変化が許容範囲内であれば True、そうでなければ False。
+        """
+        joint_change = np.abs(current_joint_positions - previous_joint_positions)
+
+        if check_mode == JointChangeCheckMode.ALL_INDIVIDUAL_WITHIN_LIMIT:
+            if max_individual_joint_change is None:
+                return True  # チェック不要
+            if np.any(joint_change > max_individual_joint_change):
+                self.get_logger().error(
+                    f"[Mode: ALL_INDIVIDUAL] Joint change exceeds individual threshold for waypoint [{waypoint_index}] (Attempt {attempt_number}). "
+                    f"Max individual change: {np.max(joint_change):.3f} > {max_individual_joint_change:.3f} rad."
+                )
+                return False
+            self.get_logger().info(
+                f"[Mode: ALL_INDIVIDUAL] Joint change within individual limits for waypoint [{waypoint_index}] (Attempt {attempt_number}). "
+                f"Max individual change: {np.max(joint_change):.3f} <= {max_individual_joint_change:.3f} rad."
+            )
+            return True
+        elif check_mode == JointChangeCheckMode.SUM_TOTAL_WITHIN_LIMIT:
+            if max_total_joint_change is None:
+                return True  # チェック不要
+            current_total_joint_change = np.sum(joint_change)
+            if current_total_joint_change > max_total_joint_change:
+                self.get_logger().error(
+                    f"[Mode: SUM_TOTAL] Total joint change exceeds threshold for waypoint [{waypoint_index}] (Attempt {attempt_number}). "
+                    f"Total change: {current_total_joint_change:.3f} > {max_total_joint_change:.3f} rad."
+                )
+                return False
+            self.get_logger().info(
+                f"[Mode: SUM_TOTAL] Total joint change within limits for waypoint [{waypoint_index}] (Attempt {attempt_number}). "
+                f"Total change: {current_total_joint_change:.3f} <= {max_total_joint_change:.3f} rad."
+            )
+            return True
+        else:
+            self.get_logger().error(f"Invalid JointChangeCheckMode: {check_mode}. Assuming check failed.")
+            return False
+
     def set_waypoints(self,
                       waypoints: List[List[float]],
                       time_to_reach: int,
-                      max_joint_change_per_step: Optional[float] = np.pi/4, # OptionalにしてNone許容、デフォルト値を少し大きく
+                      max_joint_change_for_first_point: float = np.pi/2,
+                      max_joint_change_per_step: float = np.pi/4, # OptionalにしてNone許容、デフォルト値を少し大きく
+                      max_ik_retries_for_first_point: int = 100, # 最初のウェイポイントのIKリトライ回数
                       max_ik_retries_on_jump: int = 100, # 閾値超過時のIKリトライ回数上限
                       ik_retry_perturbation: float = 0.05, # IKリトライ時のシード値の摂動量 (ラジアン)
                       send_immediately: bool = False,
@@ -213,17 +280,28 @@ class JointTrajectoryControllerHelper(Node):
             send_immediately: すぐに軌道を送信するかどうか
             wait: 軌道実行の完了を待つかどうか
         """
-        joint_trajectory = []
+        if not isinstance(waypoints, (list, np.ndarray)):
+            self.get_logger().error(
+                f"Waypoints must be a list or numpy.ndarray, but got {type(waypoints)}. Trajectory not sent."
+            )
+            return
+
         q_prev = self.get_current_joint_positions() # 前のステップのジョイント角度 (最初は現在値)
+        q_first_point=self.set_goal_pose(
+            waypoints[0], time_to_reach, max_joint_change_limit=max_joint_change_for_first_point, # 最初のウェイポイントは個別チェックなし
+            max_ik_retries=max_ik_retries_for_first_point, # 最初のウェイポイントはリトライ回数を指定
+            send_immediately=False, wait=wait
+        )
+        if q_first_point is None:
+            self.get_logger().error(
+                "Failed to find IK solution for the first waypoint. Trajectory generation aborted."
+            )
+            self.clear_points()
+            return
 
-        # Check if initial position is valid before starting the loop
-        if q_prev is None:
-             self.get_logger().error("Cannot start waypoint calculation: Initial joint positions not available.")
-             return
-        q_prev = np.array(q_prev) # numpy 配列に変換
-
+        joint_trajectory = []
         all_waypoints_solved = True # Flag to track if all waypoints were solved
-        for i, waypoint in enumerate(tqdm(waypoints, desc="Calculating IK for waypoints"), start=1):
+        for i, waypoint in enumerate(tqdm(waypoints[1:], desc="Calculating IK for waypoints"), start=1):
 
             solved_within_limit = False
             best_solution_found = None # リトライで見つかった最良の解を保持
@@ -233,13 +311,13 @@ class JointTrajectoryControllerHelper(Node):
 
                 # IK計算に使用するシード値 (初回は q_prev, リトライ時は摂動を加える)
                 if attempt == 0:
-                    q_seed = q_prev.tolist() # solve_ik はリストを期待
+                    q_seed = q_prev
                 else:
                     # q_prev にランダムな摂動を加える
                     perturbation = np.random.uniform(-ik_retry_perturbation, ik_retry_perturbation, size=q_prev.shape)
                     q_seed_np = q_prev + perturbation
                     # オプション: ジョイントリミット内にクリップする処理を追加しても良い
-                    q_seed = q_seed_np.tolist()
+                    q_seed = q_seed_np
 
                 # IK計算実行
                 current_joint_positions_np = self.solve_ik(waypoint, q_init=q_seed)
@@ -250,24 +328,20 @@ class JointTrajectoryControllerHelper(Node):
                         # サイズチェックOK
                         best_solution_found = current_joint_positions_np # 少なくとも解は見つかった
 
-                        # 角度変化量チェック (max_joint_change_per_step が指定されている場合のみ)
-                        if max_joint_change_per_step is not None:
-                            joint_change = np.abs(current_joint_positions_np - q_prev)
-                            if np.any(joint_change > max_joint_change_per_step):
-                                # 閾値超え -> リトライへ (ループの次の反復へ)
-                                self.get_logger().debug(
-                                    f"Joint change exceeds threshold for waypoint [{i}] (Attempt {attempt}). "
-                                    f"Max change: {np.max(joint_change):.3f} > {max_joint_change_per_step:.3f} rad."
-                                )
-                                continue # 次のリトライへ
-                            else:
-                                # 閾値内 -> 成功
-                                solved_within_limit = True
-                                break # リトライループを抜ける (最適な解が見つかった)
-                        else:
-                            # 角度変化チェックなし -> 成功
+                        # 新しいヘルパーメソッドで角度変化量チェック
+                        if self._is_joint_change_within_limit(
+                            current_joint_positions=current_joint_positions_np,
+                            previous_joint_positions=q_prev,
+                            check_mode=JointChangeCheckMode.SUM_TOTAL_WITHIN_LIMIT, # デフォルトは個別チェック
+                            max_individual_joint_change=max_joint_change_per_step,
+                            max_total_joint_change=None, # 合計チェックはここでは使用しない想定
+                            waypoint_index=i,
+                            attempt_number=attempt,
+                        ):
                             solved_within_limit = True
-                            break # リトライループを抜ける
+                            break # リトライループを抜ける (最適な解が見つかった)
+                        else:
+                            continue # 閾値超え -> 次のリトライへ
                     else:
                         # IK成功したがサイズが不正 (solve_ik内で警告が出るはず)
                         self.get_logger().error(
@@ -318,17 +392,32 @@ class JointTrajectoryControllerHelper(Node):
 
     def set_goal_pose(self, goal_pose: List[float],
                       time_to_reach: int,
+                      max_joint_change_limit: Optional[float] = np.pi / 4,
+                      max_ik_retries: int = 100,
                       send_immediately: bool = False,
                       wait: bool = True) -> None:
         """
-        単一のゴールポーズ (デカルト座標系 [x,y,z,qx,qy,qz,qw]) に対して軌道を生成し送信する
+        単一のゴールポーズ (デカルト座標系 [x,y,z,qx,qy,qz,qw]) に対してIKを解き、
+        関節角度変化量チェック (ALL_INDIVIDUAL_WITHIN_LIMIT) を行った上で軌道を生成し送信する。
+        このメソッドは set_waypoints を呼び出さずに直接処理を行う。
+
+        Args:
+            goal_pose: 単一の目標姿勢 [x,y,z,qx,qy,qz,qw]。
+            time_to_reach: 目標到達時間 (秒)。
+            max_joint_change_limit: 現在の関節角度から目標姿勢への移動時に許容される
+                                               各関節の最大角度変化量 (ラジアン)。
+                                               None の場合はチェックしない。Defaults to np.pi/4.
+            max_attempts: IKソルバーが解を見つけるための最大試行回数。Defaults to 10.
+            send_immediately: すぐに軌道を送信するかどうか。
+            wait: 軌道実行の完了を待つかどうか。
         """
-        if not isinstance(goal_pose, list):
+        # Allow both list and numpy.ndarray for goal_pose
+        if not isinstance(goal_pose, (list, np.ndarray)):
             self.get_logger().error(
-                f"Goal pose must be a list, but got {type(goal_pose)}. Trajectory not sent."
+                f"Goal pose must be a list or numpy.ndarray, but got {type(goal_pose)}. Trajectory not sent."
             )
             return
-
+        # Ensure goal_pose is a numpy array for easier manipulation
         expected_cartesian_pose_len = 7
         if len(goal_pose) != expected_cartesian_pose_len:
             self.get_logger().error(
@@ -336,14 +425,50 @@ class JointTrajectoryControllerHelper(Node):
                 f"Expected {expected_cartesian_pose_len} (for [x,y,z,qx,qy,qz,qw]). Trajectory not sent."
             )
             return
+        
+        # Solve IK for the goal_pose
+        q_prev = self.get_current_joint_positions()
+        q_best = None
+        previous_joint_changes = np.full_like(q_prev, np.inf)
+        for i in tqdm(range(max_ik_retries), desc="Finding Best IK solution"):
+            ik_result_joints = self.solve_ik(goal_pose, q_init=q_prev)
+            if ik_result_joints is not None:
+                joint_change = np.abs(ik_result_joints - q_prev)
+                if np.any(previous_joint_changes > joint_change):
+                    q_best = ik_result_joints
+    
+        if q_best is None:
+            self.get_logger().error(
+                f"Failed to find IK solution for the first waypoint after {max_ik_retries} attempts. "
+                "Stopping trajectory generation."
+            )
+            return
+        else:
+            self.get_logger().info(
+                f"Found best IK solution for the first waypoint in {max_ik_retries} attempts."
+            )
+        
+            is_within_limit = self._is_joint_change_within_limit(
+                current_joint_positions=q_best,
+                previous_joint_positions=q_prev,
+                check_mode=JointChangeCheckMode.ALL_INDIVIDUAL_WITHIN_LIMIT,
+                max_individual_joint_change=max_joint_change_limit,
+                max_total_joint_change=None,  # Not used in this mode
+                waypoint_index=0,  # Representing the single goal for logging
+                attempt_number=0   # No retry loop for angle check in this direct implementation
+            )
 
-        self.set_waypoints(
-            waypoints=[goal_pose],  # goal_pose を単一のウェイポイントとしてリストで渡す
-            time_to_reach=time_to_reach,
-            send_immediately=send_immediately,
-            wait=wait
-        )
-
+            if is_within_limit:
+                self.get_logger().info("Joint change is within limit. Sending trajectory to goal pose.")
+                self.set_joint_trajectory(
+                    joint_trajectory=[q_best.tolist()],
+                    time_to_reach=time_to_reach,
+                    send_immediately=send_immediately,
+                    wait=wait
+                )
+                return q_best
+            else:
+                return None
     def set_joint_trajectory(self, joint_trajectory: List[List[float]],
                              time_to_reach: int,
                              send_immediately: bool = False,
@@ -457,19 +582,19 @@ def main(args: Optional[List[str]] = None) -> None:
         if choice == '0':
             break
         elif choice == '1':
-            target_pose = [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0]
+            target_pose = [-0.1, 0.4, 0.3, 1.0, 0.0, 0.0, 0.0]
             joint_positions = arm_controller.solve_ik(target_pose)
             print(f"IK solution: {joint_positions}")
         elif choice == '2':
-            target_pose = [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0]
+            target_pose = [-0.1, 0.4, 0.3, 1.0, 0.0, 0.0, 0.0]
             arm_controller.set_goal_pose(target_pose, time_to_reach=5, send_immediately=True)
         elif choice == '3':
             waypoints = [
-                [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0],
-                [0.5, 0.0, 0.6, 1.0, 0.0, 0.0, 0.0],
-                [0.5, 0.1, 0.6, 1.0, 0.0, 0.0, 0.0]
+                [-0.1, 0.4, 0.3, 1.0, 0.0, 0.0, 0.0],
+                [-0.1, 0.4, 0.4, 1.0, 0.0, 0.0, 0.0],
+                [-0.1, 0.3, 0.5, 1.0, 0.0, 0.0, 0.0]
             ]
-            arm_controller.set_waypoints(waypoints, time_to_reach=5, send_immediately=True)
+            arm_controller.set_waypoints(waypoints,max_joint_change_for_first_point=np.pi, time_to_reach=5, send_immediately=True)
         elif choice == '4':
             print("Testing grinding motion ...")
             try:
@@ -481,12 +606,13 @@ def main(args: Optional[List[str]] = None) -> None:
 
             mortar_inner_size = {"x": 0.04, "y": 0.04, "z": 0.035}
             mortar_top_position = {
-                "x": -0.24487948173594054,
-                "y": 0.3722676198635453,
-                "z": 0.045105853329747,
+                "x": -0.2,
+                "y": 0.4,
+                "z": 0.3,
             }
             grinding_pos_beginning = [-8, 0]
             grinding_pos_end = [-8, 0.001]
+            grinding_radius_z= 36
             number_of_rotations = 1
             angle_scale = 1
             yaw_bias = 0
@@ -498,14 +624,16 @@ def main(args: Optional[List[str]] = None) -> None:
             motion_generator = GrindingMotionGenerator(mortar_top_position, mortar_inner_size)
             try:
                 waypoints = motion_generator.create_circular_waypoints(
-                    beginning_position_mm=grinding_pos_beginning,
-                    end_position_mm=grinding_pos_end,
+                    beginning_position=grinding_pos_beginning,  # X, Y座標のリストまたはNumpy配列
+                    end_position=grinding_pos_end,          # X, Y座標のリストまたはNumpy配列
+                    beginning_radius_z=grinding_radius_z, # Z軸の開始半径
+                    end_radius_z=grinding_radius_z,           # Z軸の終了半径
                     number_of_rotations=number_of_rotations,
                     number_of_waypoints_per_circle=number_of_waypoints_per_circle,
                     angle_scale=angle_scale,
                     yaw_bias=yaw_bias,
                     yaw_twist_per_rotation=yaw_twist_per_rotation,
-                    center_position_mm=center_position
+                    center_position=center_position
                 )
             except ValueError as e:
                 print(f"Error generating circular waypoints: {e}")
@@ -517,7 +645,7 @@ def main(args: Optional[List[str]] = None) -> None:
             display_marker = DisplayMarker()
             display_marker.display_waypoints(waypoints, scale=0.002)
             print("Go to first grinding position")
-            arm_controller.set_goal_pose(waypoints[0], time_to_reach=5, send_immediately=True)
+            arm_controller.set_goal_pose(waypoints[0], time_to_reach=5, max_joint_change_limit=np.pi, send_immediately=True)
             print(f"Executing grinding motion with {len(waypoints)} waypoints")
             total_time = sec_per_rotation * number_of_rotations
             arm_controller.set_waypoints(waypoints, time_to_reach=total_time, send_immediately=True)
