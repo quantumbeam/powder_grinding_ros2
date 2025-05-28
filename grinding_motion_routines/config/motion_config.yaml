@@ -34,33 +34,50 @@ grinding_demo_node:
 
     # Grinding Parameters
     grinding:
-      depth_mm: -36.0   # Interpreted from snippet's grinding_radius_z=36 (as depth in mm)
-      radius_mm: -8.0    # From snippet's grinding_pos_beginning = [-8, 0]
-      rotations: 1.0     # From snippet's number_of_rotations = 1
-      angle_scale: 1.0   # From snippet's angle_scale = 1
+      depth_st_mm: -35.0
+      depth_end_mm: -35.0
+      start_pos_xy_mm:
+        - -8.0
+        - 0.0
+      end_pos_xy_mm:
+        - -8.0
+        - 0.0001
+      center_offset_mm: # Matches input grinding_center_pos: [0, 0]
+        x: 0.0
+        y: 0.0
+      rotations: 5.0
+      angle_scale: 0.3
       yaw_twist_per_rotation_deg: 90.0 # Matches snippet's np.pi / 2
-      waypoints_per_circle: 50 # From snippet's number_of_waypoints_per_circle = 50
-      sec_per_rotation: 1.0    # From snippet's sec_per_rotation = 1
-      center_offset_mm:
-        x: 0.0 # Matches snippet's center_position = [0, 0]
-        y: 0.0 # Matches snippet's center_position = [0, 0]
+      waypoints_per_circle: 100
+      sec_per_rotation: 0.5
+      vel_scale: 1.0
+      acc_scale: 1.0
+      yaw_bias_rad: 3.1415926535
 
     # Gathering Parameters
     gathering:
-      depth_mm: -5.0
-      start_radius_mm: 18.0
-      end_radius_mm: 2.0 # 中心ぴったりは避ける
-      rotations: 1.5
-      angle_scale: 0.1
-      waypoints_per_circle: 40
-      sec_per_rotation: 3.0
+      depth_st_mm: -35.0
+      depth_end_mm: -35.0
+      start_pos_xy_mm:
+        - 30.0
+        - 0.0
+      end_pos_xy_mm:
+        - -22.0
+        - 0.0001
       center_offset_mm:
         x: 0.0
         y: 0.0
+      rotations: 5.0
+      angle_scale: 0.0
+      waypoints_per_circle: 100
+      sec_per_rotation: 2.0
+      vel_scale: 0.1
+      acc_scale: 0.1
+      yaw_bias_rad: 3.1415926535
 
     # Motion Execution Parameters
     motion:
-      joint_difference_limit_rad: 0.1
+      joint_difference_limit_rad: 0.03
       max_ik_retries_on_jump: 100
       ik_retry_perturbation_rad: 0.05
       pre_motion: true
