@@ -295,7 +295,6 @@ class MotionGenerator:
                     quat.T[3],
                 ]
             ).T
-            print(f"partial_waypoints shape: {partial_waypoints.shape}")
             waypoints=[]
             for i in range(iterations):
                 if i % 2 == 0:
