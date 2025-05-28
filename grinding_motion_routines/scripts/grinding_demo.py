@@ -8,7 +8,7 @@ import math # For deg2rad
 
 # 必要なクラスをインポート
 from grinding_motion_routines.grinding_motion_primitive import GrindingMotionPrimitive
-from grinding_motion_routines.grinding_motion_generator import GrindingMotionGenerator
+from grinding_motion_routines.grinding_motion_generator import MotionGenerator
 from grinding_motion_routines.display_marker import DisplayMarker # マーカー表示用
 from grinding_robot_control.JTC_helper import JointTrajectoryControllerHelper, IKType
 
@@ -63,25 +63,25 @@ def main(args=None):
 
         # Grinding Parameters
         # This parameter will be effectively overridden by direct values in create_circular_waypoints for grinding, based on snippet
-        grinding_radius_mm = main_node.declare_parameter('grinding.radius_mm', -8.0).get_parameter_value().double_value # Snippet uses [-8,0] as start
+        grinding_radius = main_node.declare_parameter('grinding.radius', -8.0).get_parameter_value().double_value # Snippet uses [-8,0] as start
         grinding_rotations = main_node.declare_parameter('grinding.rotations', 1.0).get_parameter_value().double_value # Snippet: 1
         grinding_angle_scale = main_node.declare_parameter('grinding.angle_scale', 1.0).get_parameter_value().double_value # Snippet: 1
         grinding_yaw_twist_deg = main_node.declare_parameter('grinding.yaw_twist_per_rotation_deg', 90.0).get_parameter_value().double_value # Snippet: np.pi/2 rad = 90 deg
         grinding_waypoints_per_circle = main_node.declare_parameter('grinding.waypoints_per_circle', 50).get_parameter_value().integer_value # Snippet: 50
         grinding_sec_per_rotation = main_node.declare_parameter('grinding.sec_per_rotation', 1.0).get_parameter_value().double_value # Snippet: 1
-        grinding_center_offset_x_mm = main_node.declare_parameter('grinding.center_offset_mm.x', 0.0).get_parameter_value().double_value # Snippet: center_position[0]
-        grinding_center_offset_y_mm = main_node.declare_parameter('grinding.center_offset_mm.y', 0.0).get_parameter_value().double_value # Snippet: center_position[1]
+        grinding_center_offset_x = main_node.declare_parameter('grinding.center_offset.x', 0.0).get_parameter_value().double_value # Snippet: center_position[0]
+        grinding_center_offset_y = main_node.declare_parameter('grinding.center_offset.y', 0.0).get_parameter_value().double_value # Snippet: center_position[1]
         grinding_yaw_twist_rad = math.radians(grinding_yaw_twist_deg) # Convert to radians
 
         # Gathering Parameters
-        gathering_start_radius_mm = main_node.declare_parameter('gathering.start_radius_mm', 18.0).get_parameter_value().double_value
-        gathering_end_radius_mm = main_node.declare_parameter('gathering.end_radius_mm', 0.0).get_parameter_value().double_value
+        gathering_start_radius = main_node.declare_parameter('gathering.start_radius', 18.0).get_parameter_value().double_value
+        gathering_end_radius = main_node.declare_parameter('gathering.end_radius', 0.0).get_parameter_value().double_value
         gathering_rotations = main_node.declare_parameter('gathering.rotations', 1.5).get_parameter_value().double_value
         gathering_angle_scale = main_node.declare_parameter('gathering.angle_scale', 0.1).get_parameter_value().double_value
         gathering_waypoints_per_circle = main_node.declare_parameter('gathering.waypoints_per_circle', 40).get_parameter_value().integer_value
         gathering_sec_per_rotation = main_node.declare_parameter('gathering.sec_per_rotation', 3.0).get_parameter_value().double_value
-        gathering_center_offset_x_mm = main_node.declare_parameter('gathering.center_offset_mm.x', 0.0).get_parameter_value().double_value
-        gathering_center_offset_y_mm = main_node.declare_parameter('gathering.center_offset_mm.y', 0.0).get_parameter_value().double_value
+        gathering_center_offset_x = main_node.declare_parameter('gathering.center_offset.x', 0.0).get_parameter_value().double_value
+        gathering_center_offset_y = main_node.declare_parameter('gathering.center_offset.y', 0.0).get_parameter_value().double_value
 
         # Motion Execution Parameters
         joint_difference_limit_rad = main_node.declare_parameter('motion.joint_difference_limit_rad', 0.1).get_parameter_value().double_value
@@ -122,9 +122,9 @@ def main(args=None):
         #      raise RuntimeError("JTC Helper initialization failed")
         # logger.info("JTC Helper is ready.")
 
-        # GrindingMotionGenerator を初期化
-        motion_generator = GrindingMotionGenerator(mortar_top_position, mortar_inner_size)
-        logger.info("GrindingMotionGenerator initialized.")
+        # MotionGenerator を初期化
+        motion_generator = MotionGenerator(mortar_top_position, mortar_inner_size)
+        logger.info("MotionGenerator initialized.")
 
         # GrindingMotionPrimitive を初期化
         motion_primitive = GrindingMotionPrimitive(
@@ -151,20 +151,18 @@ def main(args=None):
     try:
         # --- 1. 研削動作 ---
         logger.info("--- Generating Grinding Waypoints ---")
-        # ウェイポイント生成
-        # Use specific values from the snippet for beginning and end positions
-        grinding_begin_pos_mm = [-8.0, 0.0]  # From snippet: grinding_pos_beginning = [-8, 0]
-        grinding_end_pos_mm = [-8.0, 0.001] # From snippet: grinding_pos_end = [-8, 0.001]
-
+      
         grinding_waypoints = motion_generator.create_circular_waypoints(
-            beginning_position_mm=grinding_begin_pos_mm,   # [x,y] in mm
-            end_position_mm=grinding_end_pos_mm,       # [x,y] in mm
-            number_of_rotations=grinding_rotations,
-            number_of_waypoints_per_circle=grinding_waypoints_per_circle,
-            angle_scale=grinding_angle_scale,
-            yaw_twist_per_rotation=grinding_yaw_twist_rad, # Use radians
-            center_position_mm=[grinding_center_offset_x_mm, grinding_center_offset_y_mm] # From snippet: center_position = [0,0]
-        )
+                    beginning_position=grinding_pos_beginning,  # X, Y座標のリストまたはNumpy配列
+                    end_position=grinding_pos_end,          # X, Y座標のリストまたはNumpy配列
+                    beginning_radius_z=grinding_radius_z, # Z軸の開始半径
+                    end_radius_z=grinding_radius_z,           # Z軸の終了半径
+                    number_of_rotations=number_of_rotations,
+                    number_of_waypoints_per_circle=number_of_waypoints_per_circle,
+                    angle_scale=angle_scale,
+                    yaw_bias=yaw_bias,
+                    yaw_twist_per_rotation=yaw_twist_per_rotation,
+                )
         logger.info(f"Generated {grinding_waypoints.shape[0]} grinding waypoints.")
 
         # マーカー表示
@@ -196,13 +194,13 @@ def main(args=None):
         logger.info("--- Generating Gathering Waypoints ---")
         # ウェイポイント生成 (開始半径から終了半径へ)
         gathering_waypoints = motion_generator.create_circular_waypoints(
-            beginning_position_mm=[gathering_start_radius_mm, 0], # [x,y]
-            end_position_mm=[gathering_end_radius_mm, 0.001],   # [x,y]
+            beginning_position=[gathering_start_radius, 0], # [x,y]
+            end_position=[gathering_end_radius, 0.001],   # [x,y]
             number_of_rotations=gathering_rotations,
             number_of_waypoints_per_circle=gathering_waypoints_per_circle,
             angle_scale=gathering_angle_scale,
             yaw_twist_per_rotation=0, # No twist for gathering
-            center_position_mm=[gathering_center_offset_x_mm, gathering_center_offset_y_mm]
+            center_position=[gathering_center_offset_x, gathering_center_offset_y]
         )
         logger.info(f"Generated {gathering_waypoints.shape[0]} gathering waypoints.")
 
