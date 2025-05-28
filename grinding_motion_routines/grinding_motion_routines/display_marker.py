@@ -21,7 +21,6 @@ class DisplayMarker(Node):
         while(self.publisher.get_subscription_count() == 0):
           time.sleep(1)
           counter=self.publisher.get_subscription_count()
-          print(counter)
         self.get_logger().info(f'Subscriber connected to the marker publisher on topic "{self.publisher.topic_name}"!')
 
 
@@ -57,7 +56,6 @@ class DisplayMarker(Node):
             marker.pose.orientation = points.orientation
             red_strength= 1.0*index/(len(waypoints)-1)
             blue_strength= 1.0*(len(waypoints)-index-1)/(len(waypoints)-1)
-            print(index,red_strength,blue_strength)
             marker.color.r = red_strength
             marker.color.g = 0.0
             marker.color.b = blue_strength
