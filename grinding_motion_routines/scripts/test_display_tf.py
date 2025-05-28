@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import rclpy
 import numpy as np
-# display_tf.py から TFPublisher クラスをインポート
-from grinding_motion_routines.display_tf import TFPublisher
+# display_tf.py から DisplayTF クラスをインポート
+from grinding_motion_routines.display_tf import DisplayTF
 
 
 def generate_spiral_waypoints(num_points):
@@ -34,9 +34,9 @@ def generate_spiral_waypoints(num_points):
 def main(args=None):
     rclpy.init(args=args)
 
-    # TFPublisherノードのインスタンスを作成
-    # TFPublisherは内部で "tf_publisher_node" という名前のノードを作成する
-    tf_broadcaster_node = TFPublisher(parent_link="world", child_link="spiral_point_")
+    # DisplayTFノードのインスタンスを作成
+    # DisplayTFは内部で "tf_publisher_node" という名前のノードを作成する
+    tf_broadcaster_node = DisplayTF(parent_link="world", child_link="spiral_point_")
                                     # parent_link と child_link のプレフィックスを指定
 
     waypoints_data = generate_spiral_waypoints(20) # ポイント数を調整可能

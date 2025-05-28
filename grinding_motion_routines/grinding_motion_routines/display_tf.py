@@ -8,9 +8,9 @@ from rclpy.node import Node
 # Pose, Quaternion, Vector3 は直接使われていません
 
 
-class TFPublisher(Node):
-    def __init__(self, parent_link="base_link", child_link="debug_tf_") -> None: # child_linkのデフォルト値を変更
-        super().__init__("tf_publisher_node") # ノード名をより具体的に
+class DisplayTF(Node):
+    def __init__(self, node_name="tf_publisher_node", parent_link="base_link", child_link="debug_tf_") -> None:
+        super().__init__(node_name)
         self.broadcaster = tf2_ros.TransformBroadcaster(self)
         self.tf_stamped = geometry_msgs.msg.TransformStamped() # 変数名をtfから変更
         self.parent_link = parent_link
