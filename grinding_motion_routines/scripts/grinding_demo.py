@@ -3,6 +3,7 @@
 import rclpy
 from rclpy.node import Node
 import numpy as np
+import traceback # For formatting exception tracebacks
 from typing import List, Optional, Tuple
 import math # For deg2rad
 
@@ -62,29 +63,39 @@ def main(args=None):
         logger.info(f"Using initial pose: {init_pose}")
 
         # Grinding Parameters
-        # This parameter will be effectively overridden by direct values in create_circular_waypoints for grinding, based on snippet
-        grinding_radius = main_node.declare_parameter('grinding.radius', -8.0).get_parameter_value().double_value # Snippet uses [-8,0] as start
-        grinding_rotations = main_node.declare_parameter('grinding.rotations', 1.0).get_parameter_value().double_value # Snippet: 1
-        grinding_angle_scale = main_node.declare_parameter('grinding.angle_scale', 1.0).get_parameter_value().double_value # Snippet: 1
+        grinding_start_offset_xy = main_node.declare_parameter('grinding.start_pos_xy_mm', [-8.0, 0.0]).get_parameter_value().double_array_value
+        grinding_end_offset_xy = main_node.declare_parameter('grinding.end_pos_xy_mm', [-8.0, 0.0001]).get_parameter_value().double_array_value
+        grinding_depth_st_mm = main_node.declare_parameter('grinding.depth_st_mm', -35.0).get_parameter_value().double_value
+        grinding_depth_end_mm = main_node.declare_parameter('grinding.depth_end_mm', -35.0).get_parameter_value().double_value
+        grinding_rotations = main_node.declare_parameter('grinding.rotations', 5.0).get_parameter_value().double_value
+        grinding_angle_scale = main_node.declare_parameter('grinding.angle_scale', 0.3).get_parameter_value().double_value
         grinding_yaw_twist_deg = main_node.declare_parameter('grinding.yaw_twist_per_rotation_deg', 90.0).get_parameter_value().double_value # Snippet: np.pi/2 rad = 90 deg
-        grinding_waypoints_per_circle = main_node.declare_parameter('grinding.waypoints_per_circle', 50).get_parameter_value().integer_value # Snippet: 50
-        grinding_sec_per_rotation = main_node.declare_parameter('grinding.sec_per_rotation', 1.0).get_parameter_value().double_value # Snippet: 1
+        grinding_waypoints_per_circle = main_node.declare_parameter('grinding.waypoints_per_circle', 100).get_parameter_value().integer_value
+        grinding_sec_per_rotation = main_node.declare_parameter('grinding.sec_per_rotation', 0.5).get_parameter_value().double_value
         grinding_center_offset_x = main_node.declare_parameter('grinding.center_offset.x', 0.0).get_parameter_value().double_value # Snippet: center_position[0]
         grinding_center_offset_y = main_node.declare_parameter('grinding.center_offset.y', 0.0).get_parameter_value().double_value # Snippet: center_position[1]
+        grinding_yaw_bias_rad = main_node.declare_parameter('grinding.yaw_bias_rad', math.pi).get_parameter_value().double_value
+        grinding_vel_scale = main_node.declare_parameter('grinding.vel_scale', 1.0).get_parameter_value().double_value
+        grinding_acc_scale = main_node.declare_parameter('grinding.acc_scale', 1.0).get_parameter_value().double_value
         grinding_yaw_twist_rad = math.radians(grinding_yaw_twist_deg) # Convert to radians
 
         # Gathering Parameters
-        gathering_start_radius = main_node.declare_parameter('gathering.start_radius', 18.0).get_parameter_value().double_value
-        gathering_end_radius = main_node.declare_parameter('gathering.end_radius', 0.0).get_parameter_value().double_value
-        gathering_rotations = main_node.declare_parameter('gathering.rotations', 1.5).get_parameter_value().double_value
-        gathering_angle_scale = main_node.declare_parameter('gathering.angle_scale', 0.1).get_parameter_value().double_value
-        gathering_waypoints_per_circle = main_node.declare_parameter('gathering.waypoints_per_circle', 40).get_parameter_value().integer_value
-        gathering_sec_per_rotation = main_node.declare_parameter('gathering.sec_per_rotation', 3.0).get_parameter_value().double_value
+        gathering_start_offset_xy = main_node.declare_parameter('gathering.start_pos_xy_mm', [30.0, 0.0]).get_parameter_value().double_array_value
+        gathering_end_offset_xy = main_node.declare_parameter('gathering.end_pos_xy_mm', [-22.0, 0.0001]).get_parameter_value().double_array_value
+        gathering_depth_st_mm = main_node.declare_parameter('gathering.depth_st_mm', -35.0).get_parameter_value().double_value
+        gathering_depth_end_mm = main_node.declare_parameter('gathering.depth_end_mm', -35.0).get_parameter_value().double_value
+        gathering_rotations = main_node.declare_parameter('gathering.rotations', 5.0).get_parameter_value().double_value
+        gathering_angle_scale = main_node.declare_parameter('gathering.angle_scale', 0.0).get_parameter_value().double_value
+        gathering_waypoints_per_circle = main_node.declare_parameter('gathering.waypoints_per_circle', 100).get_parameter_value().integer_value
+        gathering_sec_per_rotation = main_node.declare_parameter('gathering.sec_per_rotation', 2.0).get_parameter_value().double_value
         gathering_center_offset_x = main_node.declare_parameter('gathering.center_offset.x', 0.0).get_parameter_value().double_value
         gathering_center_offset_y = main_node.declare_parameter('gathering.center_offset.y', 0.0).get_parameter_value().double_value
+        gathering_yaw_bias_rad = main_node.declare_parameter('gathering.yaw_bias_rad', math.pi).get_parameter_value().double_value
+        gathering_vel_scale = main_node.declare_parameter('gathering.vel_scale', 0.1).get_parameter_value().double_value
+        gathering_acc_scale = main_node.declare_parameter('gathering.acc_scale', 0.1).get_parameter_value().double_value
 
         # Motion Execution Parameters
-        joint_difference_limit_rad = main_node.declare_parameter('motion.joint_difference_limit_rad', 0.1).get_parameter_value().double_value
+        joint_difference_limit_rad = main_node.declare_parameter('motion.joint_difference_limit_rad', 0.03).get_parameter_value().double_value
         max_ik_retries_on_jump = main_node.declare_parameter('motion.max_ik_retries_on_jump', 100).get_parameter_value().integer_value
         ik_retry_perturbation_rad = main_node.declare_parameter('motion.ik_retry_perturbation_rad', 0.05).get_parameter_value().double_value
         pre_motion = main_node.declare_parameter('motion.pre_motion', True).get_parameter_value().bool_value
@@ -94,7 +105,7 @@ def main(args=None):
         logger.info("Parameters loaded successfully.")
 
     except Exception as e:
-        logger.error(f"Failed to declare or get parameters: {e}", exc_info=True)
+        logger.error(f"Failed to declare or get parameters: {e}\n{traceback.format_exc()}")
         rclpy.shutdown()
         return
 
@@ -141,7 +152,7 @@ def main(args=None):
         logger.info("DisplayMarker initialized.")
 
     except Exception as e:
-        logger.error(f"Failed to initialize helpers or generators: {e}", exc_info=True)
+        logger.error(f"Failed to initialize helpers or generators: {e}\n{traceback.format_exc()}")
         if jtc_helper:
             jtc_helper.destroy_node()
         rclpy.shutdown()
@@ -153,18 +164,18 @@ def main(args=None):
         logger.info("--- Generating Grinding Waypoints ---")
       
         grinding_waypoints = motion_generator.create_circular_waypoints(
-                    beginning_position=grinding_pos_beginning,  # X, Y座標のリストまたはNumpy配列
-                    end_position=grinding_pos_end,          # X, Y座標のリストまたはNumpy配列
-                    beginning_radius_z=grinding_radius_z, # Z軸の開始半径
-                    end_radius_z=grinding_radius_z,           # Z軸の終了半径
-                    number_of_rotations=number_of_rotations,
-                    number_of_waypoints_per_circle=number_of_waypoints_per_circle,
-                    angle_scale=angle_scale,
-                    yaw_bias=yaw_bias,
-                    yaw_twist_per_rotation=yaw_twist_per_rotation,
+                    beginning_position=grinding_start_offset_xy,
+                    end_position=grinding_end_offset_xy,
+                    beginning_radius_z=grinding_depth_st_mm,
+                    end_radius_z=grinding_depth_end_mm,
+                    number_of_rotations=grinding_rotations,
+                    number_of_waypoints_per_circle=grinding_waypoints_per_circle,
+                    angle_scale=grinding_angle_scale,
+                    yaw_bias=grinding_yaw_bias_rad,
+                    yaw_twist_per_rotation=grinding_yaw_twist_rad,
+                    center_position=[grinding_center_offset_x, grinding_center_offset_y]
                 )
-        logger.info(f"Generated {grinding_waypoints.shape[0]} grinding waypoints.")
-
+        
         # マーカー表示
         display_marker.display_waypoints(grinding_waypoints, scale=0.002) # Added scale from snippet
         logger.info("Published grinding path markers.")
@@ -194,15 +205,17 @@ def main(args=None):
         logger.info("--- Generating Gathering Waypoints ---")
         # ウェイポイント生成 (開始半径から終了半径へ)
         gathering_waypoints = motion_generator.create_circular_waypoints(
-            beginning_position=[gathering_start_radius, 0], # [x,y]
-            end_position=[gathering_end_radius, 0.001],   # [x,y]
+            beginning_position=list(gathering_start_offset_xy),
+            end_position=list(gathering_end_offset_xy),
+            beginning_radius_z=gathering_depth_st_mm,
+            end_radius_z=gathering_depth_end_mm,
             number_of_rotations=gathering_rotations,
             number_of_waypoints_per_circle=gathering_waypoints_per_circle,
             angle_scale=gathering_angle_scale,
-            yaw_twist_per_rotation=0, # No twist for gathering
-            center_position=[gathering_center_offset_x, gathering_center_offset_y]
+            yaw_bias=gathering_yaw_bias_rad,
+            yaw_twist_per_rotation=0.0, # No twist for gathering
+            center_position=[gathering_center_offset_x, gathering_center_offset_y],
         )
-        logger.info(f"Generated {gathering_waypoints.shape[0]} gathering waypoints.")
 
         # マーカー表示
         display_marker.display_waypoints(gathering_waypoints)
@@ -229,7 +242,7 @@ def main(args=None):
         logger.info("Grinding Demo finished successfully.")
 
     except Exception as e:
-        logger.error(f"An error occurred during the demo: {e}", exc_info=True) # トレースバックも表示
+        logger.error(f"An error occurred during the demo: {e}\n{traceback.format_exc()}") # トレースバックも表示
 
     finally:
         # --- クリーンアップ ---
