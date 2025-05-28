@@ -9,8 +9,8 @@ grinding_demo_node:
     base_link: "base_link"
     grinding_ee_link: "pestle_tip"
     gathering_ee_link: "spatula_tip"
-    robot_description_package: "grinding_robot_description"
-    robot_description_file: "ur5e_with_pestle"
+    robot_description_package: "grinding_robot_description" # Matches JointTrajectoryControllerHelper snippet
+    robot_description_file: "ur/ur5e_with_pestle"         # Updated from JointTrajectoryControllerHelper snippet
 
     # Mortar Parameters
     mortar:
@@ -19,9 +19,9 @@ grinding_demo_node:
         y: 0.04
         z: 0.035
       top_position:
-        x: -0.245
-        y: 0.372
-        z: 0.045
+        x: -0.2    # Updated from grinding demo snippet
+        y: 0.4     # Updated from grinding demo snippet
+        z: 0.3     # Updated from grinding demo snippet
 
     # Initial Pose Parameters
     init_pose:
@@ -34,16 +34,16 @@ grinding_demo_node:
 
     # Grinding Parameters
     grinding:
-      depth_mm: -10.0
-      radius_mm: 15.0
-      rotations: 2.0
-      angle_scale: 0.8
-      yaw_twist_per_rotation_deg: 90.0
-      waypoints_per_circle: 30
-      sec_per_rotation: 2.0
+      depth_mm: -36.0   # Interpreted from snippet's grinding_radius_z=36 (as depth in mm)
+      radius_mm: -8.0    # From snippet's grinding_pos_beginning = [-8, 0]
+      rotations: 1.0     # From snippet's number_of_rotations = 1
+      angle_scale: 1.0   # From snippet's angle_scale = 1
+      yaw_twist_per_rotation_deg: 90.0 # Matches snippet's np.pi / 2
+      waypoints_per_circle: 50 # From snippet's number_of_waypoints_per_circle = 50
+      sec_per_rotation: 1.0    # From snippet's sec_per_rotation = 1
       center_offset_mm:
-        x: 0.0
-        y: 0.0
+        x: 0.0 # Matches snippet's center_position = [0, 0]
+        y: 0.0 # Matches snippet's center_position = [0, 0]
 
     # Gathering Parameters
     gathering:

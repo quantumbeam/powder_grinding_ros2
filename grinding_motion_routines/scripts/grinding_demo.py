@@ -9,8 +9,8 @@ import math # For deg2rad
 # 必要なクラスをインポート
 from grinding_motion_routines.grinding_motion_primitive import GrindingMotionPrimitive
 from grinding_motion_routines.grinding_motion_generator import GrindingMotionGenerator
-from grinding_motion_routines.JTC_helper import JointTrajectoryControllerHelper, IKType
 from grinding_motion_routines.display_marker import DisplayMarker # マーカー表示用
+from grinding_robot_control.JTC_helper import JointTrajectoryControllerHelper, IKType
 
 def main(args=None):
     rclpy.init(args=args)
@@ -32,22 +32,22 @@ def main(args=None):
         base_link = main_node.declare_parameter('base_link', 'base_link').get_parameter_value().string_value
         grinding_ee_link = main_node.declare_parameter('grinding_ee_link', 'pestle_tip').get_parameter_value().string_value
         gathering_ee_link = main_node.declare_parameter('gathering_ee_link', 'spatula_tip').get_parameter_value().string_value
-        robot_description_package = main_node.declare_parameter('robot_description_package', 'grinding_robot_description').get_parameter_value().string_value
-        robot_description_file = main_node.declare_parameter('robot_description_file', 'ur5e_with_pestle').get_parameter_value().string_value
+        robot_description_package = main_node.declare_parameter('robot_description_package', 'grinding_robot_description').get_parameter_value().string_value # Snippet: "grinding_robot_description"
+        robot_description_file = main_node.declare_parameter('robot_description_file', 'ur/ur5e_with_pestle').get_parameter_value().string_value # Snippet: "ur/ur5e_with_pestle"
 
         # Mortar Parameters
-        mortar_inner_size_x = main_node.declare_parameter('mortar.inner_size.x', 0.04).get_parameter_value().double_value
-        mortar_inner_size_y = main_node.declare_parameter('mortar.inner_size.y', 0.04).get_parameter_value().double_value
-        mortar_inner_size_z = main_node.declare_parameter('mortar.inner_size.z', 0.035).get_parameter_value().double_value
-        mortar_top_pos_x = main_node.declare_parameter('mortar.top_position.x', -0.245).get_parameter_value().double_value
-        mortar_top_pos_y = main_node.declare_parameter('mortar.top_position.y', 0.372).get_parameter_value().double_value
-        mortar_top_pos_z = main_node.declare_parameter('mortar.top_position.z', 0.045).get_parameter_value().double_value
+        mortar_inner_size_x = main_node.declare_parameter('mortar.inner_size.x', 0.04).get_parameter_value().double_value  # Snippet: 0.04
+        mortar_inner_size_y = main_node.declare_parameter('mortar.inner_size.y', 0.04).get_parameter_value().double_value  # Snippet: 0.04
+        mortar_inner_size_z = main_node.declare_parameter('mortar.inner_size.z', 0.035).get_parameter_value().double_value # Snippet: 0.035
+        mortar_top_pos_x = main_node.declare_parameter('mortar.top_position.x', -0.2).get_parameter_value().double_value    # Snippet: -0.2
+        mortar_top_pos_y = main_node.declare_parameter('mortar.top_position.y', 0.4).get_parameter_value().double_value     # Snippet: 0.4
+        mortar_top_pos_z = main_node.declare_parameter('mortar.top_position.z', 0.3).get_parameter_value().double_value     # Snippet: 0.3
 
         mortar_inner_size = {"x": mortar_inner_size_x, "y": mortar_inner_size_y, "z": mortar_inner_size_z}
         mortar_top_position = {"x": mortar_top_pos_x, "y": mortar_top_pos_y, "z": mortar_top_pos_z}
 
         # Initial Pose Parameters
-        init_pose_offset_z = main_node.declare_parameter('init_pose.offset_z', 0.05).get_parameter_value().double_value
+        init_pose_offset_z = main_node.declare_parameter('init_pose.offset_z', 0.05).get_parameter_value().double_value # Keep offset, base pose will change due to mortar_top_position
         init_pose_quat_x = main_node.declare_parameter('init_pose.orientation.x', 1.0).get_parameter_value().double_value
         init_pose_quat_y = main_node.declare_parameter('init_pose.orientation.y', 0.0).get_parameter_value().double_value
         init_pose_quat_z = main_node.declare_parameter('init_pose.orientation.z', 0.0).get_parameter_value().double_value
@@ -62,14 +62,15 @@ def main(args=None):
         logger.info(f"Using initial pose: {init_pose}")
 
         # Grinding Parameters
-        grinding_radius_mm = main_node.declare_parameter('grinding.radius_mm', 10.0).get_parameter_value().double_value
-        grinding_rotations = main_node.declare_parameter('grinding.rotations', 4.0).get_parameter_value().double_value
-        grinding_angle_scale = main_node.declare_parameter('grinding.angle_scale', 0.5).get_parameter_value().double_value
-        grinding_yaw_twist_deg = main_node.declare_parameter('grinding.yaw_twist_per_rotation_deg', 45.0).get_parameter_value().double_value
-        grinding_waypoints_per_circle = main_node.declare_parameter('grinding.waypoints_per_circle', 50).get_parameter_value().integer_value
-        grinding_sec_per_rotation = main_node.declare_parameter('grinding.sec_per_rotation', 2.0).get_parameter_value().double_value
-        grinding_center_offset_x_mm = main_node.declare_parameter('grinding.center_offset_mm.x', 0.0).get_parameter_value().double_value
-        grinding_center_offset_y_mm = main_node.declare_parameter('grinding.center_offset_mm.y', 0.0).get_parameter_value().double_value
+        # This parameter will be effectively overridden by direct values in create_circular_waypoints for grinding, based on snippet
+        grinding_radius_mm = main_node.declare_parameter('grinding.radius_mm', -8.0).get_parameter_value().double_value # Snippet uses [-8,0] as start
+        grinding_rotations = main_node.declare_parameter('grinding.rotations', 1.0).get_parameter_value().double_value # Snippet: 1
+        grinding_angle_scale = main_node.declare_parameter('grinding.angle_scale', 1.0).get_parameter_value().double_value # Snippet: 1
+        grinding_yaw_twist_deg = main_node.declare_parameter('grinding.yaw_twist_per_rotation_deg', 90.0).get_parameter_value().double_value # Snippet: np.pi/2 rad = 90 deg
+        grinding_waypoints_per_circle = main_node.declare_parameter('grinding.waypoints_per_circle', 50).get_parameter_value().integer_value # Snippet: 50
+        grinding_sec_per_rotation = main_node.declare_parameter('grinding.sec_per_rotation', 1.0).get_parameter_value().double_value # Snippet: 1
+        grinding_center_offset_x_mm = main_node.declare_parameter('grinding.center_offset_mm.x', 0.0).get_parameter_value().double_value # Snippet: center_position[0]
+        grinding_center_offset_y_mm = main_node.declare_parameter('grinding.center_offset_mm.y', 0.0).get_parameter_value().double_value # Snippet: center_position[1]
         grinding_yaw_twist_rad = math.radians(grinding_yaw_twist_deg) # Convert to radians
 
         # Gathering Parameters
@@ -151,19 +152,23 @@ def main(args=None):
         # --- 1. 研削動作 ---
         logger.info("--- Generating Grinding Waypoints ---")
         # ウェイポイント生成
+        # Use specific values from the snippet for beginning and end positions
+        grinding_begin_pos_mm = [-8.0, 0.0]  # From snippet: grinding_pos_beginning = [-8, 0]
+        grinding_end_pos_mm = [-8.0, 0.001] # From snippet: grinding_pos_end = [-8, 0.001]
+
         grinding_waypoints = motion_generator.create_circular_waypoints(
-            beginning_position_mm=[grinding_radius_mm, 0], # [x,y]
-            end_position_mm=[grinding_radius_mm, 0.001],   # [x,y]
+            beginning_position_mm=grinding_begin_pos_mm,   # [x,y] in mm
+            end_position_mm=grinding_end_pos_mm,       # [x,y] in mm
             number_of_rotations=grinding_rotations,
             number_of_waypoints_per_circle=grinding_waypoints_per_circle,
             angle_scale=grinding_angle_scale,
             yaw_twist_per_rotation=grinding_yaw_twist_rad, # Use radians
-            center_position_mm=[grinding_center_offset_x_mm, grinding_center_offset_y_mm]
+            center_position_mm=[grinding_center_offset_x_mm, grinding_center_offset_y_mm] # From snippet: center_position = [0,0]
         )
         logger.info(f"Generated {grinding_waypoints.shape[0]} grinding waypoints.")
 
         # マーカー表示
-        display_marker.display_waypoints(grinding_waypoints)
+        display_marker.display_waypoints(grinding_waypoints, scale=0.002) # Added scale from snippet
         logger.info("Published grinding path markers.")
 
         # 研削動作実行
