@@ -1,125 +1,64 @@
 #!/usr/bin/env python3
 # import rospy
 import tf2_ros
-import geometry_msgs.msg
-from geometry_msgs.msg import Pose, Quaternion,Vector3,Transform
-import numpy as np
+import geometry_msgs.msg # TransformStamped, Transform
+# numpy はこのファイルでは不要になりました
 import rclpy
 from rclpy.node import Node
+# Pose, Quaternion, Vector3 は直接使われていません
 
 
 class TFPublisher(Node):
-    def __init__(self,parent_link="base_link", child_link="debug_") -> None:
-        super().__init__("tf_display")
+    def __init__(self, parent_link="base_link", child_link="debug_tf_") -> None: # child_linkのデフォルト値を変更
+        super().__init__("tf_publisher_node") # ノード名をより具体的に
         self.broadcaster = tf2_ros.TransformBroadcaster(self)
-        self.tf = geometry_msgs.msg.TransformStamped()
-        self.waypoints =  []
+        self.tf_stamped = geometry_msgs.msg.TransformStamped() # 変数名をtfから変更
         self.parent_link = parent_link
-        self.child_link = child_link
-        # self.create_timer(0.1, self.broadcast_tf_with_waypoints)# iranai
-    def set_waypoints(self,waypoints):
-        self.waypoints=waypoints
+        self.child_link_prefix = child_link # child_link -> child_link_prefix
 
     def broadcast_tf_with_waypoints(
-        self
+        self, waypoints: list # Type hint for waypoints
     ):
-        # rate = rospy.Rate(10)
-        for index, pose in enumerate(self.waypoints):
-            print(pose)
-            pub_pose=Transform()
+        """
+        Broadcasts a TF for each waypoint in the list.
+        Each waypoint is expected to be a list of 7 floats: [x,y,z,qx,qy,qz,qw].
+        """
+        if not waypoints:
+            self.get_logger().warn("Waypoints list is empty. Nothing to broadcast.")
+            return
+
+        for index, pose_values in enumerate(waypoints):
+            if not isinstance(pose_values, list) or len(pose_values) != 7:
+                self.get_logger().error(
+                    f"Waypoint at index {index} is not a list of 7 floats. Skipping."
+                )
+                continue
             
-            pub_pose.translation.x = pose[0]
-            pub_pose.translation.y = pose[1]
-            pub_pose.translation.z = pose[2]
-            pub_pose.rotation.x = pose[3]
-            pub_pose.rotation.y = pose[4]
-            pub_pose.rotation.z = pose[5]
-            pub_pose.rotation.w = pose[6]
+            # print(pose_values) # For debugging
+            current_transform = geometry_msgs.msg.Transform()
+            
+            current_transform.translation.x = float(pose_values[0])
+            current_transform.translation.y = float(pose_values[1])
+            current_transform.translation.z = float(pose_values[2])
+            current_transform.rotation.x = float(pose_values[3])
+            current_transform.rotation.y = float(pose_values[4])
+            current_transform.rotation.z = float(pose_values[5])
+            current_transform.rotation.w = float(pose_values[6])
 
-            self.breadcast_tf(
-                pub_pose,
+            # Construct the child frame ID using the prefix and index
+            child_frame_id = self.child_link_prefix + str(index)
+            
+            self._broadcast_single_tf( # Renamed for clarity
+                current_transform,
                 self.parent_link,
-                self.child_link + str(index),
+                child_frame_id,
             )
-        # rate.sleep()
-    
-            # rate.sleep()
+        self.get_logger().info(f"Broadcasted TFs for {len(waypoints)} waypoints with prefix '{self.child_link_prefix}'.")
 
-    # def broadcast_tf_with_pose(self, pose, parent_link="base_link", child_link="debug"):
-    #     pub_pose = Pose()
-    #     pub_pose.position.x = pose[0]
-    #     pub_pose.position.y = pose[1]
-    #     pub_pose.position.z = pose[2]
-    #     pub_pose.orientation.x = pose[3]
-    #     pub_pose.orientation.y = pose[4]
-    #     pub_pose.orientation.z = pose[5]
-    #     pub_pose.orientation.w = pose[6]
-    #     self.breadcast_tf(
-    #         pub_pose.position, pub_pose.orientation, parent_link, child_link
-    #     )
-
-    def breadcast_tf(self, tf, parent_link, child_link):
-        self.tf.header.stamp = self.get_clock().now().to_msg()
-        self.tf.header.frame_id = parent_link
-        self.tf.child_frame_id = child_link
-        self.tf.transform.translation = tf.translation
-        self.tf.transform.rotation = tf.rotation
-        self.broadcaster.sendTransform(self.tf)
-
-    def listen_tf(self, child, parent):
-        tfBuffer = tf2_ros.Buffer()
-        listener = tf2_ros.TransformListener(tfBuffer)
-        rate = rospy.Rate(10.0)
-        rate.sleep()
-
-        try:
-            trans = tfBuffer.lookup_transform(child, parent, rospy.Time())
-            return trans
-        except (
-            tf2_ros.LookupException,
-            tf2_ros.ConnectivityException,
-            tf2_ros.ExtrapolationException,
-        ) as err:
-            rospy.loginfo("tf listen error%s" % err)
-            return err
-        
-def generate_spiral_waypoints(num_points):
-    waypoints = []
-    radius = 0.3  # 初期半径
-    theta = 0.0  # 初期角度
-    theta_increment = 2 * np.pi / num_points  # 角度の増分
-    scale = np.linspace(0, 1, num_points)
-    for num in range(num_points):
-        x = radius * np.cos(theta)
-        y = radius * np.sin(theta)
-        z = scale[num]  # 高さ
-        waypoint = [0, 0, 0, 0, 0, 0, 0]
-        waypoint[0]= x
-        waypoint[1] = y
-        waypoint[2] = z
-        waypoint[3] = 0.0
-        waypoint[4] = 0.0
-        waypoint[5] = 0.0
-        waypoint[6] = 1.0
-        waypoints.append(waypoint)
-
-        radius += scale[1]  # 半径を増加させて螺旋状にする
-        theta += theta_increment
-        # print(z)
-    # print(waypoints)
-    return waypoints
-
-
-def main(args=None):
-    rclpy.init(args=args)
-    waypoints = generate_spiral_waypoints(10)
-    broadcaster = TFPublisher()
-    broadcaster.set_waypoints(waypoints)
-    broadcaster.broadcast_tf_with_waypoints()
-    rclpy.spin(broadcaster)
-    broadcaster.destroy_node()
-    rclpy.shutdown()
-
-
-if __name__ == "__main__":
-    main()
+    def _broadcast_single_tf(self, transform_msg: geometry_msgs.msg.Transform, parent_link: str, child_link: str): # Renamed and type hints added
+        self.tf_stamped.header.stamp = self.get_clock().now().to_msg()
+        self.tf_stamped.header.frame_id = parent_link
+        self.tf_stamped.child_frame_id = child_link
+        self.tf_stamped.transform.translation = transform_msg.translation
+        self.tf_stamped.transform.rotation = transform_msg.rotation
+        self.broadcaster.sendTransform(self.tf_stamped)

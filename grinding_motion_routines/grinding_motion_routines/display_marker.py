@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import rclpy
 from rclpy.node import Node
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray

@@ -46,7 +46,8 @@ install(
   ${PROJECT_NAME}/display_tf.py
   ${PROJECT_NAME}/grinding_motion_generator.py
   ${PROJECT_NAME}/grinding_motion_primitive.py
-  scripts/test_marker.py
+  scripts/test_display_tf.py
+  scripts/test_display_marker.py
   scripts/grinding_demo.py
   DESTINATION lib/${PROJECT_NAME}
 )
