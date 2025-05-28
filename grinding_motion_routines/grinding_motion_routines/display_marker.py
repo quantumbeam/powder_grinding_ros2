@@ -15,17 +15,15 @@ class DisplayMarker(Node):
     def __init__(self, marker_publisher_name="debug_marker"):
         super().__init__("marker_display")
         self.publisher = self.create_publisher(MarkerArray, marker_publisher_name, 1)
-        # self.rate = self.create_rate(10)  
         self.index = 0
-        # self.timer = self.create_timer(1.0, self.executer)  # 1秒ごとに送信
+        
     def wait_for_connection(self):
-        self.get_logger().info('Waiting for publisher to connect...')
+        self.get_logger().info(f'Waiting for a subscriber to connect to the marker publisher on topic "{self.publisher.topic_name}"')
         while(self.publisher.get_subscription_count() == 0):
-        #   rclpy.spin_once(self)
           time.sleep(1)
           counter=self.publisher.get_subscription_count()
           print(counter)
-        self.get_logger().info('Publisher connected!')
+        self.get_logger().info(f'Subscriber connected to the marker publisher on topic "{self.publisher.topic_name}"!')
 
 
         
@@ -54,7 +52,6 @@ class DisplayMarker(Node):
             marker.ns = "waypoints"
             self.index += 1
             marker.id = self.index
-            # print(marker.id)
             marker.action = Marker.ADD
 
             marker.pose.position = points.position
@@ -94,44 +91,3 @@ class DisplayMarker(Node):
         self.wait_for_connection()
         self.publisher.publish(marker_array)
         self.get_logger().info("Published!")
-        # print("Published!")
-
-def generate_spiral_waypoints(num_points):
-    waypoints = []
-    radius = 0.3  # 初期半径
-    theta = 0.0  # 初期角度
-    theta_increment = 2 * np.pi / num_points  # 角度の増分
-    scale = np.linspace(0, 1, num_points)
-    for num in range(num_points):
-        x = radius * np.cos(theta)
-        y = radius * np.sin(theta)
-        z = scale[num]  # 高さ
-        waypoint = Pose()
-        waypoint.position.x = x
-        waypoint.position.y = y
-        waypoint.position.z = z
-        waypoints.append(waypoint)
-
-        radius += scale[1]  # 半径を増加させて螺旋状にする
-        theta += theta_increment
-        # print(z)
-    return waypoints
-
-
-def main(args=None):
-    rclpy.init()
-    waypoints = generate_spiral_waypoints(100)
-    marker_display = DisplayMarker("marker_publisher")
-    marker_display.display_waypoints(waypoints, scale=0.01, type=Marker.SPHERE)
-
-    # marker_display.display_waypoints(waypoints)
-    
-    # marker_display.create_timer(1.0, marker_display.display_waypoints(waypoints))  # replace 'waypoints' with your waypoints data
-    rclpy.spin(marker_display)
-    marker_display.destroy_node()
-    rclpy.shutdown()
-
-
-if __name__ == "__main__":
-    main()
-    
