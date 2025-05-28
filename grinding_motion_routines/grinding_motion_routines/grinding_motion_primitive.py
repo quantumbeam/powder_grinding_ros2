@@ -8,7 +8,7 @@ import numpy as np
 from typing import List, Optional, Tuple
 
 # ROS 2 版の JTC ヘルパーをインポート
-from grinding_motion_routines.JTC_helper import JointTrajectoryControllerHelper, IKType
+from grinding_robot_control.JTC_helper import JointTrajectoryControllerHelper, IKType
 
 # MoveIt ヘルパーは未実装のためコメントアウト
 # from .moveit_helper_ros2 import MoveitHelper # ROS 2 MoveIt ラッパーのプレースホルダー
@@ -323,11 +323,11 @@ def main(args=None):
 
     # GrindingMotionPrimitive を初期化
     try:
-        from grinding_motion_routines.grinding_motion_generator import GrindingMotionGenerator
+        from grinding_motion_routines.grinding_motion_generator import MotionGenerator
         from grinding_motion_routines.display_marker import DisplayMarker
     except ImportError as e:
         print(f"ImportError: {e}")
-        main_node.get_logger().error("Failed to import GrindingMotionGenerator or DisplayMarker.")
+        main_node.get_logger().error("Failed to import MotionGenerator or DisplayMarker.")
         rclpy.shutdown()
         return
     motion_primitive = GrindingMotionPrimitive(

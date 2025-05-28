@@ -598,7 +598,7 @@ def main(args: Optional[List[str]] = None) -> None:
         elif choice == '4':
             print("Testing grinding motion ...")
             try:
-                from grinding_motion_routines.grinding_motion_generator import GrindingMotionGenerator
+                from grinding_motion_routines.grinding_motion_generator import MotionGenerator
                 from grinding_motion_routines.display_marker import DisplayMarker
             except ImportError as e:
                 print(f"ImportError: {e}")
@@ -621,7 +621,7 @@ def main(args: Optional[List[str]] = None) -> None:
             center_position = [0, 0]
             sec_per_rotation = 1
 
-            motion_generator = GrindingMotionGenerator(mortar_top_position, mortar_inner_size)
+            motion_generator = MotionGenerator(mortar_top_position, mortar_inner_size)
             try:
                 waypoints = motion_generator.create_circular_waypoints(
                     beginning_position=grinding_pos_beginning,  # X, Y座標のリストまたはNumpy配列
