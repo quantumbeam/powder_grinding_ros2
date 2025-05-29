@@ -127,22 +127,24 @@ class GrindingMotionPrimitive:
 
         # 1. Pre-motion: 初期姿勢へ移動
         if pre_motion:
-            self.jtc_helper.set_goal_pose(
+            moving_init_pose_success=self.jtc_helper.set_goal_pose(
                 goal_pose=self.init_pose,
                 time_to_reach=3,
                 send_immediately=True,
                 wait=True,
             )
+            if moving_init_pose_success is None:
+                self.logger.error("Failed to move to initial pose.")
+                return False, None
             self.logger.info("Moved to initial pose for grinding.")
 
         # 2. 研削パスの開始点へ移動
         first_waypoint_pose = waypoints[0]
         self.logger.info("Moving to the first grinding waypoint...")
         # set_goal_pose を使用 (内部で IK を解く)
-        self.jtc_helper.set_goal_pose(
+        q_init = self.jtc_helper.set_goal_pose(
             first_waypoint_pose,
             time_to_reach=2,
-            max_joint_change_limit=np.pi,
             send_immediately=True,
             wait=True,
         )
@@ -163,6 +165,7 @@ class GrindingMotionPrimitive:
                 ik_retry_perturbation=ik_retry_perturbation,
                 send_immediately=True,
                 wait=wait_for_completion,
+                q_init=q_init
             )
             # JTC_helper.set_waypoints がエラーを raise しなければ成功とみなす
             self.logger.info("Grinding trajectory sent/executed.")
@@ -176,7 +179,6 @@ class GrindingMotionPrimitive:
             self.jtc_helper.set_goal_pose(
                 goal_pose=self.init_pose,
                 time_to_reach=3,
-                max_joint_change_limit=np.pi,
                 send_immediately=True,
                 wait=True,
             )
@@ -226,7 +228,6 @@ class GrindingMotionPrimitive:
             goal_pose=self.init_pose,
             time_to_reach=3,
             send_immediately=True,
-            max_joint_change_limit=np.pi / 2,
             wait=True,
         )
         self.logger.info("Moved to initial pose for gathering.")
@@ -264,7 +265,7 @@ class GrindingMotionPrimitive:
 
         # 4. Post-motion: 初期姿勢へ戻る
         self.jtc_helper.set_goal_pose(
-            goal_pose=self.init_pose, time_to_reach=2, send_immediately=True, wait=True
+            goal_pose=self.init_pose, time_to_reach=2, send_immediately=True, wait=True,
         )
         self.logger.info("Returned to initial pose after gathering.")
 
@@ -272,7 +273,6 @@ class GrindingMotionPrimitive:
         self.jtc_helper.set_goal_pose(
             goal_pose=self.init_pose,
             time_to_reach=2,
-            max_joint_change_limit=np.pi / 2,
             send_immediately=True,
             wait=True,
         )
@@ -325,7 +325,7 @@ def main(args=None):
     init_pose = [
         mortar_top_position["x"],
         mortar_top_position["y"],
-        mortar_top_position["z"] + 0.05,
+        mortar_top_position["z"] + 0.03,
         1,
         0,
         0,
