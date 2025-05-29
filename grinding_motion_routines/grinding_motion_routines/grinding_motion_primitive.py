@@ -49,7 +49,7 @@ class GrindingMotionPrimitive:
              raise ValueError("init_pose must be [x, y, z, qx, qy, qz, qw]")
         self.init_pose = init_pose
         # JTCヘルパーが使用するEEリンクを確認 (デバッグ用)
-        self.logger.info(f"JTC Helper initialized with tool_link: {self.jtc_helper.trac_ik.tip_link_name}")
+        self.logger.info(f"JTC Helper initialized with tool_link: {self.jtc_helper.tool_link}")
         # 注意: grinding/gathering ee_link は JTC Helper の初期化と一致している必要がある
         self.grinding_ee_link = grinding_ee_link
         self.gathering_ee_link = gathering_ee_link
@@ -114,30 +114,20 @@ class GrindingMotionPrimitive:
         # JTCヘルパーが研削用EEリンクを使っているか確認 (警告)
         if self.jtc_helper.trac_ik.tip_link_name != self.grinding_ee_link:
              self.logger.warn(f"JTC Helper EE link '{self.jtc_helper.trac_ik.tip_link_name}' might not match the expected grinding link '{self.grinding_ee_link}'.")
-             self.jtc_helper.change_ee_link(self.grinding_ee_link)
-
-        pestle_ready_joints = None
+             self.jtc_helper.change_ee_link(new_ee_link=self.grinding_ee_link)
 
         # 1. Pre-motion: 初期姿勢へ移動
         if pre_motion:
-            self.logger.info(f"Moving to initial pose for grinding (EE: {self.grinding_ee_link})...")
-            # 初期姿勢の関節角度を計算
-            pestle_ready_joints = self.jtc_helper.solve_ik(self.init_pose)
-            if pestle_ready_joints is None:
-                 self.logger.error("IK solution for initial grinding pose not found. Cannot execute pre-motion.")
-                 return False, None
-            else:
-                 self.logger.info(f"Moving to initial grinding pose (joints)...")
-                 # 単一点の軌道として送信
-                 self.jtc_helper.set_joint_trajectory([pestle_ready_joints], time_to_reach=3, send_immediately=True, wait=True)
-                 self.logger.info("Reached initial grinding pose.")
-
+            self.jtc_helper.set_goal_pose(
+                goal_pose=self.init_pose,
+                time_to_reach=3,
+                send_immediately=True,
+                wait=True
+            )
+            self.logger.info("Moved to initial pose for grinding.")
+            
 
         # 2. 研削パスの開始点へ移動
-        if waypoints.shape[0] == 0: 
-             self.logger.error("No waypoints provided for grinding.")
-             return False, pestle_ready_joints
-
         first_waypoint_pose = waypoints[0]
         self.logger.info("Moving to the first grinding waypoint...")
         # set_goal_pose を使用 (内部で IK を解く)
@@ -163,25 +153,20 @@ class GrindingMotionPrimitive:
         except Exception as e:
              self.logger.error(f"Error during set_waypoints for grinding: {e}")
              # 失敗した場合でも post_motion を試みるか？ここでは False を返す
-             return False, pestle_ready_joints
+             return False
 
 
         # 4. Post-motion: 初期姿勢へ戻る
         if post_motion:
-            self.logger.info("Returning to initial pose after grinding...")
-            if pestle_ready_joints is not None:
-                self.jtc_helper.set_joint_trajectory([pestle_ready_joints], time_to_reach=3, send_immediately=True, wait=True)
-            else:
-                # pre_motion が False の場合など、関節角度が不明な場合は再計算
-                pestle_ready_joints_post = self.jtc_helper.solve_ik(self.init_pose)
-                if pestle_ready_joints_post is not None:
-                     self.jtc_helper.set_joint_trajectory([pestle_ready_joints_post], time_to_reach=3, send_immediately=True, wait=True)
-                     pestle_ready_joints = pestle_ready_joints_post # Store for return value
-                else:
-                     self.logger.warn("Could not find IK for initial pose during post-motion. Staying at last position.")
-            self.logger.info("Returned to initial pose.")
+            self.jtc_helper.set_goal_pose(
+                goal_pose=self.init_pose,
+                time_to_reach=3,
+                send_immediately=True,
+                wait=True
+            )
+            self.logger.info("Returned to initial pose after grinding.")
 
-        return True, pestle_ready_joints # 成功フラグと初期姿勢の関節角度を返す
+        return True
 
     def execute_gathering(
         self,
@@ -211,21 +196,19 @@ class GrindingMotionPrimitive:
         # JTCヘルパーが収集用EEリンクを使っているか確認 (警告)
         if self.jtc_helper.trac_ik.tip_link_name != self.gathering_ee_link:
              self.logger.warn(f"JTC Helper EE link '{self.jtc_helper.trac_ik.tip_link_name}' might not match the expected gathering link '{self.gathering_ee_link}'.")
-             self.jtc_helper.change_ee_link(self.gathering_ee_link)
+             self.jtc_helper.change_ee_link(new_ee_link=self.gathering_ee_link)
 
         spatula_ready_joints = None
 
         # 1. 初期姿勢へ移動 (収集用EEリンクを使用)
         self.logger.info(f"Moving to initial pose for gathering (EE: {self.gathering_ee_link})...")
-        spatula_ready_joints = self.jtc_helper.solve_ik(self.init_pose)
-        if spatula_ready_joints is None:
-             self.logger.error(f"IK solution for initial gathering pose (EE: {self.gathering_ee_link}) not found. Cannot execute pre-motion.")
-             return False, None
-        else:
-             self.logger.info(f"Moving to initial gathering pose (joints)...")
-             self.jtc_helper.set_joint_trajectory([spatula_ready_joints], time_to_reach=3, send_immediately=True, wait=True)
-             self.logger.info("Reached initial gathering pose.")
-
+        self.jtc_helper.set_goal_pose(
+            goal_pose=self.init_pose,
+            time_to_reach=3,
+            send_immediately=True,
+            wait=True
+        )
+        self.logger.info("Moved to initial pose for gathering.")
 
         # 2. 収集パスの開始点へ移動
         if waypoints.shape[0] == 0: 
@@ -255,19 +238,16 @@ class GrindingMotionPrimitive:
              return False, spatula_ready_joints
 
         # 4. Post-motion: 初期姿勢へ戻る
-        self.logger.info("Returning to initial pose after gathering...")
-        if spatula_ready_joints is not None:
-            self.jtc_helper.set_joint_trajectory([spatula_ready_joints], time_to_reach=3, send_immediately=True, wait=True)
-        else:
-            # 関節角度が不明な場合は再計算
-            spatula_ready_joints_post = self.jtc_helper.solve_ik(self.init_pose)
-            if spatula_ready_joints_post is not None:
-                 self.jtc_helper.set_joint_trajectory([spatula_ready_joints_post], time_to_reach=3, send_immediately=True, wait=True)
-                 spatula_ready_joints = spatula_ready_joints_post
-            else:
-                 self.logger.warn("Could not find IK for initial pose during post-motion. Staying at last position.")
+        self.jtc_helper.set_goal_pose(
+            goal_pose=self.init_pose,
+            time_to_reach=2,
+            send_immediately=True,
+            wait=True
+        )
+        self.logger.info("Returned to initial pose after gathering.")
+        
         self.jtc_helper.change_ee_link(self.grinding_ee_link)
-        self.jtc_helper.set_goal_pose(self.init_pose, time_to_reach=2, send_immediately=True, wait=True)
+        self.jtc_helper.set_goal_pose(goal_pose=self.init_pose, time_to_reach=2, send_immediately=True, wait=True)
         self.logger.info("Returned to initial pose.")
 
         return True, spatula_ready_joints
@@ -290,12 +270,12 @@ def main(args=None):
     gathering_ee_link_param = main_node.declare_parameter('gathering_ee_link', 'spatula_tip').value
     base_link_param = main_node.declare_parameter('base_link', 'base_link').value
     urdf_pkg_param = main_node.declare_parameter('robot_urdf_package', 'grinding_robot_description').value
-    urdf_file_param = main_node.declare_parameter('robot_urdf_file_name', 'ur5e_with_pestle').value
+    urdf_file_param = main_node.declare_parameter('robot_urdf_file_name', 'ur/ur5e_with_pestle').value
     mortar_inner_size = {"x": 0.04, "y": 0.04, "z": 0.035}
     mortar_top_position = {
-        "x": -0.24487948173594054,
-        "y": 0.3722676198635453,
-        "z": 0.045105853329747,
+        "x": -0.2,
+        "y": 0.4,
+        "z": 0.3,
     }
     init_pose=[mortar_top_position["x"], mortar_top_position["y"], mortar_top_position["z"]+0.05,  1, 0, 0, 0] # 初期姿勢 (x,y,z,qx,qy,qz,qw)
 
@@ -343,6 +323,7 @@ def main(args=None):
     main_node.get_logger().info("--- Executing Grinding Example ---")
     grinding_pos_beginning = [-8, 0]
     grinding_pos_end = [-8, 0.001]
+    grinding_radius_z= 36
     number_of_rotations = 1
     angle_scale = 1
     yaw_bias = 0
@@ -351,17 +332,19 @@ def main(args=None):
     center_position = [0, 0]
     sec_per_rotation = 1
 
-    motion_generator = GrindingMotionGenerator(mortar_top_position, mortar_inner_size)
+    motion_generator = MotionGenerator(mortar_top_position, mortar_inner_size)
     try:
         grinding_waypoints_example = motion_generator.create_circular_waypoints(
-            beginning_position_mm=grinding_pos_beginning,
-            end_position_mm=grinding_pos_end,
+            beginning_position=grinding_pos_beginning,
+            end_position=grinding_pos_end,
+            beginning_radius_z=grinding_radius_z,
+            end_radius_z=grinding_radius_z,
             number_of_rotations=number_of_rotations,
             number_of_waypoints_per_circle=number_of_waypoints_per_circle,
             angle_scale=angle_scale,
             yaw_bias=yaw_bias,
             yaw_twist_per_rotation=yaw_twist_per_rotation,
-            center_position_mm=center_position
+            center_position=center_position
         )
     except ValueError as e:
         print(f"Error generating circular waypoints: {e}")
@@ -370,7 +353,7 @@ def main(args=None):
     success, _ = motion_primitive.execute_grinding(
         waypoints=grinding_waypoints_example,
         grinding_sec=5.0,
-        joint_difference_limit=0.1, # 許容値を少し大きく設定
+        joint_difference_limit=np.pi/4,
         pre_motion=True,
         post_motion=True,
         wait_for_completion=True
@@ -389,14 +372,14 @@ def main(args=None):
     # motion_primitive.jtc_helper = jtc_helper_gathering # 収集用ヘルパーに切り替え
     try:
         gathering_waypoints_example = motion_generator.create_circular_waypoints(
-            beginning_position_mm=grinding_pos_beginning,
-            end_position_mm=grinding_pos_end,
+            beginning_position=grinding_pos_beginning,
+            end_position=grinding_pos_end,
             number_of_rotations=number_of_rotations,
             number_of_waypoints_per_circle=number_of_waypoints_per_circle,
             angle_scale=0,
             yaw_bias=yaw_bias,
             yaw_twist_per_rotation=0,
-            center_position_mm=center_position
+            center_position=center_position
         )
     except ValueError as e:
         print(f"Error generating circular waypoints: {e}")
