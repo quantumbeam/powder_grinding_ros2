@@ -2,6 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
+
 # tf_transformations は ROS 1/2 共通で使えることが多い
 import numpy as np
 
@@ -15,19 +16,21 @@ from grinding_robot_control.JTC_helper import JointTrajectoryControllerHelper, I
 
 from geometry_msgs.msg import Pose, PoseStamped
 
+
 class GrindingMotionPrimitive:
     """
     ROS 2 用のモーションプリミティブクラス。
     JTC_helper を使用して基本的な動作を実行する。
     MoveIt 関連の機能は未実装。
     """
+
     def __init__(
         self,
-        node: Node, # 呼び出し元の ROS 2 ノード
+        node: Node,  # 呼び出し元の ROS 2 ノード
         jtc_helper: JointTrajectoryControllerHelper,
-        init_pose: List[float] = [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0], # デフォルト値
-        grinding_ee_link: str = "pestle_tip", # デフォルト値
-        gathering_ee_link: str = "spatula_tip", # デフォルト値
+        init_pose: List[float] = [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0],  # デフォルト値
+        grinding_ee_link: str = "pestle_tip",  # デフォルト値
+        gathering_ee_link: str = "spatula_tip",  # デフォルト値
     ):
         """
         GrindingMotionPrimitive を初期化する。
@@ -46,10 +49,12 @@ class GrindingMotionPrimitive:
         # self.moveit_helper = moveit_helper
 
         if len(init_pose) != 7:
-             raise ValueError("init_pose must be [x, y, z, qx, qy, qz, qw]")
+            raise ValueError("init_pose must be [x, y, z, qx, qy, qz, qw]")
         self.init_pose = init_pose
         # JTCヘルパーが使用するEEリンクを確認 (デバッグ用)
-        self.logger.info(f"JTC Helper initialized with tool_link: {self.jtc_helper.tool_link}")
+        self.logger.info(
+            f"JTC Helper initialized with tool_link: {self.jtc_helper.tool_link}"
+        )
         # 注意: grinding/gathering ee_link は JTC Helper の初期化と一致している必要がある
         self.grinding_ee_link = grinding_ee_link
         self.gathering_ee_link = gathering_ee_link
@@ -84,11 +89,13 @@ class GrindingMotionPrimitive:
 
     def execute_grinding(
         self,
-        waypoints: List[List[float]], # List of pose lists [x,y,z,qx,qy,qz,qw]
+        waypoints: List[List[float]],  # List of pose lists [x,y,z,qx,qy,qz,qw]
         grinding_sec: float,
-        joint_difference_limit: Optional[float] = 0.03, # JTC_helperのmax_joint_change_per_stepに対応
-        max_ik_retries_on_jump: int = 100, # JTC_helperのmax_ik_retries_on_jumpに対応
-        ik_retry_perturbation: float = 0.05, # JTC_helperのik_retry_perturbationに対応
+        joint_difference_limit: Optional[
+            float
+        ] = 0.03,  # JTC_helperのmax_joint_change_per_stepに対応
+        max_ik_retries_on_jump: int = 100,  # JTC_helperのmax_ik_retries_on_jumpに対応
+        ik_retry_perturbation: float = 0.05,  # JTC_helperのik_retry_perturbationに対応
         pre_motion: bool = True,
         post_motion: bool = True,
         wait_for_completion: bool = True,
@@ -113,8 +120,10 @@ class GrindingMotionPrimitive:
         self.logger.info("Starting grinding execution...")
         # JTCヘルパーが研削用EEリンクを使っているか確認 (警告)
         if self.jtc_helper.trac_ik.tip_link_name != self.grinding_ee_link:
-             self.logger.warn(f"JTC Helper EE link '{self.jtc_helper.trac_ik.tip_link_name}' might not match the expected grinding link '{self.grinding_ee_link}'.")
-             self.jtc_helper.change_ee_link(new_ee_link=self.grinding_ee_link)
+            self.logger.warn(
+                f"JTC Helper EE link '{self.jtc_helper.trac_ik.tip_link_name}' might not match the expected grinding link '{self.grinding_ee_link}'."
+            )
+            self.jtc_helper.change_ee_link(new_ee_link=self.grinding_ee_link)
 
         # 1. Pre-motion: 初期姿勢へ移動
         if pre_motion:
@@ -122,21 +131,28 @@ class GrindingMotionPrimitive:
                 goal_pose=self.init_pose,
                 time_to_reach=3,
                 send_immediately=True,
-                wait=True
+                wait=True,
             )
             self.logger.info("Moved to initial pose for grinding.")
-            
 
         # 2. 研削パスの開始点へ移動
         first_waypoint_pose = waypoints[0]
         self.logger.info("Moving to the first grinding waypoint...")
         # set_goal_pose を使用 (内部で IK を解く)
-        self.jtc_helper.set_goal_pose(first_waypoint_pose, time_to_reach=2, send_immediately=True, wait=True)
+        self.jtc_helper.set_goal_pose(
+            first_waypoint_pose,
+            time_to_reach=2,
+            max_joint_change_limit=np.pi,
+            send_immediately=True,
+            wait=True,
+        )
         # set_goal_pose の成功/失敗をハンドリングする必要があるかもしれない
         self.logger.info("Reached the first grinding waypoint.")
 
         # 3. 研削軌道を実行
-        self.logger.info(f"Executing grinding trajectory ({len(waypoints)} points, {grinding_sec:.2f} sec)...")
+        self.logger.info(
+            f"Executing grinding trajectory ({len(waypoints)} points, {grinding_sec:.2f} sec)..."
+        )
         # set_waypoints を使用 (内部で IK、角度変化チェック、リトライを行う)
         try:
             self.jtc_helper.set_waypoints(
@@ -146,23 +162,23 @@ class GrindingMotionPrimitive:
                 max_ik_retries_on_jump=max_ik_retries_on_jump,
                 ik_retry_perturbation=ik_retry_perturbation,
                 send_immediately=True,
-                wait=wait_for_completion
+                wait=wait_for_completion,
             )
             # JTC_helper.set_waypoints がエラーを raise しなければ成功とみなす
             self.logger.info("Grinding trajectory sent/executed.")
         except Exception as e:
-             self.logger.error(f"Error during set_waypoints for grinding: {e}")
-             # 失敗した場合でも post_motion を試みるか？ここでは False を返す
-             return False
-
+            self.logger.error(f"Error during set_waypoints for grinding: {e}")
+            # 失敗した場合でも post_motion を試みるか？ここでは False を返す
+            return False
 
         # 4. Post-motion: 初期姿勢へ戻る
         if post_motion:
             self.jtc_helper.set_goal_pose(
                 goal_pose=self.init_pose,
                 time_to_reach=3,
+                max_joint_change_limit=np.pi,
                 send_immediately=True,
-                wait=True
+                wait=True,
             )
             self.logger.info("Returned to initial pose after grinding.")
 
@@ -195,33 +211,42 @@ class GrindingMotionPrimitive:
         self.logger.info("Starting gathering execution...")
         # JTCヘルパーが収集用EEリンクを使っているか確認 (警告)
         if self.jtc_helper.trac_ik.tip_link_name != self.gathering_ee_link:
-             self.logger.warn(f"JTC Helper EE link '{self.jtc_helper.trac_ik.tip_link_name}' might not match the expected gathering link '{self.gathering_ee_link}'.")
-             self.jtc_helper.change_ee_link(new_ee_link=self.gathering_ee_link)
+            self.logger.warn(
+                f"JTC Helper EE link '{self.jtc_helper.trac_ik.tip_link_name}' might not match the expected gathering link '{self.gathering_ee_link}'."
+            )
+            self.jtc_helper.change_ee_link(new_ee_link=self.gathering_ee_link)
 
         spatula_ready_joints = None
 
         # 1. 初期姿勢へ移動 (収集用EEリンクを使用)
-        self.logger.info(f"Moving to initial pose for gathering (EE: {self.gathering_ee_link})...")
+        self.logger.info(
+            f"Moving to initial pose for gathering (EE: {self.gathering_ee_link})..."
+        )
         self.jtc_helper.set_goal_pose(
             goal_pose=self.init_pose,
             time_to_reach=3,
             send_immediately=True,
-            wait=True
+            max_joint_change_limit=np.pi / 2,
+            wait=True,
         )
         self.logger.info("Moved to initial pose for gathering.")
 
         # 2. 収集パスの開始点へ移動
-        if waypoints.shape[0] == 0: 
-             self.logger.error("No waypoints provided for gathering.")
-             return False, spatula_ready_joints
+        if waypoints.shape[0] == 0:
+            self.logger.error("No waypoints provided for gathering.")
+            return False, spatula_ready_joints
 
         first_waypoint_pose = waypoints[0]
         self.logger.info("Moving to the first gathering waypoint...")
-        self.jtc_helper.set_goal_pose(first_waypoint_pose, time_to_reach=2, send_immediately=True, wait=True)
+        self.jtc_helper.set_goal_pose(
+            first_waypoint_pose, time_to_reach=2, send_immediately=True, wait=True
+        )
         self.logger.info("Reached the first gathering waypoint.")
 
         # 3. 収集軌道を実行
-        self.logger.info(f"Executing gathering trajectory ({len(waypoints)} points, {gathering_sec:.2f} sec)...")
+        self.logger.info(
+            f"Executing gathering trajectory ({len(waypoints)} points, {gathering_sec:.2f} sec)..."
+        )
         try:
             self.jtc_helper.set_waypoints(
                 waypoints=waypoints,
@@ -230,24 +255,27 @@ class GrindingMotionPrimitive:
                 max_ik_retries_on_jump=max_ik_retries_on_jump,
                 ik_retry_perturbation=ik_retry_perturbation,
                 send_immediately=True,
-                wait=wait_for_completion
+                wait=wait_for_completion,
             )
             self.logger.info("Gathering trajectory sent/executed.")
         except Exception as e:
-             self.logger.error(f"Error during set_waypoints for gathering: {e}")
-             return False, spatula_ready_joints
+            self.logger.error(f"Error during set_waypoints for gathering: {e}")
+            return False, spatula_ready_joints
 
         # 4. Post-motion: 初期姿勢へ戻る
         self.jtc_helper.set_goal_pose(
-            goal_pose=self.init_pose,
-            time_to_reach=2,
-            send_immediately=True,
-            wait=True
+            goal_pose=self.init_pose, time_to_reach=2, send_immediately=True, wait=True
         )
         self.logger.info("Returned to initial pose after gathering.")
-        
+
         self.jtc_helper.change_ee_link(self.grinding_ee_link)
-        self.jtc_helper.set_goal_pose(goal_pose=self.init_pose, time_to_reach=2, send_immediately=True, wait=True)
+        self.jtc_helper.set_goal_pose(
+            goal_pose=self.init_pose,
+            time_to_reach=2,
+            max_joint_change_limit=np.pi / 2,
+            send_immediately=True,
+            wait=True,
+        )
         self.logger.info("Returned to initial pose.")
 
         return True, spatula_ready_joints
@@ -257,49 +285,64 @@ class GrindingMotionPrimitive:
 def main(args=None):
     rclpy.init(args=args)
     # メインとなるノードを作成
-    main_node = Node('motion_primitive_user') # Nodeを直接作成
+    main_node = Node("motion_primitive_user")  # Nodeを直接作成
 
     # パラメータを宣言・取得 (例)
     # 実際の値は launch ファイルや YAML から読み込むのが一般的
-    controller_name = main_node.declare_parameter('controller_name', 'scaled_joint_trajectory_controller').value
-    joints_name = main_node.declare_parameter('joints_name', [
-        "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
-        "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"
-    ]).value
-    grinding_ee_link_param = main_node.declare_parameter('grinding_ee_link', 'pestle_tip').value
-    gathering_ee_link_param = main_node.declare_parameter('gathering_ee_link', 'spatula_tip').value
-    base_link_param = main_node.declare_parameter('base_link', 'base_link').value
-    urdf_pkg_param = main_node.declare_parameter('robot_urdf_package', 'grinding_robot_description').value
-    urdf_file_param = main_node.declare_parameter('robot_urdf_file_name', 'ur/ur5e_with_pestle').value
+    controller_name = main_node.declare_parameter(
+        "controller_name", "scaled_joint_trajectory_controller"
+    ).value
+    joints_name = main_node.declare_parameter(
+        "joints_name",
+        [
+            "shoulder_pan_joint",
+            "shoulder_lift_joint",
+            "elbow_joint",
+            "wrist_1_joint",
+            "wrist_2_joint",
+            "wrist_3_joint",
+        ],
+    ).value
+    grinding_ee_link_param = main_node.declare_parameter(
+        "grinding_ee_link", "pestle_tip"
+    ).value
+    gathering_ee_link_param = main_node.declare_parameter(
+        "gathering_ee_link", "spatula_tip"
+    ).value
+    base_link_param = main_node.declare_parameter("base_link", "base_link").value
+    urdf_pkg_param = main_node.declare_parameter(
+        "robot_urdf_package", "grinding_robot_description"
+    ).value
+    urdf_file_param = main_node.declare_parameter(
+        "robot_urdf_file_name", "ur/ur5e_with_pestle"
+    ).value
     mortar_inner_size = {"x": 0.04, "y": 0.04, "z": 0.035}
     mortar_top_position = {
         "x": -0.2,
         "y": 0.4,
         "z": 0.3,
     }
-    init_pose=[mortar_top_position["x"], mortar_top_position["y"], mortar_top_position["z"]+0.05,  1, 0, 0, 0] # 初期姿勢 (x,y,z,qx,qy,qz,qw)
+    init_pose = [
+        mortar_top_position["x"],
+        mortar_top_position["y"],
+        mortar_top_position["z"] + 0.05,
+        1,
+        0,
+        0,
+        0,
+    ]  # 初期姿勢 (x,y,z,qx,qy,qz,qw)
 
     # JTC Helper を初期化 (研削用EEリンクを使用する場合)
     # 注意: 収集動作を実行する場合は、gathering_ee_link で初期化された別のインスタンスが必要になる可能性がある
     jtc_helper_grinding = JointTrajectoryControllerHelper(
         controller_name=controller_name,
         joints_name=joints_name,
-        tool_link=grinding_ee_link_param, # 研削用EEリンク
+        tool_link=grinding_ee_link_param,  # 研削用EEリンク
         base_link=base_link_param,
         robot_urdf_package=urdf_pkg_param,
         robot_urdf_file_name=urdf_file_param,
-        ik_solver=IKType.TRACK_IK # 例
+        ik_solver=IKType.TRACK_IK,  # 例
     )
-    # JTC Helper が準備できるまで待機 (JointState受信など)
-    # if not jtc_helper_grinding.first_joint_state_received.done():
-    #      main_node.get_logger().info("Waiting for JTC Helper to be ready...")
-    #      rclpy.spin_until_future_complete(main_node, jtc_helper_grinding.first_joint_state_received, timeout_sec=10.0)
-    #      if not jtc_helper_grinding.first_joint_state_received.done():
-    #           main_node.get_logger().error("JTC Helper failed to initialize.")
-    #           rclpy.shutdown()
-    #           return
-
-
 
     # GrindingMotionPrimitive を初期化
     try:
@@ -307,12 +350,14 @@ def main(args=None):
         from grinding_motion_routines.display_marker import DisplayMarker
     except ImportError as e:
         print(f"ImportError: {e}")
-        main_node.get_logger().error("Failed to import MotionGenerator or DisplayMarker.")
+        main_node.get_logger().error(
+            "Failed to import MotionGenerator or DisplayMarker."
+        )
         rclpy.shutdown()
         return
     motion_primitive = GrindingMotionPrimitive(
         node=main_node,
-        jtc_helper=jtc_helper_grinding, # 研削用ヘルパーを渡す
+        jtc_helper=jtc_helper_grinding,  # 研削用ヘルパーを渡す
         # moveit_helper=moveit_helper,
         init_pose=init_pose,
         grinding_ee_link=grinding_ee_link_param,
@@ -323,7 +368,7 @@ def main(args=None):
     main_node.get_logger().info("--- Executing Grinding Example ---")
     grinding_pos_beginning = [-8, 0]
     grinding_pos_end = [-8, 0.001]
-    grinding_radius_z= 36
+    grinding_radius_z = 36
     number_of_rotations = 1
     angle_scale = 1
     yaw_bias = 0
@@ -344,65 +389,68 @@ def main(args=None):
             angle_scale=angle_scale,
             yaw_bias=yaw_bias,
             yaw_twist_per_rotation=yaw_twist_per_rotation,
-            center_position=center_position
+            center_position=center_position,
         )
     except ValueError as e:
         print(f"Error generating circular waypoints: {e}")
         rclpy.shutdown()
         return
-    success, _ = motion_primitive.execute_grinding(
+    success = motion_primitive.execute_grinding(
         waypoints=grinding_waypoints_example,
-        grinding_sec=5.0,
-        joint_difference_limit=np.pi/4,
+        grinding_sec=number_of_rotations * sec_per_rotation,
+        joint_difference_limit=np.pi / 4,
         pre_motion=True,
         post_motion=True,
-        wait_for_completion=True
+        wait_for_completion=True,
     )
     if success:
         main_node.get_logger().info("Grinding example finished successfully.")
     else:
         main_node.get_logger().error("Grinding example failed.")
 
-
     # --- 収集動作の実行例 ---
     # 注意: 収集動作には gathering_ee_link で初期化された JTC Helper が必要
     # ここでは、デモのために同じヘルパーを使い回すが、EEリンクが異なるため期待通りに動作しない可能性がある
-    main_node.get_logger().warn("--- Executing Gathering Example (Using potentially incorrect EE link) ---")
+    main_node.get_logger().warn(
+        "--- Executing Gathering Example (Using potentially incorrect EE link) ---"
+    )
     # 収集用に JTC Helper を再初期化するか、別のインスタンスを使うべき
     # motion_primitive.jtc_helper = jtc_helper_gathering # 収集用ヘルパーに切り替え
     try:
         gathering_waypoints_example = motion_generator.create_circular_waypoints(
             beginning_position=grinding_pos_beginning,
             end_position=grinding_pos_end,
+            beginning_radius_z=grinding_radius_z,
+            end_radius_z=grinding_radius_z,
             number_of_rotations=number_of_rotations,
             number_of_waypoints_per_circle=number_of_waypoints_per_circle,
             angle_scale=0,
             yaw_bias=yaw_bias,
             yaw_twist_per_rotation=0,
-            center_position=center_position
+            center_position=center_position,
         )
     except ValueError as e:
         print(f"Error generating circular waypoints: {e}")
         rclpy.shutdown()
         return
-    success_gather, _ = motion_primitive.execute_gathering(
+    success_gather = motion_primitive.execute_gathering(
         waypoints=gathering_waypoints_example,
-        gathering_sec=6.0,
-        joint_difference_limit=0.1,
-        wait_for_completion=True
+        gathering_sec=number_of_rotations * sec_per_rotation,
+        joint_difference_limit=np.pi / 4,
+        wait_for_completion=True,
     )
     if success_gather:
         main_node.get_logger().info("Gathering example finished successfully.")
     else:
         main_node.get_logger().error("Gathering example failed.")
 
-
     # クリーンアップ
     main_node.get_logger().info("Shutting down...")
-    jtc_helper_grinding.destroy_node() # JTC Helper ノードも破棄
+    jtc_helper_grinding.destroy_node()  # JTC Helper ノードも破棄
     main_node.destroy_node()
     rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # このファイル自体を実行するためのサンプルメイン関数
     main()
