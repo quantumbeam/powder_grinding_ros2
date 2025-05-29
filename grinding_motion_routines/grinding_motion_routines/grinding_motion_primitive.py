@@ -139,7 +139,7 @@ class GrindingMotionPrimitive:
         # set_goal_pose を使用 (内部で IK を解く)
         q_init = self.jtc_helper.set_goal_pose(
             first_waypoint_pose,
-            time_to_reach=3,
+            time_to_reach=2,
             num_axes_to_check_for_goal=self.jtc_helper.num_joints - 1,
             send_immediately=True,
             wait=True,
@@ -272,7 +272,7 @@ class GrindingMotionPrimitive:
             send_immediately=True,
             wait=True,
             target_ee_link=self.grinding_ee_link,
-            time_to_reach=3
+            time_to_reach=2
         )
         self.logger.info("Returned to initial pose.")
 
@@ -368,7 +368,7 @@ def main(args=None):
     grinding_pos_end = [-8, 0.001]
     grinding_radius_z = 36
     number_of_rotations = 1
-    angle_scale = 1
+    angle_scale = 0.5
     yaw_bias = 0
     yaw_twist_per_rotation = np.pi / 2
     number_of_waypoints_per_circle = 50
