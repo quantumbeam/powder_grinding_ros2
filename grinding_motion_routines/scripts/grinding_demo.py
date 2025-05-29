@@ -94,6 +94,8 @@ def main(args=None):
         # Motion Execution Parameters
         joint_difference_limit_rad = main_node.declare_parameter('motion.joint_difference_limit_rad', 0.03).get_parameter_value().double_value
         max_ik_retries_on_jump = main_node.declare_parameter('motion.max_ik_retries_on_jump', 100).get_parameter_value().integer_value
+        max_joint_change_for_first_point_rad = main_node.declare_parameter('motion.max_joint_change_for_first_point_rad', math.pi / 2.0).get_parameter_value().double_value
+        max_ik_retries_for_first_point = main_node.declare_parameter('motion.max_ik_retries_for_first_point', 100).get_parameter_value().integer_value
         ik_retry_perturbation_rad = main_node.declare_parameter('motion.ik_retry_perturbation_rad', 0.05).get_parameter_value().double_value
         pre_motion = main_node.declare_parameter('motion.pre_motion', True).get_parameter_value().bool_value
         post_motion = main_node.declare_parameter('motion.post_motion', True).get_parameter_value().bool_value
@@ -108,9 +110,13 @@ def main(args=None):
         rclpy.shutdown()
         return
 
-    # --- ヘルパーとジェネレータの初期化 ---
+    # --- 初期化 (finally節で参照される可能性のある変数を定義) ---
     jtc_helper = None # Define outside try block for finally clause
     display_marker = None
+    # motion_generator と motion_primitive は try ブロック内で初期化・使用される
+    grinding_waypoints_list: Optional[List[List[float]]] = None
+    gathering_waypoints_list: Optional[List[List[float]]] = None
+
     try:
         # JTC Helper を初期化 (最初は研削用EEリンクを使用)
         jtc_helper = JointTrajectoryControllerHelper(
@@ -142,10 +148,43 @@ def main(args=None):
         display_marker = DisplayMarker()
         logger.info("DisplayMarker initialized.")
 
+        # --- ウェイポイントを一度だけ生成 ---
+        logger.info("--- Generating Grinding Waypoints (List[List[float]]) ---")
+        grinding_wps_array = motion_generator.create_circular_waypoints(
+            beginning_position=grinding_start_offset_xy, end_position=grinding_end_offset_xy,
+            beginning_radius_z=grinding_depth_st_mm, end_radius_z=grinding_depth_end_mm,
+            number_of_rotations=grinding_rotations, number_of_waypoints_per_circle=grinding_waypoints_per_circle,
+            angle_scale=grinding_angle_scale, yaw_bias=grinding_yaw_bias_rad,
+            yaw_twist_per_rotation=grinding_yaw_twist_rad,
+            center_position=[grinding_center_offset_x, grinding_center_offset_y])
+        if not grinding_waypoints_pose:
+            if grinding_wps_array is not None and grinding_wps_array.size > 0:
+                grinding_waypoints_list = grinding_wps_array.tolist()
+                logger.info(f"Successfully generated {len(grinding_waypoints_list)} grinding waypoints.")
+            else:
+                raise RuntimeError("Motion generator returned no grinding waypoints.")
+
+        logger.info("--- Generating Gathering Waypoints (List[List[float]]) ---")
+        gathering_wps_array = motion_generator.create_circular_waypoints(
+            beginning_position=gathering_start_offset_xy, 
+            end_position=gathering_end_offset_xy,       
+            beginning_radius_z=gathering_depth_st_mm, end_radius_z=gathering_depth_end_mm,
+            number_of_rotations=gathering_rotations, number_of_waypoints_per_circle=gathering_waypoints_per_circle,
+            angle_scale=gathering_angle_scale, yaw_bias=gathering_yaw_bias_rad,
+            yaw_twist_per_rotation=0.0, # 収集時はヨー軸ツイストなし
+            center_position=[gathering_center_offset_x, gathering_center_offset_y])
+        if gathering_wps_array is not None and gathering_wps_array.size > 0:
+            gathering_waypoints_list = gathering_wps_array.tolist()
+            logger.info(f"Successfully generated {len(gathering_waypoints_list)} gathering waypoints.")
+        else:
+            raise RuntimeError("Motion generator returned no gathering waypoints.")
+        
     except Exception as e:
-        logger.error(f"Failed to initialize helpers or generators: {e}\n{traceback.format_exc()}")
+        logger.error(f"Failed to initialize helpers, generators, or generate waypoints: {e}\n{traceback.format_exc()}")
         if jtc_helper:
             jtc_helper.destroy_node()
+        # motion_primitive は main_node を使用するため、個別の destroy_node は不要
+        # motion_generator はノードではない
         if display_marker:
             display_marker.destroy_node()
         if 'main_node' in locals() and main_node:
@@ -161,114 +200,96 @@ def main(args=None):
             print("2: Display grinding TF")
             print("3: Display gathering waypoints (Markers)")
             print("4: Display gathering TF")
-            print("5: Execute Grinding Demo") # Changed from "Motion" to "Demo" for consistency with user request
-            print("6: Execute Gathering Demo") # Changed from "Motion" to "Demo" for consistency with user request
+            print("5: Execute Grinding Demo") 
+            print("6: Execute Gathering Demo")
             print("0: Exit")
             choice = input("Enter your choice: ")
 
             if choice == '1':
-                logger.info("--- Generating Grinding Waypoints for Marker Display ---")
-                grinding_wps = motion_generator.create_circular_waypoints(
-                    beginning_position=grinding_start_offset_xy, end_position=grinding_end_offset_xy,
-                    beginning_radius_z=grinding_depth_st_mm, end_radius_z=grinding_depth_end_mm,
-                    number_of_rotations=grinding_rotations, number_of_waypoints_per_circle=grinding_waypoints_per_circle,
-                    angle_scale=grinding_angle_scale, yaw_bias=grinding_yaw_bias_rad,
-                    yaw_twist_per_rotation=grinding_yaw_twist_rad,
-                    center_position=[grinding_center_offset_x, grinding_center_offset_y])
-                display_marker.display_waypoints(grinding_wps, scale=0.002)
-                logger.info("Published grinding path markers.")
+                logger.info("--- Displaying Grinding Waypoints (Markers) ---")
+                if grinding_waypoints_list:
+                    display_marker.display_waypoints(grinding_waypoints_list, scale=0.002)
+                    logger.info("Published grinding path markers.")
+                else:
+                    logger.error("Grinding waypoints are not available. Please restart the demo.")
 
             elif choice == '2':
-                logger.info("--- Generating Grinding Waypoints for TF Display ---")
-                grinding_wps_tf = motion_generator.create_circular_waypoints(
-                    beginning_position=grinding_start_offset_xy, end_position=grinding_end_offset_xy,
-                    beginning_radius_z=grinding_depth_st_mm, end_radius_z=grinding_depth_end_mm,
-                    number_of_rotations=grinding_rotations, number_of_waypoints_per_circle=grinding_waypoints_per_circle,
-                    angle_scale=grinding_angle_scale, yaw_bias=grinding_yaw_bias_rad,
-                    yaw_twist_per_rotation=grinding_yaw_twist_rad,
-                    center_position=[grinding_center_offset_x, grinding_center_offset_y])
-                
-                tf_grinding_node = DisplayTF(node_name="grinding_tf_display_node", parent_link="world", child_link="grinding_wp_")
-                tf_grinding_node.broadcast_tf_with_waypoints(grinding_wps_tf.tolist()) # TF class expects list of lists
-                logger.info("Grinding TFs published. In RViz, set TF Decay Time to a high value to keep them visible.")
-                rclpy.spin_once(tf_grinding_node, timeout_sec=0.1) # Allow time for publishing
-                tf_grinding_node.destroy_node()
-                logger.info("Temporary TF node for grinding destroyed.")
+                logger.info("--- Displaying Grinding Waypoints (TF) ---")
+                if grinding_waypoints_list:
+                    tf_grinding_node = DisplayTF(node_name="grinding_tf_display_node", parent_link="world", child_link="grinding_wp_")
+                    tf_grinding_node.broadcast_tf_with_waypoints(grinding_waypoints_list)
+                    logger.info("Grinding TFs published. In RViz, set TF Decay Time to a high value to keep them visible.")
+                    rclpy.spin_once(tf_grinding_node, timeout_sec=0.1) # Allow time for publishing
+                    tf_grinding_node.destroy_node()
+                    logger.info("Temporary TF node for grinding destroyed.")
+                else:
+                    logger.error("Grinding waypoints are not available. Please restart the demo.")
 
             elif choice == '3':
-                logger.info("--- Generating Gathering Waypoints for Marker Display ---")
-                gathering_wps = motion_generator.create_circular_waypoints(
-                    beginning_position=list(gathering_start_offset_xy), end_position=list(gathering_end_offset_xy),
-                    beginning_radius_z=gathering_depth_st_mm, end_radius_z=gathering_depth_end_mm,
-                    number_of_rotations=gathering_rotations, number_of_waypoints_per_circle=gathering_waypoints_per_circle,
-                    angle_scale=gathering_angle_scale, yaw_bias=gathering_yaw_bias_rad,
-                    yaw_twist_per_rotation=0.0, center_position=[gathering_center_offset_x, gathering_center_offset_y])
-                display_marker.display_waypoints(gathering_wps)
-                logger.info("Published gathering path markers.")
+                logger.info("--- Displaying Gathering Waypoints (Markers) ---")
+                if gathering_waypoints_list:
+                    display_marker.display_waypoints(gathering_waypoints_list) # Use default scale or specify
+                    logger.info("Published gathering path markers.")
+                else:
+                    logger.error("Gathering waypoints are not available. Please restart the demo.")
 
             elif choice == '4':
-                logger.info("--- Generating Gathering Waypoints for TF Display ---")
-                gathering_wps_tf = motion_generator.create_circular_waypoints(
-                    beginning_position=list(gathering_start_offset_xy), end_position=list(gathering_end_offset_xy),
-                    beginning_radius_z=gathering_depth_st_mm, end_radius_z=gathering_depth_end_mm,
-                    number_of_rotations=gathering_rotations, number_of_waypoints_per_circle=gathering_waypoints_per_circle,
-                    angle_scale=gathering_angle_scale, yaw_bias=gathering_yaw_bias_rad,
-                    yaw_twist_per_rotation=0.0, center_position=[gathering_center_offset_x, gathering_center_offset_y])
+                logger.info("--- Displaying Gathering Waypoints (TF) ---")
+                if gathering_waypoints_list:
+                    tf_gathering_node = DisplayTF(node_name="gathering_tf_display_node", parent_link="world", child_link="gathering_wp_")
+                    tf_gathering_node.broadcast_tf_with_waypoints(gathering_waypoints_list)
+                    logger.info("Gathering TFs published. In RViz, set TF Decay Time to a high value to keep them visible.")
+                    rclpy.spin_once(tf_gathering_node, timeout_sec=0.1) # Allow time for publishing
+                    tf_gathering_node.destroy_node()
+                    logger.info("Temporary TF node for gathering destroyed.")
+                else:
+                    logger.error("Gathering waypoints are not available. Please restart the demo.")
 
-                tf_gathering_node = DisplayTF(node_name="gathering_tf_display_node", parent_link="world", child_link="gathering_wp_")
-                tf_gathering_node.broadcast_tf_with_waypoints(gathering_wps_tf.tolist())
-                logger.info("Gathering TFs published. In RViz, set TF Decay Time to a high value to keep them visible.")
-                rclpy.spin_once(tf_gathering_node, timeout_sec=0.1) # Allow time for publishing
-                tf_gathering_node.destroy_node()
-                logger.info("Temporary TF node for gathering destroyed.")
 
             elif choice == '5':
                 logger.info("--- Executing Grinding Motion ---")
-                grinding_wps_exec = motion_generator.create_circular_waypoints(
-                    beginning_position=grinding_start_offset_xy, end_position=grinding_end_offset_xy,
-                    beginning_radius_z=grinding_depth_st_mm, end_radius_z=grinding_depth_end_mm,
-                    number_of_rotations=grinding_rotations, number_of_waypoints_per_circle=grinding_waypoints_per_circle,
-                    angle_scale=grinding_angle_scale, yaw_bias=grinding_yaw_bias_rad,
-                    yaw_twist_per_rotation=grinding_yaw_twist_rad,
-                    center_position=[grinding_center_offset_x, grinding_center_offset_y])
-                display_marker.display_waypoints(grinding_wps_exec, scale=0.002) # Show markers before execution
-                logger.info("Published grinding path markers before execution.")
+                if grinding_waypoints_list:
+                    display_marker.display_waypoints(grinding_waypoints_list, scale=0.002) # Show markers before execution
+                    logger.info("Published grinding path markers before execution.")
 
-                success_grind, _ = motion_primitive.execute_grinding(
-                    waypoints=grinding_wps_exec,
-                    grinding_sec=grinding_sec_per_rotation * grinding_rotations,
-                    joint_difference_limit=joint_difference_limit_rad,
-                    max_ik_retries_on_jump=max_ik_retries_on_jump,
-                    ik_retry_perturbation=ik_retry_perturbation_rad,
-                    pre_motion=pre_motion, post_motion=post_motion,
-                    wait_for_completion=wait_for_completion)
-                if not success_grind:
-                    logger.error("Grinding motion failed.")
+                    success_grind, _ = motion_primitive.execute_grinding(
+                        waypoints=grinding_waypoints_list, # 事前に計算したウェイポイントを使用
+                        grinding_sec=grinding_sec_per_rotation * grinding_rotations,
+                        joint_difference_limit=joint_difference_limit_rad,
+                        max_ik_retries_on_jump=max_ik_retries_on_jump,
+                        max_joint_change_for_first_point=max_joint_change_for_first_point_rad,
+                        max_ik_retries_for_first_point=max_ik_retries_for_first_point,
+                        ik_retry_perturbation=ik_retry_perturbation_rad,
+                        pre_motion=pre_motion, post_motion=post_motion,
+                        wait_for_completion=wait_for_completion)
+                    if not success_grind:
+                        logger.error("Grinding motion failed.")
+                    else:
+                        logger.info("Grinding motion completed.")
                 else:
-                    logger.info("Grinding motion completed.")
+                    logger.error("Grinding waypoints are not available for execution. Please restart the demo.")
 
             elif choice == '6':
                 logger.info("--- Executing Gathering Motion ---")
-                gathering_wps_exec = motion_generator.create_circular_waypoints(
-                    beginning_position=list(gathering_start_offset_xy), end_position=list(gathering_end_offset_xy),
-                    beginning_radius_z=gathering_depth_st_mm, end_radius_z=gathering_depth_end_mm,
-                    number_of_rotations=gathering_rotations, number_of_waypoints_per_circle=gathering_waypoints_per_circle,
-                    angle_scale=gathering_angle_scale, yaw_bias=gathering_yaw_bias_rad,
-                    yaw_twist_per_rotation=0.0, center_position=[gathering_center_offset_x, gathering_center_offset_y])
-                display_marker.display_waypoints(gathering_wps_exec) # Show markers before execution
-                logger.info("Published gathering path markers before execution.")
+                if gathering_waypoints_list:
+                    display_marker.display_waypoints(gathering_waypoints_list) # Show markers before execution
+                    logger.info("Published gathering path markers before execution.")
 
-                success_gather, _ = motion_primitive.execute_gathering(
-                    waypoints=gathering_wps_exec,
-                    gathering_sec=gathering_sec_per_rotation * gathering_rotations,
-                    joint_difference_limit=joint_difference_limit_rad,
-                    max_ik_retries_on_jump=max_ik_retries_on_jump,
-                    ik_retry_perturbation=ik_retry_perturbation_rad,
-                    wait_for_completion=wait_for_completion)
-                if not success_gather:
-                    logger.error("Gathering motion failed.")
+                    success_gather, _ = motion_primitive.execute_gathering(
+                        waypoints=gathering_waypoints_list, # 事前に計算したウェイポイントを使用
+                        gathering_sec=gathering_sec_per_rotation * gathering_rotations,
+                        joint_difference_limit=joint_difference_limit_rad,
+                        max_ik_retries_on_jump=max_ik_retries_on_jump,
+                        max_joint_change_for_first_point=max_joint_change_for_first_point_rad,
+                        max_ik_retries_for_first_point=max_ik_retries_for_first_point,
+                        ik_retry_perturbation=ik_retry_perturbation_rad,
+                        wait_for_completion=wait_for_completion)
+                    if not success_gather:
+                        logger.error("Gathering motion failed.")
+                    else:
+                        logger.info("Gathering motion completed.")
                 else:
-                    logger.info("Gathering motion completed.")
+                    logger.error("Gathering waypoints are not available for execution. Please restart the demo.")
             
             elif choice == '0':
                 logger.info("Exiting demo.")
@@ -285,9 +306,9 @@ def main(args=None):
         if display_marker:
             display_marker.destroy_node() # マーカーノードも破棄
         if jtc_helper:
-            jtc_helper.destroy_node() # JTC Helper ノードも破棄
+            jtc_helper.destroy_node() # JTC Helper ノードも破棄 (motion_primitive より先に破棄しても問題ないはず)
         # main_node は最後に破棄
-        if 'main_node' in locals() and main_node and rclpy.ok():
+        if 'main_node' in locals() and main_node and rclpy.ok(): # rclpy.ok() を確認
              main_node.destroy_node()
         if rclpy.ok():
              rclpy.shutdown()
