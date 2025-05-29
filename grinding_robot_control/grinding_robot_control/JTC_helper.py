@@ -11,7 +11,6 @@ from tqdm import tqdm
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
-from rclpy.parameter import Parameter
 from rclpy.task import Future
 from builtin_interfaces.msg import Duration
 from control_msgs.action import FollowJointTrajectory
@@ -716,7 +715,6 @@ def main(args: Optional[List[str]] = None) -> None:
         print("1. Solve IK")
         print("2. Test JTC with one target pose")
         print("3. Test JTC with waypoints")
-        print("4. Test grinding motion")
         print("10. Get joint names")
         print("11. Get current joint positions")
         choice = input("Enter your choice: ")
@@ -746,70 +744,7 @@ def main(args: Optional[List[str]] = None) -> None:
                 time_to_reach=5,
                 send_immediately=True,
             )
-        elif choice == "4":
-            print("Testing grinding motion ...")
-            try:
-                from grinding_motion_routines.grinding_motion_generator import (
-                    MotionGenerator,
-                )
-                from grinding_motion_routines.display_marker import DisplayMarker
-            except ImportError as e:
-                print(f"ImportError: {e}")
-                continue
 
-            mortar_inner_size = {"x": 0.04, "y": 0.04, "z": 0.035}
-            mortar_top_position = {
-                "x": -0.2,
-                "y": 0.4,
-                "z": 0.3,
-            }
-            grinding_pos_beginning = [-8, 0]
-            grinding_pos_end = [-8, 0.001]
-            grinding_radius_z = 36
-            number_of_rotations = 1
-            angle_scale = 1
-            yaw_bias = 0
-            yaw_twist_per_rotation = np.pi / 2
-            number_of_waypoints_per_circle = 50
-            center_position = [0, 0]
-            sec_per_rotation = 1
-
-            motion_generator = MotionGenerator(mortar_top_position, mortar_inner_size)
-            try:
-                waypoints = motion_generator.create_circular_waypoints(
-                    beginning_position=grinding_pos_beginning,  # X, Y座標のリストまたはNumpy配列
-                    end_position=grinding_pos_end,  # X, Y座標のリストまたはNumpy配列
-                    beginning_radius_z=grinding_radius_z,  # Z軸の開始半径
-                    end_radius_z=grinding_radius_z,  # Z軸の終了半径
-                    number_of_rotations=number_of_rotations,
-                    number_of_waypoints_per_circle=number_of_waypoints_per_circle,
-                    angle_scale=angle_scale,
-                    yaw_bias=yaw_bias,
-                    yaw_twist_per_rotation=yaw_twist_per_rotation,
-                    center_position=center_position,
-                )
-            except ValueError as e:
-                print(f"Error generating circular waypoints: {e}")
-                continue
-            print("Generated grinding motion waypoints")
-            print(f"Number of waypoints: {len(waypoints)}")
-            print(f"Waypoints: {waypoints}")
-            print("Displaying waypoints ...")
-            display_marker = DisplayMarker()
-            display_marker.display_waypoints(waypoints, scale=0.002)
-            print("Go to first grinding position")
-            arm_controller.set_goal_pose(
-                waypoints[0],
-                time_to_reach=5,
-                max_joint_change_limit=np.pi,
-                send_immediately=True,
-            )
-            print(f"Executing grinding motion with {len(waypoints)} waypoints")
-            total_time = sec_per_rotation * number_of_rotations
-            arm_controller.set_waypoints(
-                waypoints, time_to_reach=total_time, send_immediately=True
-            )
-            print("Grinding motion test completed.")
         elif choice == "10":
             print(f"Joint names: {arm_controller.get_joint_names()}")
         elif choice == "11":
