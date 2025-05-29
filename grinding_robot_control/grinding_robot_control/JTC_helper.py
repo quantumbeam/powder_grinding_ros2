@@ -18,6 +18,7 @@ from control_msgs.action import FollowJointTrajectory
 from trajectory_msgs.msg import JointTrajectoryPoint
 from ament_index_python.packages import get_package_share_directory
 from sensor_msgs.msg import JointState
+from scipy.spatial.transform import Rotation as R # For FK, matrix to quaternion
 
 from pytracik.trac_ik import TracIK as TRACK_IK_SOLVER
 
@@ -67,6 +68,8 @@ class JointTrajectoryControllerHelper(Node):
         self.valid_joint_names = joints_name
         if not self.valid_joint_names:
             raise Exception('"joints" parameter is not set!')
+        self.num_joints = len(self.valid_joint_names)
+
 
         # アクションクライアント設定
         action_topic = f"/{self.controller_name}/follow_joint_trajectory"
@@ -85,6 +88,8 @@ class JointTrajectoryControllerHelper(Node):
                 ("trac_ik_timeout", 0.02),
                 ("trac_ik_epsilon", 1e-5),
                 ("trac_ik_solver_type", "Distance"),
+                ("default_cartesian_speed_for_pose", 0.03), # m/s, for single pose movement time calculation
+                ("min_time_to_reach_for_pose", 1.0),   # seconds, minimum time for single pose movement
             ],
         )
         if self.ik_solver == IKType.TRACK_IK:
@@ -92,6 +97,12 @@ class JointTrajectoryControllerHelper(Node):
             self.trac_ik_timeout = self.get_parameter("trac_ik_timeout").value
             self.trac_ik_epsilon = self.get_parameter("trac_ik_epsilon").value
             self.trac_ik_solver_type = self.get_parameter("trac_ik_solver_type").value
+            self.default_cartesian_speed_for_pose = self.get_parameter(
+                "default_cartesian_speed_for_pose"
+            ).value
+            self.min_time_to_reach_for_pose = self.get_parameter(
+                "min_time_to_reach_for_pose"
+            ).value
             self._init_ik_solver(base_link, tool_link)
         else:
             raise Exception(f"Unsupported IK solver: {self.ik_solver.name}")
@@ -190,6 +201,31 @@ class JointTrajectoryControllerHelper(Node):
         self._init_ik_solver(
             base_link=self.base_link, ee_link=new_ee_link, urdf_path=self.urdf_path
         )
+
+    def solve_fk(self, joint_positions: List[float]) -> Optional[List[float]]:
+        """
+        指定した関節角度に対して FK を解き、デカルト座標 [x,y,z,qx,qy,qz,qw] を返す。
+        """
+        if self.ik_solver == IKType.TRACK_IK:
+            try:
+                if not isinstance(joint_positions, np.ndarray):
+                    joint_positions_np = np.array(joint_positions)
+                else:
+                    joint_positions_np = joint_positions
+
+                pos_vec, rot_mat = self.trac_ik.fk(joint_positions_np)
+                
+                # 回転行列をクォータニオンに変換 (scipy)
+                rotation = R.from_matrix(rot_mat)
+                quat = rotation.as_quat() # Returns [x, y, z, w]
+
+                return [pos_vec[0], pos_vec[1], pos_vec[2], quat[0], quat[1], quat[2], quat[3]]
+            except Exception as e:
+                self.get_logger().error(f"Could not solve FK: {e}")
+                return None
+        else:
+            self.get_logger().warn(f"FK not supported for solver: {self.ik_solver.name}")
+            return None
 
     def solve_ik(
         self,
@@ -303,7 +339,7 @@ class JointTrajectoryControllerHelper(Node):
     def set_waypoints(
         self,
         waypoints: List[List[float]],
-        time_to_reach: int,
+        time_to_reach: float,
         q_init: Optional[List[float]] = None,
         max_joint_change_per_step: float = np.pi/8,
         max_ik_retries_on_jump: int = 100,  # 閾値超過時のIKリトライ回数上限
@@ -441,13 +477,14 @@ class JointTrajectoryControllerHelper(Node):
     def set_goal_pose(
         self,
         goal_pose: List[float],
-        time_to_reach: int,
+        time_to_reach: Optional[float] = None,
         max_joint_change_limit: Optional[float] = np.pi / 2,
+        target_ee_link: Optional[str] = None, # ターゲットEEリンクを指定する引数を追加
         num_axes_to_check_for_goal: Optional[int] = None, # ゴールへのチェック軸数を追加
         max_ik_retries: int = 100,
         send_immediately: bool = False,
         wait: bool = True,
-    ) -> None:
+    ) -> Optional[np.ndarray]:
         """
         単一のゴールポーズ (デカルト座標系 [x,y,z,qx,qy,qz,qw]) に対してIKを解き、
         関節角度変化量チェック (ALL_INDIVIDUAL_WITHIN_LIMIT) を行った上で軌道を生成し送信する。
@@ -455,14 +492,18 @@ class JointTrajectoryControllerHelper(Node):
 
         Args:
             goal_pose: 単一の目標姿勢 [x,y,z,qx,qy,qz,qw]。
-            time_to_reach: 目標到達時間 (秒)。
+            time_to_reach: 目標到達時間 (秒)。Noneの場合、デカルト距離と速度から自動計算。
             max_joint_change_limit: 現在の関節角度から目標姿勢への移動時に許容される
                                                各関節の最大角度変化量 (ラジアン)。
                                                None の場合はチェックしない。Defaults to np.pi/4.
+            target_ee_link: このゴールポーズ計算に使用するエンドエフェクタリンク。Noneの場合、現在のEEリンクを使用。
             num_axes_to_check_for_goal: 角度変化チェック対象とする軸の数。Noneの場合は全軸。
             max_attempts: IKソルバーが解を見つけるための最大試行回数。Defaults to 10.
             send_immediately: すぐに軌道を送信するかどうか。
             wait: 軌道実行の完了を待つかどうか。
+        
+        Returns:
+            IKが成功し軌道が送信された場合はその関節角度 (np.ndarray)、そうでなければ None。
         """
         # Allow both list and numpy.ndarray for goal_pose
         if not isinstance(goal_pose, (list, np.ndarray)):
@@ -479,27 +520,31 @@ class JointTrajectoryControllerHelper(Node):
             )
             return None
 
+        # 指定されたEEリンクと現在のEEリンクが異なる場合は切り替える
+        pre_tool_link=None
+        if target_ee_link is not None and target_ee_link != self.tool_link:
+            self.get_logger().info(f"Switching EE link for set_goal_pose from '{self.tool_link}' to '{target_ee_link}'.")
+            pre_tool_link = self.tool_link
+            self.change_ee_link(target_ee_link)
+
+
         # Solve IK for the goal_pose
         q_prev = self.get_current_joint_positions()
-        q_best = None
-        previous_joint_changes =  np.inf
-        for i in tqdm(range(max_ik_retries), desc="Finding Best IK solution"):
-            ik_result_joints = self.solve_ik(goal_pose, q_init=q_prev)
-            if ik_result_joints is not None:
-                joint_change = np.sum(np.abs(ik_result_joints - q_prev))
-                if np.any(previous_joint_changes > joint_change):
-                    q_best = ik_result_joints
-                    previous_joint_changes = joint_change
+        if q_prev is None:
+            self.get_logger().error("Current joint positions not available. Cannot calculate goal pose trajectory.")
+            return None
+
+        q_best = self.solve_ik(goal_pose, q_init=q_prev, number_of_attempts=max_ik_retries)
 
         if q_best is None:
             self.get_logger().error(
-                f"Failed to find IK solution for the first waypoint after {max_ik_retries} attempts. "
+                f"Failed to find IK solution for the goal pose after {max_ik_retries} attempts (within solve_ik). "
                 "Stopping trajectory generation."
             )
             return None
         else:
             self.get_logger().info(
-                f"Found best IK solution for the first waypoint in {max_ik_retries} attempts."
+                f"Found IK solution for the goal pose."
             )
 
             is_within_limit = self._is_joint_change_within_limit(
@@ -513,12 +558,40 @@ class JointTrajectoryControllerHelper(Node):
             )
 
             if is_within_limit:
+                calculated_time_to_reach = time_to_reach
+                if calculated_time_to_reach is None:
+                    if pre_tool_link is not None:
+                        self.change_ee_link(pre_tool_link)
+                        current_ee_pose_list = self.solve_fk(q_prev)
+                        self.change_ee_link(self.tool_link)
+                    else:
+                        current_ee_pose_list = self.solve_fk(q_prev)
+                    if current_ee_pose_list is None or len(current_ee_pose_list) < 3:
+                        self.get_logger().warn("Could not get current EE pose via FK. Using min_time_to_reach.")
+                        calculated_time = self.min_time_to_reach_for_pose
+                    else:
+                        current_pos = np.array(current_ee_pose_list[0:3]) # x, y, z
+                        goal_pos_np = np.array(goal_pose[:3])
+                        cartesian_distance = np.linalg.norm(goal_pos_np - current_pos)
+                        self.get_logger().info(f"current_pos: {current_pos}")
+                        self.get_logger().info(f"goal_pos: {goal_pos_np}")
+                        if self.default_cartesian_speed_for_pose > 1e-6: # Avoid division by zero
+                            calculated_time = cartesian_distance / self.default_cartesian_speed_for_pose
+                        else:
+                            calculated_time = self.min_time_to_reach_for_pose # Default to min time if speed is zero
+                        self.get_logger().info(
+                            f"Cartesian distance to goal: {cartesian_distance:.3f}m. "
+                            f"Calculated time based on speed: {calculated_time:.2f}s."
+                        )
+                    calculated_time_to_reach = max(calculated_time, self.min_time_to_reach_for_pose)
+                    self.get_logger().info(f"Using calculated time_to_reach: {calculated_time_to_reach:.2f}s")
+
                 self.get_logger().info(
                     "Joint change is within limit. Sending trajectory to goal pose."
                 )
                 self.set_joint_trajectory(
                     joint_trajectory=[q_best.tolist()],
-                    time_to_reach=time_to_reach,
+                    time_to_reach=calculated_time_to_reach,
                     send_immediately=send_immediately,
                     wait=wait,
                 )
@@ -529,7 +602,7 @@ class JointTrajectoryControllerHelper(Node):
     def set_joint_trajectory(
         self,
         joint_trajectory: List[List[float]],
-        time_to_reach: int,
+        time_to_reach: float,
         send_immediately: bool = False,
         wait: bool = True,
     ) -> None:
@@ -544,7 +617,10 @@ class JointTrajectoryControllerHelper(Node):
             )
             return
 
-        dt = float(time_to_reach) / len(joint_trajectory)
+        if len(joint_trajectory) == 0:
+            self.get_logger().warn("Empty joint_trajectory provided to set_joint_trajectory. Nothing to send.")
+            return
+        dt = time_to_reach / len(joint_trajectory)
         self.goals.clear()
         for i, goal_joints in enumerate(joint_trajectory, start=1):
             point = JointTrajectoryPoint()
@@ -654,7 +730,10 @@ def main(args: Optional[List[str]] = None) -> None:
         elif choice == "2":
             target_pose = [-0.1, 0.4, 0.3, 1.0, 0.0, 0.0, 0.0]
             arm_controller.set_goal_pose(
-                target_pose, time_to_reach=5, send_immediately=True
+                target_pose, 
+                time_to_reach=5, 
+                send_immediately=True,
+                # target_ee_link="another_tool_tip" # 必要に応じてEEリンクを指定
             )
         elif choice == "3":
             waypoints = [
@@ -664,7 +743,6 @@ def main(args: Optional[List[str]] = None) -> None:
             ]
             arm_controller.set_waypoints(
                 waypoints,
-                max_joint_change_for_first_point=np.pi,
                 time_to_reach=5,
                 send_immediately=True,
             )

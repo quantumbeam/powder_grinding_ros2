@@ -118,20 +118,15 @@ class GrindingMotionPrimitive:
             (成功フラグ, 初期姿勢の関節角度リスト or None)
         """
         self.logger.info("Starting grinding execution...")
-        # JTCヘルパーが研削用EEリンクを使っているか確認 (警告)
-        if self.jtc_helper.trac_ik.tip_link_name != self.grinding_ee_link:
-            self.logger.warn(
-                f"JTC Helper EE link '{self.jtc_helper.trac_ik.tip_link_name}' might not match the expected grinding link '{self.grinding_ee_link}'."
-            )
-            self.jtc_helper.change_ee_link(new_ee_link=self.grinding_ee_link)
 
         # 1. Pre-motion: 初期姿勢へ移動
         if pre_motion:
-            moving_init_pose_success=self.jtc_helper.set_goal_pose(
+            moving_init_pose_success = self.jtc_helper.set_goal_pose(
                 goal_pose=self.init_pose,
-                time_to_reach=3,
+                num_axes_to_check_for_goal=self.jtc_helper.num_joints - 1,
                 send_immediately=True,
                 wait=True,
+                target_ee_link=self.grinding_ee_link,
             )
             if moving_init_pose_success is None:
                 self.logger.error("Failed to move to initial pose.")
@@ -144,7 +139,8 @@ class GrindingMotionPrimitive:
         # set_goal_pose を使用 (内部で IK を解く)
         q_init = self.jtc_helper.set_goal_pose(
             first_waypoint_pose,
-            time_to_reach=2,
+            time_to_reach=3,
+            num_axes_to_check_for_goal=self.jtc_helper.num_joints - 1,
             send_immediately=True,
             wait=True,
         )
@@ -165,7 +161,7 @@ class GrindingMotionPrimitive:
                 ik_retry_perturbation=ik_retry_perturbation,
                 send_immediately=True,
                 wait=wait_for_completion,
-                q_init=q_init
+                q_init=q_init,
             )
             # JTC_helper.set_waypoints がエラーを raise しなければ成功とみなす
             self.logger.info("Grinding trajectory sent/executed.")
@@ -178,7 +174,7 @@ class GrindingMotionPrimitive:
         if post_motion:
             self.jtc_helper.set_goal_pose(
                 goal_pose=self.init_pose,
-                time_to_reach=3,
+                num_axes_to_check_for_goal=self.jtc_helper.num_joints - 1,
                 send_immediately=True,
                 wait=True,
             )
@@ -211,14 +207,6 @@ class GrindingMotionPrimitive:
             (成功フラグ, 初期姿勢の関節角度リスト or None)
         """
         self.logger.info("Starting gathering execution...")
-        # JTCヘルパーが収集用EEリンクを使っているか確認 (警告)
-        if self.jtc_helper.trac_ik.tip_link_name != self.gathering_ee_link:
-            self.logger.warn(
-                f"JTC Helper EE link '{self.jtc_helper.trac_ik.tip_link_name}' might not match the expected gathering link '{self.gathering_ee_link}'."
-            )
-            self.jtc_helper.change_ee_link(new_ee_link=self.gathering_ee_link)
-
-        spatula_ready_joints = None
 
         # 1. 初期姿勢へ移動 (収集用EEリンクを使用)
         self.logger.info(
@@ -226,21 +214,26 @@ class GrindingMotionPrimitive:
         )
         self.jtc_helper.set_goal_pose(
             goal_pose=self.init_pose,
-            time_to_reach=3,
+            num_axes_to_check_for_goal=self.jtc_helper.num_joints - 3,
             send_immediately=True,
             wait=True,
+            target_ee_link=self.gathering_ee_link,
+            time_to_reach=3
         )
         self.logger.info("Moved to initial pose for gathering.")
 
         # 2. 収集パスの開始点へ移動
         if waypoints.shape[0] == 0:
             self.logger.error("No waypoints provided for gathering.")
-            return False, spatula_ready_joints
+            return False
 
         first_waypoint_pose = waypoints[0]
         self.logger.info("Moving to the first gathering waypoint...")
         self.jtc_helper.set_goal_pose(
-            first_waypoint_pose, time_to_reach=2, send_immediately=True, wait=True
+            first_waypoint_pose,
+            num_axes_to_check_for_goal=self.jtc_helper.num_joints,
+            send_immediately=True,
+            wait=True,
         )
         self.logger.info("Reached the first gathering waypoint.")
 
@@ -261,24 +254,29 @@ class GrindingMotionPrimitive:
             self.logger.info("Gathering trajectory sent/executed.")
         except Exception as e:
             self.logger.error(f"Error during set_waypoints for gathering: {e}")
-            return False, spatula_ready_joints
+            return False
 
         # 4. Post-motion: 初期姿勢へ戻る
         self.jtc_helper.set_goal_pose(
-            goal_pose=self.init_pose, time_to_reach=2, send_immediately=True, wait=True,
+            goal_pose=self.init_pose,
+            num_axes_to_check_for_goal=self.jtc_helper.num_joints,
+            send_immediately=True,
+            wait=True,
         )
         self.logger.info("Returned to initial pose after gathering.")
 
         self.jtc_helper.change_ee_link(self.grinding_ee_link)
         self.jtc_helper.set_goal_pose(
             goal_pose=self.init_pose,
-            time_to_reach=2,
+            num_axes_to_check_for_goal=self.jtc_helper.num_joints - 3,
             send_immediately=True,
             wait=True,
+            target_ee_link=self.grinding_ee_link,
+            time_to_reach=3
         )
         self.logger.info("Returned to initial pose.")
 
-        return True, spatula_ready_joints
+        return True
 
 
 # --- Example Usage (within a ROS 2 node context) ---
@@ -320,7 +318,7 @@ def main(args=None):
     mortar_top_position = {
         "x": -0.2,
         "y": 0.4,
-        "z": 0.3,
+        "z": 0.05,
     }
     init_pose = [
         mortar_top_position["x"],
