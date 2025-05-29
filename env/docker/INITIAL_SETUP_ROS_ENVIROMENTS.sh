@@ -20,7 +20,7 @@ cd ~/ros2_ws
 
 
 # Build
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --cmake-clean-cache
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install --cmake-clean-cache
 
 # Update environmental variables
 source /opt/ros/$ROS_DISTRO/setup.bash
