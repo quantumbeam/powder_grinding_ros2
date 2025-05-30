@@ -3,10 +3,12 @@ catkin_pkg
 pyyaml
 jinja2
 typeguard
-empy
+empy==3.3.4
 # basic module
 numpy
 scipy
 matplotlib
 transforms3d
 tqdm
+# additional module for ROS 2 interface generation
+lark-parser
