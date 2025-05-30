@@ -1,0 +1,17 @@
+# Request
+string command
+---
+# Response
+bool success
+float64 average_x
+float64 average_y
+float64 average_z
+float64 variance_x
+float64 variance_y
+float64 variance_z
+float64 average_tx
+float64 average_ty
+float64 average_tz
+float64 variance_tx
+float64 variance_ty
+float64 variance_tz
