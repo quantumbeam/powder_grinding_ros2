@@ -9,7 +9,7 @@ def generate_launch_description():
             name='ft_filter',
             output='screen',
             parameters=[
-                {'input_topic': '/wrench_raw'},
+                {'input_topic': '/force_torque_sensor_broadcaster/wrench'},
                 {'output_topic': '/wrench_filtered'},
                 {'sampling_frequency': 100.0},
                 {'cutoff_frequency': 2.5},
