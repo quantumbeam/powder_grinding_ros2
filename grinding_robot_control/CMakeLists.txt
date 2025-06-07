@@ -44,8 +44,10 @@ if(BUILD_TESTING)
 endif()
 
 #-- for Python
-ament_python_install_package(${PROJECT_NAME})
+# This macro is necessary to install the Python scripts with ament_python(and setup.py)
+# ament_python_install_package(${PROJECT_NAME})
 
+# This is necessary to install the Python scripts with ament_cmake
 install(PROGRAMS
   ${PROJECT_NAME}/JTC_helper.py
   ${PROJECT_NAME}/moveit_helper.py
