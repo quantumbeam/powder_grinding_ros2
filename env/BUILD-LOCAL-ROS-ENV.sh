@@ -37,7 +37,7 @@ sudo add-apt-repository universe -y
 
 # ROS 2 GPG キーを追加
 echo "Adding ROS 2 GPG key..."
-sudo apt update && sudo apt install curl -y
+sudo sudo apt install curl -y
 sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
 
 # ROS 2 リポジトリをソースリストに追加
@@ -65,6 +65,7 @@ sudo apt install -y ros-dev-tools
 
 # rosdep の初期化と更新
 echo "Initializing and updating rosdep..."
+sudo rm -rf /etc/ros/rosdep/sources.list.d/20-default.list # 既存の rosdep ソースを削除
 sudo rosdep init --rosdistro humble # ROS 2 では --rosdistro を指定することが推奨されます
 rosdep update
 
@@ -97,51 +98,67 @@ touch "$VENV_DIR/COLCON_IGNORE"
 # 7. 環境設定
 # ---------------------------------------------------
 echo "### 7. Setting up environment variables ###"
-sh -c 'echo "" >> ~/.bashrc' # 空行を追加して区切りを明確にする
-# .bashrc に仮想環境のアクティベーションと設定を追加
-sh -c 'echo "# Python Virtual Environment for ROS 2" >> ~/.bashrc'
-sh -c "echo \"source \\\"$VENV_DIR/bin/activate\\\"\" >> ~/.bashrc"
-sh -c "echo \"export PATH=\\\"${VENV_DIR}/bin:\$PATH\\\"\"" >> ~/.bashrc
 
-# ROS 2 セットアップスクリプトを ~/.bashrc に追加
-sh -c 'echo "# Environment for ROS 2" >> ~/.bashrc'
-sh -c 'echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc'
-sh -c 'echo "export ROS_DISTRO=humble" >> ~/.bashrc'
+# マーカー行がすでに存在するかをチェック
+MARKER="# --- ROS 2 Environment Setup Done ---"
 
-# colcon_cd の設定と存在確認を追加
-echo "### Configuring and verifying colcon_cd in ~/.bashrc ###"
-COLCON_CD_SOURCE_LINE='source /usr/share/colcon_cd/function/colcon_cd.sh'
-COLCON_CD_ROOT_LINE='export _colcon_cd_root=~/'
-
-if [ -f ~/.bashrc ]; then
-    # colcon_cd source line を追加
-    if grep -qF "$COLCON_CD_SOURCE_LINE" ~/.bashrc; then
-        echo "'$COLCON_CD_SOURCE_LINE' already exists in ~/.bashrc."
-    else
-        echo "$COLCON_CD_SOURCE_LINE" >> ~/.bashrc
-        echo "'$COLCON_CD_SOURCE_LINE' added to ~/.bashrc."
-    fi
-
-    # colcon_cd root export line を追加
-    if grep -qF "$COLCON_CD_ROOT_LINE" ~/.bashrc; then
-        echo "'$COLCON_CD_ROOT_LINE' already exists in ~/.bashrc."
-    else
-        echo "$COLCON_CD_ROOT_LINE" >> ~/.bashrc
-        echo "'$COLCON_CD_ROOT_LINE' added to ~/.bashrc."
-    fi
+if grep -qF "$MARKER" ~/.bashrc; then
+    echo "Skipping environment setup in ~/.bashrc, marker already exists."
 else
-    echo "Error: ~/.bashrc file not found. Skipping colcon_cd configuration."
+    echo "### Adding ROS 2 environment setup to ~/.bashrc ###"
+
+    # 空行を追加して区切りを明確にする
+    sh -c 'echo "" >> ~/.bashrc'
+    # .bashrc に仮想環境のアクティベーションと設定を追加
+    sh -c 'echo "# Python Virtual Environment for ROS 2" >> ~/.bashrc'
+    sh -c "echo \"source \\\"$VENV_DIR/bin/activate\\\"\" >> ~/.bashrc"
+    sh -c "echo \"export PATH=\\\"${VENV_DIR}/bin:\$PATH\\\"\"" >> ~/.bashrc
+
+    # ROS 2 セットアップスクリプトを ~/.bashrc に追加
+    sh -c 'echo "# Environment for ROS 2" >> ~/.bashrc'
+    sh -c 'echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc'
+    sh -c 'echo "export ROS_DISTRO=humble" >> ~/.bashrc'
+
+    # colcon_cd の設定と存在確認を追加
+    echo "### Configuring and verifying colcon_cd in ~/.bashrc ###"
+    COLCON_CD_SOURCE_LINE='source /usr/share/colcon_cd/function/colcon_cd.sh'
+    COLCON_CD_ROOT_LINE='export _colcon_cd_root=~/'
+
+    if [ -f ~/.bashrc ]; then
+        # colcon_cd source line を追加
+        if grep -qF "$COLCON_CD_SOURCE_LINE" ~/.bashrc; then
+            echo "'$COLCON_CD_SOURCE_LINE' already exists in ~/.bashrc."
+        else
+            echo "$COLCON_CD_SOURCE_LINE" >> ~/.bashrc
+            echo "'$COLCON_CD_SOURCE_LINE' added to ~/.bashrc."
+        fi
+
+        # colcon_cd root export line を追加
+        if grep -qF "$COLCON_CD_ROOT_LINE" ~/.bashrc; then
+            echo "'$COLCON_CD_ROOT_LINE' already exists in ~/.bashrc."
+        else
+            echo "$COLCON_CD_ROOT_LINE" >> ~/.bashrc
+            echo "'$COLCON_CD_ROOT_LINE' added to ~/.bashrc."
+        fi
+    else
+        echo "Error: ~/.bashrc file not found. Skipping colcon_cd configuration."
+    fi
+
+    # ROS 2 ワークスペースの設定例
+    sh -c 'echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc' # ワークスペースビルド後に必要
+
+    # ビルドエイリアス (colcon build を使用)
+    sh -c "echo \"alias b='cd ~/ros2_ws; colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release; source install/setup.bash'\" >> ~/.bashrc"
+    sh -c 'echo "" >> ~/.bashrc'
+
+    # 処理が完了したことを示すマーカーを追加
+    sh -c 'echo "" >> ~/.bashrc' # 区切り
+    sh -c "echo \"$MARKER\" >> ~/.bashrc"
+    sh -c 'echo "" >> ~/.bashrc' # 区切り
+
 fi
 
-# ROS 2 ワークスペースの設定例 (既存のROS 1ワークスペースは直接使用できません)
-# 新しいROS 2ワークスペースを作成する例
-mkdir -p ~/ros2_ws/src
-sh -c 'echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc' # ワークスペースビルド後に必要
-
-# ビルドエイリアス (colcon build を使用)
-sh -c "echo \"alias b='cd ~/ros2_ws; colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release; source install/setup.bash'\" >> ~/.bashrc"
-sh -c 'echo "" >> ~/.bashrc'
-
+mkdir -p ~/ros2_ws/src   # 新しいROS 2ワークスペースを作成
 # Copy build ros workspace script
 cp ./docker/INITIAL_SETUP_ROS_ENVIROMENTS.sh ~/ros2_ws/
 cp ./docker/BUILD_ROS_WORKSPACE.sh ~/ros2_ws/
@@ -149,7 +166,6 @@ cp ./docker/BUILD_ROS_WORKSPACE.sh ~/ros2_ws/
 # 設定を現在のシェルに反映
 echo "Sourcing ~/.bashrc to apply changes..."
 source ~/.bashrc
-
 
 echo "---------------------------------------------------"
 echo "ROS 2 Humble Installation Complete!"
