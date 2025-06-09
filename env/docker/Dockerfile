@@ -6,21 +6,22 @@ LABEL maintainer="YusakuNakajima<yusaku_nakajima@ap.eng.osaka-u.ac.jp>"
 # Ignore keyboard layout setting
 ENV DEBIAN_FRONTEND=noninteractive
 
-# ROS GPGキーを更新し、リポジトリ設定を適用
-RUN \
-  rm -rf /etc/apt/sources.list.d/ros2-latest.list && \
-  rm -rf /etc/apt/sources.list.d/ros2.list && \
-  apt-get update -q && \
-  apt-get install -yq --no-install-recommends curl && \
-  curl -sS https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $( . /etc/os-release && echo $UBUNTU_CODENAME ) main" > /etc/apt/sources.list.d/ros2.list && \
-  rm -rf /var/lib/apt/lists/*
+# If GPG key is expired, uncomment the following lines to update the key
+# RUN \
+#   rm -rf /etc/apt/sources.list.d/ros2-latest.list && \
+#   rm -rf /etc/apt/sources.list.d/ros2.list && \
+#   apt-get update -q && \
+#   apt-get install -yq --no-install-recommends curl && \
+#   curl -sS https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+#   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $( . /etc/os-release && echo $UBUNTU_CODENAME ) main" > /etc/apt/sources.list.d/ros2.list && \
+#   rm -rf /var/lib/apt/lists/*
 
 # Set timezone
 RUN ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime \
     && apt-get update \
     && apt-get install -y git tzdata \
     && date
+
 
 # Install apt packages
 COPY install_packages.sh /tmp/install_packages.sh
@@ -36,8 +37,8 @@ RUN apt-get update && apt-get install -y sudo \
 USER ros
 
 # Create python virtual environment for PEP668
-RUN python3 -m venv /home/ros/ros2_ws/venv
-ENV VIRTUAL_ENV="/home/ros/ros2_ws/venv"
+RUN python3 -m venv /home/ros/venv
+ENV VIRTUAL_ENV="/home/ros/venv"
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Add venv activation to .bashrc for interactive shells
@@ -47,7 +48,7 @@ RUN echo '' >> /home/ros/.bashrc && \
     echo "export PATH=\"$VIRTUAL_ENV/bin:\$PATH\"" >> /home/ros/.bashrc
 
 # Prevent colcon from searching the venv directory for packages
-RUN touch /home/ros/ros2_ws/venv/COLCON_IGNORE
+RUN touch /home/ros/venv/COLCON_IGNORE
 
 # Setup workspace
 RUN mkdir -p /home/ros/ros2_ws/src
@@ -78,4 +79,3 @@ RUN echo "export LD_LIBRARY_PATH=/usr/local/lib:\$LD_LIBRARY_PATH" >> /home/ros/
     echo '' >> /home/ros/.bashrc
 
 WORKDIR /home/ros/ros2_ws
-ENTRYPOINT [ "/bin/bash", "-c", ". venv/bin/activate && bash" ]

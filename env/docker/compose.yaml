@@ -1,5 +1,5 @@
 services:
-  ros2-humble:
+  powder-grinding-ros2:
     hostname: ros
     privileged: true
     network_mode: host # Use host network(IP and ports).
