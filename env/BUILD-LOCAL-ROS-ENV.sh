@@ -73,7 +73,7 @@ rosdep update
 # 5. 追加のAPTパッケージのインストール
 # ---------------------------------------------------
 echo "### 5. Installing additional common APT packages ###"
-./docker/install_packages.sh
+sudo ./docker/install_packages.sh
 
 # ---------------------------------------------------
 # 6. Python 仮想環境の作成

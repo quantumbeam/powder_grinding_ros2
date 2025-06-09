@@ -5,7 +5,7 @@
 : "${ROS_DISTRO:=humble}"
 
 echo "### Installing common apt packages ###"
-sudo apt-get update && sudo apt-get install -y \
+apt-get update && apt-get install -y \
     git \
     vim \
     nano \
@@ -19,7 +19,7 @@ sudo apt-get update && sudo apt-get install -y \
     python3-venv
 
 echo "### Installing ROS-specific apt packages for ${ROS_DISTRO} ###"
-sudo apt-get update -q && sudo apt-get install -y \
+apt-get update -q && apt-get install -y \
     ros-${ROS_DISTRO}-ros2-control \
     ros-${ROS_DISTRO}-ros2-controllers \
     ros-${ROS_DISTRO}-rqt-controller-manager \
@@ -33,7 +33,7 @@ sudo apt-get update -q && sudo apt-get install -y \
     ros-${ROS_DISTRO}-tf2-ros-py
 
 echo "### Cleaning up apt cache ###"
-sudo apt-get clean
-sudo rm -rf /var/lib/apt/lists/*
+apt-get clean
+rm -rf /var/lib/apt/lists/*
 
 echo "### All specified apt packages installed successfully ###"
