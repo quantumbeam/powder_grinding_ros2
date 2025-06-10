@@ -97,26 +97,35 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 - [ ] grinding_robot_bringup
   - [x] UR5e
   - [ ] UR3e
+  - [ ] FR3
   - [ ] Cobotta
+  - [ ] Cobotta PRO 900
+  - [ ] UFACTORY 850
 - [ ] grinding_robot_description
   - [x] UR5e
   - [ ] UR3e
+  - [ ] FR3
   - [ ] Cobotta
+  - [ ] Cobotta PRO 900
+  - [ ] UFACTORY 850
 - [ ] grinding_moveit_config
   - [ ] UR5e/UR3e
+  - [ ] FR3
   - [ ] Cobotta
+  - [ ] Cobotta PRO 900
+  - [ ] UFACTORY 850
 - [x] grinding_scene_description
 - [ ] grinding_robot_control
   - [x] JointTrajectoryController
   - [ ] MoveIt2
 - [ ] grinding_motion_routines
-  - [ ] GrindingMotion
-  - [ ] GatheringMotion
+  - [x] GrindingMotion
+  - [x] GatheringMotion
 - [ ] grinding_force_torque_sensor
-  - [ ] WrenchFilter
+  - [x] WrenchFilter
+  - [ ] WrenchStatistics
 - [ ] gridning_calibration
   - [ ] PestleLengthEstimation
-  - [ ] MortarPositionEstimation
 
 ## 既知の課題
 **ros2 runしたときにpip installしたモジュールが認識されない**
