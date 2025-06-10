@@ -2,39 +2,45 @@
 
 import sys
 import os
-import time  # Import the time module
+import time
 import numpy as np
 from typing import Optional, Tuple
 
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import JointState
+from sensor_msgs.msg import JointState # Kept from original, though not used in this context
 from ament_index_python.packages import get_package_share_directory
 
 # Import Pinocchio specific modules
 import pinocchio as pin
-from pinocchio.utils import *
+# from pinocchio.utils import * # Commented out as it's not explicitly used
 
+# Print environment paths (for debugging)
+print("PYTHONPATH:", os.environ.get('PYTHONPATH'))
+print("SYS.PATH:", sys.path)
 
 class UR5ePinocchioIKTestNode(Node):
     """
     ROS 2 node to test Inverse Kinematics (IK) and Forward Kinematics (FK)
     for a UR5e robotic arm using the Pinocchio library.
+    This implementation manually builds the IK solver to accommodate API constraints
+    from a ROS-bundled Pinocchio installation.
     """
 
     # Class Constants
     PACKAGE_NAME = "grinding_robot_description"
     URDF_RELATIVE_PATH = "urdf/ur/ur5e_with_pestle.urdf"
-    # In Pinocchio, base and tip links are specified by their frame IDs in the model
     TIP_FRAME_NAME = "pestle_tip"  # End-effector frame name
 
     def __init__(self):
         super().__init__("ur5e_pinocchio_ik_test_node")
         self.get_logger().info("UR5e Pinocchio IK Test Node Started")
+        self.get_logger().info(f"Pinocchio version: {pin.__version__}")
+        self.get_logger().info(f"Pinocchio path: {pin.__file__}") # Log Pinocchio's path
 
         self.model: Optional[pin.Model] = None
         self.data: Optional[pin.Data] = None
-        self.tip_frame_id: int = -1  # End-effector frame ID
+        self.tip_frame_id: int = -1
 
         self.seed_jnt: Optional[np.ndarray] = None
         self.tgt_pos: Optional[np.ndarray] = None
@@ -67,23 +73,12 @@ class UR5ePinocchioIKTestNode(Node):
                 f"Attempting to load robot model from URDF: {urdf_path}"
             )
             start_time = time.perf_counter()
-            # Load URDF using Pinocchio to build the model and data
             self.model = pin.buildModelFromUrdf(urdf_path)
             self.data = self.model.createData()
             end_time = time.perf_counter()
             self.model_load_time_ms = (end_time - start_time) * 1000.0
-            self.get_logger().info(f"Successfully loaded Pinocchio model.")
+            self.get_logger().info("Successfully loaded Pinocchio model.")
 
-            # Log all frame names in the model
-            self.get_logger().info("--- All frames in the loaded Pinocchio model ---")
-            for frame_id, frame in enumerate(self.model.frames):
-                self.get_logger().info(
-                    f"  ID: {frame_id}, Name: '{frame.name}'"
-                )  # Added quotes for clear string comparison
-            self.get_logger().info("---------------------------------------------")
-
-            # Get the end-effector frame ID
-            # FIX: Check against the list of frame names, not joint names (model.names)
             if self.TIP_FRAME_NAME not in [frame.name for frame in self.model.frames]:
                 self.get_logger().error(
                     f"Tip frame '{self.TIP_FRAME_NAME}' not found in URDF model."
@@ -112,19 +107,29 @@ class UR5ePinocchioIKTestNode(Node):
             )
             raise RuntimeError("Robot model not loaded.")
 
-        # Example seed for UR5e (in radians)
-        self.seed_jnt = np.array([-1.57, 0.0, -1.57, 0.0, 0.0, 0.0])
+        self.seed_jnt = pin.neutral(self.model)
 
-        # Target position (x, y, z)
-        self.tgt_pos = np.array([0.0, 0.5, 0.25])
-        # Target rotation matrix (identity matrix - no change in orientation)
+        # Set specific values for UR5e's 6 revolute joints.
+        ur5e_joint_values = np.array([0.0, -1.57, 1.57, -1.57, -1.57, 0.0])
+
+        if self.model.nq >= len(ur5e_joint_values):
+            self.seed_jnt[0:len(ur5e_joint_values)] = ur5e_joint_values
+        else:
+            self.get_logger().warn(
+                f"Model DOF ({self.model.nq}) is less than expected UR5e joints ({len(ur5e_joint_values)})."
+                f" Using a truncated seed."
+            )
+            self.seed_jnt[:self.model.nq] = ur5e_joint_values[:self.model.nq]
+
+        self.tgt_pos = np.array([0.3, 0.0, 0.3])
         self.tgt_rotmat = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
         self.get_logger().info("Initialized IK/FK test parameters.")
 
     def run_ik_fk_test(self) -> None:
         """
-        Executes an Inverse Kinematics (IK) calculation, and then a Forward Kinematics (FK)
-        calculation based on the IK result. Logs all calculated times at the end.
+        Executes an Inverse Kinematics (IK) calculation using a manual Levenberg-Marquardt solver,
+        and then a Forward Kinematics (FK) calculation based on the IK result.
+        Logs all calculated times at the end.
         """
         if self.model is None or self.data is None or self.tip_frame_id == -1:
             self.get_logger().error(
@@ -139,93 +144,92 @@ class UR5ePinocchioIKTestNode(Node):
 
         self.get_logger().info("Running IK and FK test...")
         try:
-            # --- IK Calculation (using Pinocchio's Levenberg-Marquardt solver) ---
-            # Create target pose as a pin.SE3 object
+            # --- IK Calculation (Manual Levenberg-Marquardt approach) ---
             target_pose = pin.SE3(self.tgt_rotmat, self.tgt_pos)
 
-            # Initialize IK solver
-            # The LM solver minimizes the error function
-            # Here, we minimize the error between the target pose and the current frame pose
-            q = self.seed_jnt.copy()  # Start from the seed configuration
+            # IK parameters
+            max_iterations = 1000
+            tolerance = 1e-6 # Positional/orientational error tolerance in meters/radians
+            damping = 1e-4   # Damping factor for Levenberg-Marquardt
 
-            # IK solver parameters
-            EPS = 1e-6  # Stopping condition error threshold
-            MAX_ITERS = 1000  # Maximum number of iterations
-            DT = 1e-1  # Time step (influences gradient-based updates)
-            damping = 1e-4  # Damping term (for LM solver)
+            q_current = self.seed_jnt.copy()
+            self.ik_result = None
 
             self.get_logger().info(
                 f"Target pose (translation): {target_pose.translation.T}"
             )
             self.get_logger().info(f"Target pose (rotation):\n{target_pose.rotation}")
-            self.get_logger().info(f"Seed joint values: {q.T}")
+            self.get_logger().info(f"Seed joint values: {self.seed_jnt.T}")
 
             start_time_ik = time.perf_counter()
-            for i in range(MAX_ITERS):
-                pin.forwardKinematics(self.model, self.data, q)
-                pin.updateFramePlacements(self.model, self.data)
 
-                # Current frame pose
+            for i in range(max_iterations):
+                # 1. Compute Forward Kinematics
+                pin.forwardKinematics(self.model, self.data, q_current)
+                pin.updateFramePlacements(self.model, self.data) # Update frame placements
+
                 current_pose = self.data.oMf[self.tip_frame_id]
 
-                # Error (inverse transform of current_pose wrt target_pose)
-                # pin.log(M_error) converts SE(3) error to Lie algebra (twist)
-                error = pin.log6(
-                    current_pose.inverse() * target_pose
-                ).vector  # Twist of error
+                # 2. Compute Error (Pose difference in the tangent space)
+                error_se3 = pin.log6(current_pose.inverse() * target_pose)
+                # Calculate the norm of the full error vector (linear and angular)
+                error_norm = np.linalg.norm(error_se3.vector)
 
-                if np.linalg.norm(error) < EPS:
-                    self.get_logger().info(f"IK converged after {i} iterations.")
+                # Check for convergence
+                if error_norm < tolerance:
+                    self.ik_result = q_current.copy()
+                    self.get_logger().info(f"IK converged after {i+1} iterations. Final error: {error_norm:.6f}")
                     break
 
-                # Compute Jacobian
-                # getFrameJacobian returns the Jacobian in the world frame
-                J = pin.computeFrameJacobian(
-                    self.model,
-                    self.data,
-                    q,
-                    self.tip_frame_id,
-                    pin.ReferenceFrame.LOCAL,  # Use Jacobian in the local frame
+                # 3. Compute Jacobian
+                # Jacobian wrt the tip frame in the LOCAL_WORLD_ALIGNED frame
+                jacobian = pin.computeFrameJacobian(
+                    self.model, self.data, q_current, self.tip_frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED
                 )
-                # 6xN matrix (N is number of joints)
 
-                # Pseudo-inverse (damped least squares method)
-                # J^T J + damping * I
-                hessian = J.T @ J + damping * np.eye(J.shape[1])
-                grad = J.T @ error
-                dq = np.linalg.solve(hessian, grad) * DT # Remove negative sign
+                # The computeFrameJacobian function already returns a 6xNV matrix,
+                # where NV is the number of generalized velocities.
+                # So, no need to trim rows like jacobian[:6, :].
 
-                # Update joint angles
-                q = pin.integrate(self.model, q, dq)
-            else:
-                self.get_logger().warn(
-                    f"IK did NOT converge after {MAX_ITERS} iterations. Final error: {np.linalg.norm(error):.6f}"
-                )
+                # 4. Compute Pseudo-Inverse with Damping (Levenberg-Marquardt step)
+                # delta_q = (J^T J + lambda*I)^-1 J^T * error_se3.vector
+                J_T = jacobian.T
+                lambda_I = damping * np.identity(jacobian.shape[1]) # Identity matrix for joint velocities
+                
+                # Solve the linear system: (J_T @ J + lambda_I) * delta_q = J_T @ error_se3.vector
+                delta_q = np.linalg.solve(J_T @ jacobian + lambda_I, J_T @ error_se3.vector)
+
+                # 5. Update Joint Configuration
+                # Safely integrate the joint increments into the current configuration space
+                q_current = pin.integrate(self.model, q_current, delta_q)
+
+            else: # Loop finished without breaking (max iterations reached, but not converged)
+                self.get_logger().warn(f"IK did not converge after {max_iterations} iterations. Final error: {error_norm:.6f}")
+                self.ik_result = q_current.copy() # Store final configuration even if not converged
 
             end_time_ik = time.perf_counter()
             self.ik_calc_time_ms = (end_time_ik - start_time_ik) * 1000.0
 
-            # Store result only if converged
-            if np.linalg.norm(error) < EPS:
-                self.ik_result = q.copy()
-                self.get_logger().info(f"IK solution found: {self.ik_result.T}")
+            if self.ik_result is not None:
+                self.get_logger().info(f"IK solution found (Manual LM): {self.ik_result.T}")
+                # Recalculate pose to confirm how close the final IK solution is to the target
+                pin.forwardKinematics(self.model, self.data, self.ik_result)
+                pin.updateFramePlacements(self.model, self.data)
+                final_pose = self.data.oMf[self.tip_frame_id]
+                final_error_se3 = pin.log6(final_pose.inverse() * target_pose)
+                final_error_norm = np.linalg.norm(final_error_se3.vector)
+                self.get_logger().info(f"Final IK error: {final_error_norm:.6f}")
             else:
-                self.ik_result = None
-                self.get_logger().warn(
-                    "IK solution not found (did not converge to desired accuracy)."
-                )
+                self.get_logger().warn("IK solution not found (Manual LM did not converge sufficiently).")
 
             # --- FK Calculation ---
             if self.ik_result is not None:
                 start_time_fk = time.perf_counter()
                 pin.forwardKinematics(self.model, self.data, self.ik_result)
-                pin.updateFramePlacements(
-                    self.model, self.data
-                )  # Update frame placements
+                pin.updateFramePlacements(self.model, self.data)
                 end_time_fk = time.perf_counter()
                 self.fk_calc_time_ms = (end_time_fk - start_time_fk) * 1000.0
 
-                # Get the current pose of the end-effector
                 fk_pose = self.data.oMf[self.tip_frame_id]
                 pos_fk = fk_pose.translation
                 rot_fk = fk_pose.rotation
@@ -239,7 +243,7 @@ class UR5ePinocchioIKTestNode(Node):
             self.get_logger().error(
                 f"Error during IK/FK calculation with Pinocchio: {e}"
             )
-            self.ik_result = None
+            self.ik_result = None # Reset result on error
         finally:
             # --- Performance Summary ---
             self.get_logger().info("--- Performance Summary ---")
