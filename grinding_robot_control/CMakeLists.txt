@@ -51,7 +51,8 @@ endif()
 install(PROGRAMS
   ${PROJECT_NAME}/JTC_helper.py
   ${PROJECT_NAME}/moveit_helper.py
-  scripts/test_ik.py
+  scripts/test_trac_ik.py
+  scripts/test_pinocchio.py
   DESTINATION lib/${PROJECT_NAME}
 )
 #--- end Python

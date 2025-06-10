@@ -23,12 +23,16 @@
   <build_depend>python3-numpy</build_depend>
   <build_depend>python3-scipy</build_depend>
   <build_depend>python3-tqdm</build_depend>
+  <build_depend>pinocchio</build_depend>
+  
   
   <exec_depend>moveit_ros_planning_interface</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-scipy</exec_depend>
   <exec_depend>python3-tqdm</exec_depend>
+  <exec_depend>pinocchio</exec_depend>
   
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

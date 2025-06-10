@@ -5,7 +5,7 @@ jinja2
 typeguard
 empy==3.3.4
 # basic module
-numpy
+numpy<=1.24.0
 scipy
 matplotlib
 transforms3d
