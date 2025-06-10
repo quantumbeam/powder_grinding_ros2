@@ -185,7 +185,7 @@ class UR5ePinocchioIKTestNode(Node):
                     self.data,
                     q,
                     self.tip_frame_id,
-                    pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
+                    pin.ReferenceFrame.LOCAL,  # Use Jacobian in the local frame
                 )
                 # 6xN matrix (N is number of joints)
 
@@ -193,7 +193,7 @@ class UR5ePinocchioIKTestNode(Node):
                 # J^T J + damping * I
                 hessian = J.T @ J + damping * np.eye(J.shape[1])
                 grad = J.T @ error
-                dq = np.linalg.solve(hessian, -grad) * DT
+                dq = np.linalg.solve(hessian, grad) * DT # Remove negative sign
 
                 # Update joint angles
                 q = pin.integrate(self.model, q, dq)
