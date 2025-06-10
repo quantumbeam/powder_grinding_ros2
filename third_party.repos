@@ -3,3 +3,7 @@ repositories:
     type: git
     url: https://github.com/YusakuNakajima/pytracik.git
     version: main
+  quik:
+    type: git
+    url: https://github.com/YusakuNakajima/quik.git
+    version: main
