@@ -13,11 +13,13 @@
   <test_depend>python3-pytest</test_depend>
 
   <exec_depend>launch_ros</exec_depend>
-  <!-- <exec_depend>trac_ik_kinematics_plugin</exec_depend>
-  <exec_depend>pytracik</exec_depend>
-  <exec_depend>moveit_py</exec_depend> -->
+  <!-- Other existing exec_depends -->
 
-
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>tf2_ros</depend>
+  <depend>geometry_msgs</depend>
+  <!-- Add other C++ dependencies if not already covered by specific build/exec depends -->
 
   <build_depend>moveit_ros_planning_interface</build_depend>  
   <build_depend>python3-numpy</build_depend>
@@ -35,5 +37,7 @@
 
   <export>
     <build_type>ament_cmake</build_type>
+    <rclcpp_components plugin="${prefix}/lib/libdynamic_tf_broadcaster_component.so" />
+    <rclcpp_components plugin="${prefix}/lib/libstatic_tf_broadcaster_component.so" />
   </export>
 </package>

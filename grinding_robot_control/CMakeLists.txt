@@ -16,6 +16,7 @@ find_package(moveit_ros_planning_interface REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(moveit_visual_tools REQUIRED)
 find_package(pinocchio REQUIRED)
+find_package(rclcpp_components REQUIRED)
 
 
 # Find package from package.xml
@@ -24,14 +25,16 @@ ament_auto_find_build_dependencies()
 #--- for C++
 
 # The shared library load_planning_scene is created from the source file load_planning_scene.cpp
-# ament_auto_add_library(planning_scene_loader SHARED src/load_planning_scene.cpp)
+ament_auto_add_library(dynamic_tf_broadcaster_node SHARED src/dynamic_tf_broadcaster_node.cpp)
+ament_auto_add_library(static_tf_broadcaster_node SHARED src/static_tf_broadcaster_node.cpp)
 # The shared library load_planning_scene in 
-# rclcpp_components_register_nodes(planning_scene_loader "grinding_scene_description::PlanningSceneLoader")
+rclcpp_components_register_nodes(dynamic_tf_broadcaster_node "grinding_robot_control::DynamicTFBroadcaster")
+rclcpp_components_register_nodes(static_tf_broadcaster_node "grinding_robot_control::StaticTFBroadcaster")
 
 
 # Add executable
 # Execute add_executable, target_include_directories, target_link_libraries, and ament_target_dependencies together
-# ament_auto_add_executable(moveit_test src/moveit_test.cpp)
+# ament_auto_add_executable(dynamic_tf_broadcaster_node src/dynamic_tf_broadcaster_node.cpp)
 
 # Add message and service
 # ament_auto_generate_code()

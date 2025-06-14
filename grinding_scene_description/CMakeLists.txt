@@ -15,7 +15,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(moveit_visual_tools REQUIRED)
-
+find_package(rclcpp_components REQUIRED)
 
 # Find package from package.xml
 ament_auto_find_build_dependencies()
