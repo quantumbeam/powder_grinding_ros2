@@ -4,7 +4,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription([
         Node(
-            package='grinding_ft_filter',
+            package='grinding_force_torque',
             executable='ft_filter.py',  # ← 拡張子なし！
             name='ft_filter',
             output='screen',

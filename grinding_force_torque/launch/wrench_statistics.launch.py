@@ -4,7 +4,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription([
         Node(
-            package='grinding_ft_filter',
+            package='grinding_force_torque',
             executable='wrench_statistics.py',
             name='wrench_statistics',
             output='screen',

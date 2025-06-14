@@ -25,9 +25,9 @@
         <arg name="description_file" value="$(var description_file)" /> -->
     </include>
 
-    <!-- Include grinding_ft_filter launch file --><!-- FT Filter Node -->
+    <!-- Include grinding_force_torque launch file --><!-- FT Filter Node -->
     <node
-        pkg="grinding_ft_filter"
+        pkg="grinding_force_torque"
         exec="ft_filter.py"
         name="ft_filter"
         output="screen">

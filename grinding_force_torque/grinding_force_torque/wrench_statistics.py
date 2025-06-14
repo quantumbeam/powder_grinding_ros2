@@ -3,7 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import WrenchStamped
-from  grinding_ft_filter.srv import WrenchStatistics
+from  grinding_force_torque.srv import WrenchStatistics
 import numpy as np
 
 

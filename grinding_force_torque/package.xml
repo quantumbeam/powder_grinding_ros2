@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>grinding_ft_filter</name>
+  <name>grinding_force_torque</name>
   <version>0.1.0</version>
   <description>Filtered FT sensor output for robotic calibration (ROS2)</description>
 

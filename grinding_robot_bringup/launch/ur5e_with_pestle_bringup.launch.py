@@ -79,7 +79,7 @@ def launch_setup(context, *args, **kwargs):
 
     # --- Launch ft_filter node ---
     ft_filter_node = Node(
-        package='grinding_ft_filter',
+        package='grinding_force_torque',
         executable='ft_filter.py',
         name='ft_filter',
         output='screen',
