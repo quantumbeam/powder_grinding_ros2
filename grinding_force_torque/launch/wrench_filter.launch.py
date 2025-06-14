@@ -5,8 +5,8 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='grinding_force_torque',
-            executable='ft_filter.py',  # ← 拡張子なし！
-            name='ft_filter',
+            executable='wrench_filter.py',  # ← 拡張子なし！
+            name='wrench_filter',
             output='screen',
             parameters=[
                 {'input_topic': '/force_torque_sensor_broadcaster/wrench'},

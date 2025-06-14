@@ -77,11 +77,11 @@ def launch_setup(context, *args, **kwargs):
 
 
 
-    # --- Launch ft_filter node ---
-    ft_filter_node = Node(
+    # --- Launch wrench_filter node ---
+    wrench_filter_node = Node(
         package='grinding_force_torque',
-        executable='ft_filter.py',
-        name='ft_filter',
+        executable='wrench_filter.py',
+        name='wrench_filter',
         output='screen',
         parameters=[
             {'input_topic': '/wrench_raw'},
@@ -100,7 +100,7 @@ def launch_setup(context, *args, **kwargs):
         ur_control_launch,
         ur_moveit_launch,
         load_planning_scene_launch,
-        ft_filter_node
+        wrench_filter_node
     ]
 
     return actions_to_start

@@ -34,7 +34,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 # This is necessary to install the Python scripts with ament_cmake
 install(
   PROGRAMS
-    ${PROJECT_NAME}/ft_filter.py
+    ${PROJECT_NAME}/wrench_filter.py
     ${PROJECT_NAME}/wrench_statistics.py
     scripts/noisy_wrench_pub.py
   DESTINATION lib/${PROJECT_NAME}

@@ -28,8 +28,8 @@
     <!-- Include grinding_force_torque launch file --><!-- FT Filter Node -->
     <node
         pkg="grinding_force_torque"
-        exec="ft_filter.py"
-        name="ft_filter"
+        exec="wrench_filter.py"
+        name="wrench_filter"
         output="screen">
         
         <param name="input_topic" value="/wrench_raw"/>

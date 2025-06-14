@@ -42,7 +42,7 @@ class ButterLowPass:
 # ========== FTFilterNode ==========
 class FTFilterNode(Node):
     def __init__(self):
-        super().__init__('ft_filter')
+        super().__init__('wrench_filter')
 
         self.declare_parameter('input_topic', '/wrench_raw')
         self.declare_parameter('output_topic', '/wrench_filtered')
