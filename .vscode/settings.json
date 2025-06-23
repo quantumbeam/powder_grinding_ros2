@@ -8,5 +8,19 @@
         "string": "cpp",
         "vector": "cpp"
     },
-    "cmake.sourceDirectory": "/home/nakajima/onolab_ros2/onolab_ws/src/grinding_robot_bringup"
+    "cmake.sourceDirectory": "/home/nakajima/onolab_ros2/onolab_ws/src/grinding_robot_bringup",
+    "python.autoComplete.extraPaths": [
+        "/home/user/ros2_ws/install/quik/lib/python3.10/site-packages",
+        "/home/user/ros2_ws/install/grinding_moveit_config/lib/python3.10/site-packages",
+        "/home/user/ros2_ws/install/grinding_force_torque/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/user/ros2_ws/install/quik/lib/python3.10/site-packages",
+        "/home/user/ros2_ws/install/grinding_moveit_config/lib/python3.10/site-packages",
+        "/home/user/ros2_ws/install/grinding_force_torque/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ]
 }
