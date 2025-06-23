@@ -37,7 +37,7 @@ ament_auto_generate_code()
 
 #-- for Python
 # This macro is necessary to install the Python scripts with ament_python(and setup.py)
-# ament_python_install_package(${PROJECT_NAME})
+ament_python_install_package(${PROJECT_NAME})
 
 # This is necessary to install the Python scripts with ament_cmake
 install(

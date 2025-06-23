@@ -1,317 +1,447 @@
 #!/usr/bin/env python3
 
+import sys
+import os
+# Add the grinding_motion_routines package to Python path
+install_dir = os.path.dirname(os.path.dirname(__file__))
+site_packages_dir = os.path.join(install_dir, 'lib', 'python3.10', 'site-packages')
+if os.path.exists(site_packages_dir) and site_packages_dir not in sys.path:
+    sys.path.insert(0, site_packages_dir)
 import rclpy
 from rclpy.node import Node
-import numpy as np
-import traceback # For formatting exception tracebacks
-from typing import List, Optional, Tuple
-import math # For deg2rad
+import time
+import csv
+from inputimeout import inputimeout, TimeoutOccurred
 
-# 必要なクラスをインポート
-from grinding_motion_routines.grinding_motion_primitive import GrindingMotionPrimitive
+from math import pi
+import copy
+from scipy.spatial.transform import Rotation
+import numpy as np
+
 from grinding_motion_routines.grinding_motion_generator import MotionGenerator
-from grinding_motion_routines.display_marker import DisplayMarker # マーカー表示用
-from grinding_motion_routines.display_tf import DisplayTF # TF表示用
+from grinding_motion_routines.grinding_motion_primitive import GrindingMotionPrimitive
+from grinding_motion_routines.display_marker import DisplayMarker
+from grinding_motion_routines.display_tf import DisplayTF
 from grinding_robot_control.JTC_helper import JointTrajectoryControllerHelper, IKType
 
-def main(args=None):
-    rclpy.init(args=args)
-    # メインとなるノードを作成
-    main_node = Node('grinding_demo_node')
-    logger = main_node.get_logger()
+################### Fixed params ###################
 
-    logger.info("Starting Grinding Demo Node...")
+# Global variables
+debug_marker = None
+debug_tf = None
+node = None
 
-    # --- パラメータの宣言・取得 ---
-    try:
-        logger.info("Declaring and getting parameters...")
-        # Robot and Controller Parameters
-        controller_name = main_node.declare_parameter('controller_name', 'scaled_joint_trajectory_controller').get_parameter_value().string_value
-        joint_names = main_node.declare_parameter('joint_names', [
-            "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
-            "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"
-        ]).get_parameter_value().string_array_value
-        base_link = main_node.declare_parameter('base_link', 'base_link').get_parameter_value().string_value
-        grinding_ee_link = main_node.declare_parameter('grinding_ee_link', 'pestle_tip').get_parameter_value().string_value
-        gathering_ee_link = main_node.declare_parameter('gathering_ee_link', 'spatula_tip').get_parameter_value().string_value
-        robot_description_package = main_node.declare_parameter('robot_description_package', 'grinding_robot_description').get_parameter_value().string_value # Snippet: "grinding_robot_description"
-        robot_description_file = main_node.declare_parameter('robot_description_file', 'ur/ur5e_with_pestle').get_parameter_value().string_value # Snippet: "ur/ur5e_with_pestle"
+def display_debug_waypoints(waypoints, debug_type, tf_name="debug"):
+    global debug_marker, debug_tf, node
+    if debug_type == "mk":
+        if node:
+            node.get_logger().info("Display waypoints marker")
+        if debug_marker:
+            debug_marker.display_waypoints(waypoints, clear=True)
+    elif debug_type == "tf":
+        if node:
+            node.get_logger().info("Display waypoints tf")
+        if debug_tf:
+            debug_tf.broadcast_tf_with_waypoints(
+                waypoints, parent_link="base_link", child_link=tf_name + "_waypoints"
+            )
 
-        # Mortar Parameters
-        mortar_inner_size_x = main_node.declare_parameter('mortar.inner_size.x', 0.04).get_parameter_value().double_value  # Snippet: 0.04
-        mortar_inner_size_y = main_node.declare_parameter('mortar.inner_size.y', 0.04).get_parameter_value().double_value  # Snippet: 0.04
-        mortar_inner_size_z = main_node.declare_parameter('mortar.inner_size.z', 0.035).get_parameter_value().double_value # Snippet: 0.035
-        mortar_top_pos_x = main_node.declare_parameter('mortar.top_position.x', -0.2).get_parameter_value().double_value    # Snippet: -0.2
-        mortar_top_pos_y = main_node.declare_parameter('mortar.top_position.y', 0.4).get_parameter_value().double_value     # Snippet: 0.4
-        mortar_top_pos_z = main_node.declare_parameter('mortar.top_position.z', 0.3).get_parameter_value().double_value     # Snippet: 0.3
+def compute_grinding_waypoints(motion_generator, debug_type=False):
+    global node
+    waypoints = motion_generator.create_circular_waypoints(
+        beginning_position=node.get_parameter("grinding_pos_beginning").value,
+        end_position=node.get_parameter("grinding_pos_end").value,
+        beginning_radius_z=node.get_parameter("grinding_rz_beginning").value,
+        end_radius_z=node.get_parameter("grinding_rz_end").value,
+        angle_scale=node.get_parameter("grinding_angle_scale").value,
+        yaw_bias=node.get_parameter("grinding_yaw_bias").value,
+        number_of_rotations=node.get_parameter("grinding_number_of_rotation").value,
+        number_of_waypoints_per_circle=node.get_parameter("grinding_number_of_waypoints_per_circle").value,
+        center_position=node.get_parameter("grinding_center_pos").value,
+    )
+    if debug_type != False:
+        display_debug_waypoints(waypoints, debug_type)
+    return waypoints
 
-        mortar_inner_size = {"x": mortar_inner_size_x, "y": mortar_inner_size_y, "z": mortar_inner_size_z}
-        mortar_top_position = {"x": mortar_top_pos_x, "y": mortar_top_pos_y, "z": mortar_top_pos_z}
+def compute_gathering_waypoints(motion_generator, debug_type=False):
+    global node
+    waypoints = motion_generator.create_circular_waypoints(
+        beginning_position=node.get_parameter("gathering_pos_beginning").value,
+        end_position=node.get_parameter("gathering_pos_end").value,
+        beginning_radius_z=node.get_parameter("gathering_rz_beginning").value,
+        end_radius_z=node.get_parameter("gathering_rz_end").value,
+        angle_scale=node.get_parameter("gathering_angle_scale").value,
+        yaw_bias=node.get_parameter("gathering_yaw_bias").value,
+        number_of_rotations=node.get_parameter("gathering_number_of_rotation").value,
+        number_of_waypoints_per_circle=node.get_parameter("gathering_number_of_waypoints_per_circle").value,
+    )
+    if debug_type != False:
+        display_debug_waypoints(waypoints, debug_type)
+    return waypoints
 
-        # Initial Pose Parameters
-        init_pose_offset_z = main_node.declare_parameter('init_pose.offset_z', 0.05).get_parameter_value().double_value # Keep offset, base pose will change due to mortar_top_position
-        init_pose_quat_x = main_node.declare_parameter('init_pose.orientation.x', 1.0).get_parameter_value().double_value
-        init_pose_quat_y = main_node.declare_parameter('init_pose.orientation.y', 0.0).get_parameter_value().double_value
-        init_pose_quat_z = main_node.declare_parameter('init_pose.orientation.z', 0.0).get_parameter_value().double_value
-        init_pose_quat_w = main_node.declare_parameter('init_pose.orientation.w', 0.0).get_parameter_value().double_value
 
-        init_pose = [
-            mortar_top_position["x"],
-            mortar_top_position["y"],
-            mortar_top_position["z"] + init_pose_offset_z,
-            init_pose_quat_x, init_pose_quat_y, init_pose_quat_z, init_pose_quat_w
-        ]
-        logger.info(f"Using initial pose: {init_pose}")
+def exit_process(msg=""):
+    global node
+    if msg != "":
+        if node:
+            node.get_logger().info(msg)
+    if node:
+        node.get_logger().info("Exit mechano grinding")
+    rclpy.shutdown()
+    exit()
 
-        # Grinding Parameters
-        grinding_start_offset_xy = main_node.declare_parameter('grinding.start_pos_xy_mm', [-8.0, 0.0]).get_parameter_value().double_array_value
-        grinding_end_offset_xy = main_node.declare_parameter('grinding.end_pos_xy_mm', [-8.0, 0.0001]).get_parameter_value().double_array_value
-        grinding_depth_st_mm = main_node.declare_parameter('grinding.depth_st_mm', -35.0).get_parameter_value().double_value
-        grinding_depth_end_mm = main_node.declare_parameter('grinding.depth_end_mm', -35.0).get_parameter_value().double_value
-        grinding_rotations = main_node.declare_parameter('grinding.rotations', 5.0).get_parameter_value().double_value
-        grinding_angle_scale = main_node.declare_parameter('grinding.angle_scale', 0.3).get_parameter_value().double_value
-        grinding_yaw_twist_deg = main_node.declare_parameter('grinding.yaw_twist_per_rotation_deg', 90.0).get_parameter_value().double_value # Snippet: np.pi/2 rad = 90 deg
-        grinding_waypoints_per_circle = main_node.declare_parameter('grinding.waypoints_per_circle', 100).get_parameter_value().integer_value
-        grinding_sec_per_rotation = main_node.declare_parameter('grinding.sec_per_rotation', 0.5).get_parameter_value().double_value
-        grinding_center_offset_x = main_node.declare_parameter('grinding.center_offset.x', 0.0).get_parameter_value().double_value # Snippet: center_position[0]
-        grinding_center_offset_y = main_node.declare_parameter('grinding.center_offset.y', 0.0).get_parameter_value().double_value # Snippet: center_position[1]
-        grinding_yaw_bias_rad = main_node.declare_parameter('grinding.yaw_bias_rad', math.pi).get_parameter_value().double_value
-        grinding_yaw_twist_rad = math.radians(grinding_yaw_twist_deg) # Convert to radians
+def command_to_execute(cmd):
+    if cmd == "y":
+        return True
+    elif cmd == "mk":
+        return False
+    elif cmd == "tf":
+        return False
+    else:
+        return None
 
-        # Gathering Parameters
-        gathering_start_offset_xy = main_node.declare_parameter('gathering.start_pos_xy_mm', [30.0, 0.0]).get_parameter_value().double_array_value
-        gathering_end_offset_xy = main_node.declare_parameter('gathering.end_pos_xy_mm', [-22.0, 0.0001]).get_parameter_value().double_array_value
-        gathering_depth_st_mm = main_node.declare_parameter('gathering.depth_st_mm', -35.0).get_parameter_value().double_value
-        gathering_depth_end_mm = main_node.declare_parameter('gathering.depth_end_mm', -35.0).get_parameter_value().double_value
-        gathering_rotations = main_node.declare_parameter('gathering.rotations', 5.0).get_parameter_value().double_value
-        gathering_angle_scale = main_node.declare_parameter('gathering.angle_scale', 0.0).get_parameter_value().double_value
-        gathering_waypoints_per_circle = main_node.declare_parameter('gathering.waypoints_per_circle', 100).get_parameter_value().integer_value
-        gathering_sec_per_rotation = main_node.declare_parameter('gathering.sec_per_rotation', 2.0).get_parameter_value().double_value
-        gathering_center_offset_x = main_node.declare_parameter('gathering.center_offset.x', 0.0).get_parameter_value().double_value
-        gathering_center_offset_y = main_node.declare_parameter('gathering.center_offset.y', 0.0).get_parameter_value().double_value
-        gathering_yaw_bias_rad = main_node.declare_parameter('gathering.yaw_bias_rad', math.pi).get_parameter_value().double_value
-        
-        # Motion Execution Parameters
-        joint_difference_limit_rad = main_node.declare_parameter('motion.joint_difference_limit_rad', 0.03).get_parameter_value().double_value
-        max_ik_retries_on_jump = main_node.declare_parameter('motion.max_ik_retries_on_jump', 100).get_parameter_value().integer_value
-        max_joint_change_for_first_point_rad = main_node.declare_parameter('motion.max_joint_change_for_first_point_rad', math.pi / 2.0).get_parameter_value().double_value
-        max_ik_retries_for_first_point = main_node.declare_parameter('motion.max_ik_retries_for_first_point', 100).get_parameter_value().integer_value
-        ik_retry_perturbation_rad = main_node.declare_parameter('motion.ik_retry_perturbation_rad', 0.05).get_parameter_value().double_value
-        pre_motion = main_node.declare_parameter('motion.pre_motion', True).get_parameter_value().bool_value
-        post_motion = main_node.declare_parameter('motion.post_motion', True).get_parameter_value().bool_value
-        wait_for_completion = main_node.declare_parameter('motion.wait_for_completion', True).get_parameter_value().bool_value
+def main():
+    global debug_marker, debug_tf, node
+    
+    rclpy.init(args=sys.argv)
+    node = Node("mechano_grinding")
+    
+    # Declare parameters with default values
+    node.declare_parameter("log_file_dir", "")
+    node.declare_parameter("experiment_time", 60.0)
+    node.declare_parameter("pouse_time_list", [10.0, 20.0, 30.0])
+    
+    # Declare position parameters (will be overridden by YAML file)
+    node.declare_parameter("mortar_top_position.x", 0.0)
+    node.declare_parameter("mortar_top_position.y", 0.0)
+    node.declare_parameter("mortar_top_position.z", 0.0)
+    node.declare_parameter("mortar_inner_scale.x", 0.04)
+    node.declare_parameter("mortar_inner_scale.y", 0.04)
+    node.declare_parameter("mortar_inner_scale.z", 0.035)
+    node.declare_parameter("funnel_position.x", 0.0)
+    node.declare_parameter("funnel_position.y", 0.0)
+    node.declare_parameter("funnel_position.z", 0.0)
+    node.declare_parameter("pouring_hight_at_funnel", 0.1)
+    
+    node.declare_parameter("move_group_name", "manipulator")
+    node.declare_parameter("grinding_ee_link", "pestle_tip")
+    node.declare_parameter("gathering_ee_link", "spatula_tip")
+    node.declare_parameter("grinding_joint_difference_limit_for_motion_planning", 0.03)
+    node.declare_parameter("gathering_joint_difference_limit_for_motion_planning", 0.03)
+    node.declare_parameter("motion_planner_id", "TRRT")
+    node.declare_parameter("planning_time", 20.0)
+    node.declare_parameter("max_attempts", 5)
+    
+    # Grinding parameters
+    node.declare_parameter("grinding_pos_beginning", [0.0, 0.0])
+    node.declare_parameter("grinding_pos_end", [0.0, 0.0])
+    node.declare_parameter("grinding_rz_beginning", -0.035)
+    node.declare_parameter("grinding_rz_end", -0.035)
+    node.declare_parameter("grinding_angle_scale", 0.3)
+    node.declare_parameter("grinding_yaw_bias", pi)
+    node.declare_parameter("grinding_number_of_rotation", 10.0)
+    node.declare_parameter("grinding_number_of_waypoints_per_circle", 10.0)
+    node.declare_parameter("grinding_center_pos", [0.0, 0.0])
+    node.declare_parameter("grinding_sec_per_rotation", 0.5)
+    
+    # Gathering parameters
+    node.declare_parameter("gathering_pos_beginning", [0.0, 0.0])
+    node.declare_parameter("gathering_pos_end", [0.0, 0.0])
+    node.declare_parameter("gathering_rz_beginning", -0.035)
+    node.declare_parameter("gathering_rz_end", -0.035)
+    node.declare_parameter("gathering_angle_scale", 0.0)
+    node.declare_parameter("gathering_yaw_bias", pi)
+    node.declare_parameter("gathering_number_of_rotation", 5.0)
+    node.declare_parameter("gathering_number_of_waypoints_per_circle", 20.0)
+    node.declare_parameter("gathering_sec_per_rotation", 2.0)
+    
+    # Robot parameters
+    node.declare_parameter("ik_solver", "trac_ik")
+    node.declare_parameter("robot_urdf_file_name", "ur/ur5e_with_pestle")
+    node.declare_parameter("joint_trajectory_controller_name", "scaled_joint_trajectory_controller")
+    node.declare_parameter("controller_name", "scaled_joint_trajectory_controller")
+    node.declare_parameter("joint_names", [
+        "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
+        "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"
+    ])
+    node.declare_parameter("base_link", "base_link")
+    node.declare_parameter("robot_description_package", "grinding_robot_description")
+    
+    # Get parameters
+    log_file_dir = node.get_parameter("log_file_dir").value
+    target_experiment_time = node.get_parameter("experiment_time").value
+    pouse_time_list = node.get_parameter("pouse_time_list").value
+    TIMEOUT_SEC = 0.1
+    current_experiment_time = 0
+    
+    ################### motion generator ###################
+    # Build dictionary parameters from individual parameter values
+    mortar_top_pos = {
+        "x": node.get_parameter("mortar_top_position.x").value,
+        "y": node.get_parameter("mortar_top_position.y").value,
+        "z": node.get_parameter("mortar_top_position.z").value
+    }
+    mortar_inner_size = {
+        "x": node.get_parameter("mortar_inner_scale.x").value,
+        "y": node.get_parameter("mortar_inner_scale.y").value,
+        "z": node.get_parameter("mortar_inner_scale.z").value
+    }
+    funnel_position = {
+        "x": node.get_parameter("funnel_position.x").value,
+        "y": node.get_parameter("funnel_position.y").value,
+        "z": node.get_parameter("funnel_position.z").value
+    }
+    pouring_hight = node.get_parameter("pouring_hight_at_funnel").value
+    motion_gen = MotionGenerator(mortar_top_pos, mortar_inner_size)
 
-        logger.info("Parameters loaded successfully.")
+    ################### motion executor ###################
+    move_group_name = node.get_parameter("move_group_name").value
+    grinding_ee_link = node.get_parameter("grinding_ee_link").value
+    gathering_ee_link = node.get_parameter("gathering_ee_link").value
+    grinding_joint_difference_limit_for_motion_planning = node.get_parameter("grinding_joint_difference_limit_for_motion_planning").value
+    gathering_joint_difference_limit_for_motion_planning = node.get_parameter("gathering_joint_difference_limit_for_motion_planning").value
+    motion_planner_id = node.get_parameter("motion_planner_id").value
+    planning_time = node.get_parameter("planning_time").value
+    max_attempts = node.get_parameter("max_attempts").value
+    
+    node.get_logger().info(str(grinding_joint_difference_limit_for_motion_planning))
 
-    except Exception as e:
-        logger.error(f"Failed to declare or get parameters: {e}\n{traceback.format_exc()}")
-        if 'main_node' in locals() and main_node:
-            main_node.destroy_node()
-        rclpy.shutdown()
-        return
+    ################### init pose ###################
+    init_pos = copy.deepcopy(mortar_top_pos)
+    node.get_logger().info("Mortar pos: " + str(init_pos))
+    init_pos["z"] += 0.05
+    yaw = np.arctan2(mortar_top_pos["y"], mortar_top_pos["x"]) + pi
+    euler = [pi, 0, yaw]
+    r = Rotation.from_euler("xyz", euler, degrees=False)
+    quat = r.as_quat()
+    init_pose = list(init_pos.values()) + list(quat)
+    
+    # Initialize JTC Helper
+    controller_name = node.get_parameter("controller_name").value
+    joint_names = node.get_parameter("joint_names").value
+    base_link = node.get_parameter("base_link").value
+    robot_description_package = node.get_parameter("robot_description_package").value
+    robot_urdf_file_name = node.get_parameter("robot_urdf_file_name").value
+    ik_solver_name = node.get_parameter("ik_solver").value
+    
+    jtc_helper = JointTrajectoryControllerHelper(
+        controller_name=controller_name,
+        joints_name=joint_names,
+        tool_link=grinding_ee_link,
+        base_link=base_link,
+        robot_urdf_package=robot_description_package,
+        robot_urdf_file_name=robot_urdf_file_name,
+        ik_solver=IKType.TRACK_IK if ik_solver_name == "trac_ik" else IKType.BIO_IK
+    )
 
-    # --- 初期化 (finally節で参照される可能性のある変数を定義) ---
-    jtc_helper = None # Define outside try block for finally clause
-    display_marker = None
-    # motion_generator と motion_primitive は try ブロック内で初期化・使用される
-    grinding_waypoints_list: Optional[List[List[float]]] = None
-    gathering_waypoints_list: Optional[List[List[float]]] = None
+    # Initialize motion primitive
+    primitive = GrindingMotionPrimitive(
+        node=node,
+        jtc_helper=jtc_helper,
+        init_pose=init_pose,
+        grinding_ee_link=grinding_ee_link,
+        gathering_ee_link=gathering_ee_link,
+    )
+    
+    # Go to initial pose
+    primitive.go_to_init_pose()
+    node.get_logger().info("Goto init pose")
 
-    try:
-        # JTC Helper を初期化 (最初は研削用EEリンクを使用)
-        jtc_helper = JointTrajectoryControllerHelper(
-            controller_name=controller_name,
-            joints_name=joint_names,
-            tool_link=grinding_ee_link, # 初期は研削用
-            base_link=base_link,
-            robot_urdf_package=robot_description_package,
-            robot_urdf_file_name=robot_description_file,
-            ik_solver=IKType.TRACK_IK # または BIO_IK
-        )
-        logger.info("JointTrajectoryControllerHelper initialized.")
+    # Initialize debug tools
+    debug_marker = DisplayMarker()
+    debug_tf = DisplayTF()
 
-        # MotionGenerator を初期化
-        motion_generator = MotionGenerator(mortar_top_position, mortar_inner_size)
-        logger.info("MotionGenerator initialized.")
+    # Initialize planning scene
+    # planning_scene = load_planning_scene.PlanningSceneLoader(moveit.move_group)
+    # planning_scene.init_planning_scene()
 
-        # GrindingMotionPrimitive を初期化
-        motion_primitive = GrindingMotionPrimitive(
-            node=main_node,
-            jtc_helper=jtc_helper, # 作成したヘルパーを渡す
-            init_pose=init_pose,
-            grinding_ee_link=grinding_ee_link,
-            gathering_ee_link=gathering_ee_link,
-        )
-        logger.info("GrindingMotionPrimitive initialized.")
-
-        # マーカー表示用
-        display_marker = DisplayMarker()
-        logger.info("DisplayMarker initialized.")
-
-        # --- ウェイポイントを一度だけ生成 ---
-        logger.info("--- Generating Grinding Waypoints (List[List[float]]) ---")
-        grinding_wps_array = motion_generator.create_circular_waypoints(
-            beginning_position=grinding_start_offset_xy, end_position=grinding_end_offset_xy,
-            beginning_radius_z=grinding_depth_st_mm, end_radius_z=grinding_depth_end_mm,
-            number_of_rotations=grinding_rotations, number_of_waypoints_per_circle=grinding_waypoints_per_circle,
-            angle_scale=grinding_angle_scale, yaw_bias=grinding_yaw_bias_rad,
-            yaw_twist_per_rotation=grinding_yaw_twist_rad,
-            center_position=[grinding_center_offset_x, grinding_center_offset_y])
-        if not grinding_waypoints_pose:
-            if grinding_wps_array is not None and grinding_wps_array.size > 0:
-                grinding_waypoints_list = grinding_wps_array.tolist()
-                logger.info(f"Successfully generated {len(grinding_waypoints_list)} grinding waypoints.")
-            else:
-                raise RuntimeError("Motion generator returned no grinding waypoints.")
-
-        logger.info("--- Generating Gathering Waypoints (List[List[float]]) ---")
-        gathering_wps_array = motion_generator.create_circular_waypoints(
-            beginning_position=gathering_start_offset_xy, 
-            end_position=gathering_end_offset_xy,       
-            beginning_radius_z=gathering_depth_st_mm, end_radius_z=gathering_depth_end_mm,
-            number_of_rotations=gathering_rotations, number_of_waypoints_per_circle=gathering_waypoints_per_circle,
-            angle_scale=gathering_angle_scale, yaw_bias=gathering_yaw_bias_rad,
-            yaw_twist_per_rotation=0.0, # 収集時はヨー軸ツイストなし
-            center_position=[gathering_center_offset_x, gathering_center_offset_y])
-        if gathering_wps_array is not None and gathering_wps_array.size > 0:
-            gathering_waypoints_list = gathering_wps_array.tolist()
-            logger.info(f"Successfully generated {len(gathering_waypoints_list)} gathering waypoints.")
-        else:
-            raise RuntimeError("Motion generator returned no gathering waypoints.")
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize helpers, generators, or generate waypoints: {e}\n{traceback.format_exc()}")
-        if jtc_helper:
-            jtc_helper.destroy_node()
-        # motion_primitive は main_node を使用するため、個別の destroy_node は不要
-        # motion_generator はノードではない
-        if display_marker:
-            display_marker.destroy_node()
-        if 'main_node' in locals() and main_node:
-            main_node.destroy_node()
-        rclpy.shutdown()
-        return
-
-    # --- デモ動作の実行 ---
+    grinding_sec = node.get_parameter("grinding_sec_per_rotation").value * node.get_parameter("grinding_number_of_rotation").value
+    gathering_sec = node.get_parameter("gathering_sec_per_rotation").value * node.get_parameter("gathering_number_of_rotation").value
+    
     try:
         while rclpy.ok():
-            print("\n--- Grinding Demo Menu ---")
-            print("1: Display grinding waypoints (Markers)")
-            print("2: Display grinding TF")
-            print("3: Display gathering waypoints (Markers)")
-            print("4: Display gathering TF")
-            print("5: Execute Grinding Demo") 
-            print("6: Execute Gathering Demo")
-            print("0: Exit")
-            choice = input("Enter your choice: ")
+            motion_command = input(
+                "q \t= exit.\n"
+                + "scene \t= init planning scene.\n"
+                + "pestle_calib \t= go to caliblation pose of pestle tip position.\n"
+                + "g \t= grinding demo.\n"
+                + "G \t= Gathering demo.\n"
+                + "Rg \t= Repeate Grinding  motion during the experiment time.\n"
+                + "RGG \t= Repeate Grinding and Gathering motion during the experiment time.\n"
+                + "\n"
+            )
 
-            if choice == '1':
-                logger.info("--- Displaying Grinding Waypoints (Markers) ---")
-                if grinding_waypoints_list:
-                    display_marker.display_waypoints(grinding_waypoints_list, scale=0.002)
-                    logger.info("Published grinding path markers.")
-                else:
-                    logger.error("Grinding waypoints are not available. Please restart the demo.")
+            if motion_command == "q":
+                exit_process()
 
-            elif choice == '2':
-                logger.info("--- Displaying Grinding Waypoints (TF) ---")
-                if grinding_waypoints_list:
-                    tf_grinding_node = DisplayTF(node_name="grinding_tf_display_node", parent_link="world", child_link="grinding_wp_")
-                    tf_grinding_node.broadcast_tf_with_waypoints(grinding_waypoints_list)
-                    logger.info("Grinding TFs published. In RViz, set TF Decay Time to a high value to keep them visible.")
-                    rclpy.spin_once(tf_grinding_node, timeout_sec=0.1) # Allow time for publishing
-                    tf_grinding_node.destroy_node()
-                    logger.info("Temporary TF node for grinding destroyed.")
-                else:
-                    logger.error("Grinding waypoints are not available. Please restart the demo.")
+            elif motion_command == "scene":
+                node.get_logger().info("Init planning scene")
+                # planning_scene.init_planning_scene()
+                
+            elif motion_command == "pestle_calib":
+                node.get_logger().info("Go to caliblation pose of pestle tip position")
+                pos = copy.deepcopy(mortar_top_pos)
+                quat = init_pose[3:]
+                calib_pose = list(pos.values()) + quat
+                primitive.execute_cartesian_path_to_pose(calib_pose)
 
-            elif choice == '3':
-                logger.info("--- Displaying Gathering Waypoints (Markers) ---")
-                if gathering_waypoints_list:
-                    display_marker.display_waypoints(gathering_waypoints_list) # Use default scale or specify
-                    logger.info("Published gathering path markers.")
-                else:
-                    logger.error("Gathering waypoints are not available. Please restart the demo.")
+            elif motion_command == "g":
+                key = input(
+                    "Start grinding demo.\n execute = 'y', show waypoints marker = 'mk', show waypoints tf = 'tf', canncel = other\n"
+                )
+                exec_result = command_to_execute(key)
+                if exec_result:
+                    waypoints = compute_grinding_waypoints(motion_gen)
+                    waypoints_list = waypoints.tolist() if hasattr(waypoints, 'tolist') else waypoints
+                    primitive.execute_grinding(
+                        waypoints=waypoints_list,
+                        grinding_sec=grinding_sec,
+                        joint_difference_limit=grinding_joint_difference_limit_for_motion_planning,
+                        max_ik_retries_on_jump=max_attempts,
+                        wait_for_completion=True
+                    )
+                elif exec_result == False:
+                    compute_grinding_waypoints(motion_gen, debug_type=key)
+                    
+            elif motion_command == "G":
+                key = input(
+                    "Start circular gathering demo.\n execute = 'y', show waypoints marker = 'mk', show waypoints tf = 'tf', canncel = other\n"
+                )
+                exec_result = command_to_execute(key)
+                if exec_result:
+                    waypoints = compute_gathering_waypoints(motion_gen)
+                    waypoints_list = waypoints.tolist() if hasattr(waypoints, 'tolist') else waypoints
+                    primitive.execute_gathering(
+                        waypoints=waypoints_list,
+                        gathering_sec=gathering_sec,
+                        joint_difference_limit=gathering_joint_difference_limit_for_motion_planning,
+                        max_ik_retries_on_jump=max_attempts,
+                        wait_for_completion=True
+                    )
+                elif exec_result == False:
+                    compute_gathering_waypoints(motion_gen, debug_type=key)
 
-            elif choice == '4':
-                logger.info("--- Displaying Gathering Waypoints (TF) ---")
-                if gathering_waypoints_list:
-                    tf_gathering_node = DisplayTF(node_name="gathering_tf_display_node", parent_link="world", child_link="gathering_wp_")
-                    tf_gathering_node.broadcast_tf_with_waypoints(gathering_waypoints_list)
-                    logger.info("Gathering TFs published. In RViz, set TF Decay Time to a high value to keep them visible.")
-                    rclpy.spin_once(tf_gathering_node, timeout_sec=0.1) # Allow time for publishing
-                    tf_gathering_node.destroy_node()
-                    logger.info("Temporary TF node for gathering destroyed.")
-                else:
-                    logger.error("Gathering waypoints are not available. Please restart the demo.")
+            elif motion_command == "Rg":
+                i = 0
+                motion_counts = 0
+                grinding_trajectory = []
 
+                while True:
+                    try:
+                        key = inputimeout(
+                            prompt="If you want to finish grinding -> 'q', pose -> 'p'.\n",
+                            timeout=TIMEOUT_SEC,
+                        )
+                        if key == "q":
+                            exit_process()
+                        elif key == "p":
+                            input("Press Enter to continue...")
 
-            elif choice == '5':
-                logger.info("--- Executing Grinding Motion ---")
-                if grinding_waypoints_list:
-                    display_marker.display_waypoints(grinding_waypoints_list, scale=0.002) # Show markers before execution
-                    logger.info("Published grinding path markers before execution.")
+                    except TimeoutOccurred:
+                        st = time.time()
+                        if len(grinding_trajectory) == 0:
+                            waypoints = compute_grinding_waypoints(motion_gen)
+                            waypoints_list = waypoints.tolist() if hasattr(waypoints, 'tolist') else waypoints
+                            grinding_trajectory = waypoints_list
 
-                    success_grind, _ = motion_primitive.execute_grinding(
-                        waypoints=grinding_waypoints_list, # 事前に計算したウェイポイントを使用
-                        grinding_sec=grinding_sec_per_rotation * grinding_rotations,
-                        joint_difference_limit=joint_difference_limit_rad,
-                        max_ik_retries_on_jump=max_ik_retries_on_jump,
-                        max_joint_change_for_first_point=max_joint_change_for_first_point_rad,
-                        max_ik_retries_for_first_point=max_ik_retries_for_first_point,
-                        ik_retry_perturbation=ik_retry_perturbation_rad,
-                        pre_motion=pre_motion, post_motion=post_motion,
-                        wait_for_completion=wait_for_completion)
-                    if not success_grind:
-                        logger.error("Grinding motion failed.")
-                    else:
-                        logger.info("Grinding motion completed.")
-                else:
-                    logger.error("Grinding waypoints are not available for execution. Please restart the demo.")
+                        trajectory_success, pestle_ready_joints = primitive.execute_grinding(
+                            waypoints=grinding_trajectory,
+                            grinding_sec=grinding_sec,
+                            joint_difference_limit=grinding_joint_difference_limit_for_motion_planning,
+                            wait_for_completion=True
+                        )
 
-            elif choice == '6':
-                logger.info("--- Executing Gathering Motion ---")
-                if gathering_waypoints_list:
-                    display_marker.display_waypoints(gathering_waypoints_list) # Show markers before execution
-                    logger.info("Published gathering path markers before execution.")
+                        motion_counts += 1
 
-                    success_gather, _ = motion_primitive.execute_gathering(
-                        waypoints=gathering_waypoints_list, # 事前に計算したウェイポイントを使用
-                        gathering_sec=gathering_sec_per_rotation * gathering_rotations,
-                        joint_difference_limit=joint_difference_limit_rad,
-                        max_ik_retries_on_jump=max_ik_retries_on_jump,
-                        max_joint_change_for_first_point=max_joint_change_for_first_point_rad,
-                        max_ik_retries_for_first_point=max_ik_retries_for_first_point,
-                        ik_retry_perturbation=ik_retry_perturbation_rad,
-                        wait_for_completion=wait_for_completion)
-                    if not success_gather:
-                        logger.error("Gathering motion failed.")
-                    else:
-                        logger.info("Gathering motion completed.")
-                else:
-                    logger.error("Gathering waypoints are not available for execution. Please restart the demo.")
-            
-            elif choice == '0':
-                logger.info("Exiting demo.")
-                break
-            else:
-                logger.warn("Invalid choice. Please try again.")
+                    current_experiment_time += (time.time() - st) / 60
+                    node.get_logger().info("Experiment time: " + str(current_experiment_time) + " min")
+                    
+                    if i < len(pouse_time_list) and pouse_time_list[i] < current_experiment_time:
+                        i += 1
+                        input("Pouse experiment on pouse settings. Press Enter to continue...")
+                        
+                    if current_experiment_time > target_experiment_time:
+                        node.get_logger().info("Over experiment time")
+                        exit_process("Motion counts: " + str(motion_counts))
 
-    except Exception as e:
-        logger.error(f"An error occurred during the demo: {e}\n{traceback.format_exc()}") # トレースバックも表示
+            elif motion_command == "RGG":
+                i = 0
+                motion_counts = 0
+                grinding_trajectory = []
+                gathering_trajectory = []
 
+                while True:
+                    try:
+                        key = inputimeout(
+                            prompt="If you want to finish grinding -> 'q', pose -> 'p'.\n",
+                            timeout=TIMEOUT_SEC,
+                        )
+                        if key == "q":
+                            exit_process()
+                        elif key == "p":
+                            input("Press Enter to continue...")
+
+                    except TimeoutOccurred:
+                        st = time.time()
+                        
+                        if len(grinding_trajectory) == 0:
+                            waypoints = compute_grinding_waypoints(motion_gen)
+                            waypoints_list = waypoints.tolist() if hasattr(waypoints, 'tolist') else waypoints
+                            grinding_trajectory = waypoints_list
+
+                        trajectory_success, pestle_ready_joints = primitive.execute_grinding(
+                            waypoints=grinding_trajectory,
+                            grinding_sec=grinding_sec,
+                            joint_difference_limit=grinding_joint_difference_limit_for_motion_planning,
+                            wait_for_completion=True
+                        )
+
+                        if len(gathering_trajectory) == 0:
+                            waypoints = compute_gathering_waypoints(motion_gen)
+                            waypoints_list = waypoints.tolist() if hasattr(waypoints, 'tolist') else waypoints
+                            gathering_trajectory = waypoints_list
+
+                        trajectory_success, spatula_ready_joints = primitive.execute_gathering(
+                            waypoints=gathering_trajectory,
+                            gathering_sec=gathering_sec,
+                            joint_difference_limit=gathering_joint_difference_limit_for_motion_planning,
+                            wait_for_completion=True
+                        )
+                        
+                        motion_counts += 1
+                        
+                        if log_file_dir != "":
+                            with open(log_file_dir + "pestle_and_spatula_joints_log.csv", "a") as file:
+                                writer = csv.writer(file)
+                                writer.writerow([pestle_ready_joints, spatula_ready_joints])
+
+                    current_experiment_time += (time.time() - st) / 60
+                    node.get_logger().info("Experiment time: " + str(current_experiment_time) + " min")
+                    
+                    if i < len(pouse_time_list) and pouse_time_list[i] < current_experiment_time:
+                        i += 1
+                        input("Pouse experiment on pouse settings. Press Enter to continue...")
+                        
+                    if current_experiment_time > target_experiment_time:
+                        node.get_logger().info("Over experiment time")
+                        exit_process("Motion counts: " + str(motion_counts))
+
+            # Allow ROS2 to process callbacks
+            rclpy.spin_once(node, timeout_sec=0.01)
+
+    except KeyboardInterrupt as err:
+        exit_process(str(err))
+    except Exception as err:
+        exit_process(str(err))
     finally:
-        # --- クリーンアップ ---
-        logger.info("Shutting down...")
-        if display_marker:
-            display_marker.destroy_node() # マーカーノードも破棄
+        if debug_marker:
+            debug_marker.destroy_node()
+        if debug_tf:
+            debug_tf.destroy_node()
         if jtc_helper:
-            jtc_helper.destroy_node() # JTC Helper ノードも破棄 (motion_primitive より先に破棄しても問題ないはず)
-        # main_node は最後に破棄
-        if 'main_node' in locals() and main_node and rclpy.ok(): # rclpy.ok() を確認
-             main_node.destroy_node()
-        if rclpy.ok():
-             rclpy.shutdown()
+            jtc_helper.destroy_node()
+        if node:
+            node.destroy_node()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

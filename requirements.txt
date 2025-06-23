@@ -4,11 +4,11 @@ pyyaml
 jinja2
 typeguard
 empy==3.3.4
+lark-parser
 # basic module
 numpy<=1.24.0
 scipy
 matplotlib
 transforms3d
 tqdm
-# additional module for ROS 2 interface generation
-lark-parser
+inputimeout

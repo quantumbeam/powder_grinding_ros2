@@ -87,6 +87,34 @@ class GrindingMotionPrimitive:
         pose.orientation.w = pose_list[6]
         return pose
 
+    def go_to_init_pose(self) -> bool:
+        """
+        初期姿勢に移動する。
+
+        Returns:
+            bool: 移動が成功したかどうか
+        """
+        self.logger.info("Moving to initial pose...")
+        success = self.jtc_helper.set_goal_pose(
+            goal_pose=self.init_pose,
+            num_axes_to_check_for_goal=self.jtc_helper.num_joints - 1,
+            send_immediately=True,
+            wait=True,
+            target_ee_link=self.grinding_ee_link,
+        )
+        if hasattr(success, 'all'):
+            # Handle array return value
+            success_bool = success.all() if success.size > 0 else False
+        else:
+            # Handle scalar return value
+            success_bool = bool(success)
+            
+        if success_bool:
+            self.logger.info("Successfully moved to initial pose")
+        else:
+            self.logger.error("Failed to move to initial pose")
+        return success_bool
+
     def execute_grinding(
         self,
         waypoints: List[List[float]],  # List of pose lists [x,y,z,qx,qy,qz,qw]
