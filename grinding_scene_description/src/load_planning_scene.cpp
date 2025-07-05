@@ -52,8 +52,8 @@ PlanningSceneLoader::PlanningSceneLoader(const rclcpp::NodeOptions & options)
 void PlanningSceneLoader::load_scene()
 {
   _add_table(this->get_parameter("table_scale").as_double_array(), this->get_parameter("table_position").as_double_array());
-  std::string mortar_mesh_file_path = "package://grinding_scene_description/meshes/" + this->get_parameter("mortar_mesh_file_name").as_string();
-  // _add_mortar(mortar_mesh_file_path, this->get_parameter("mortar_top_position").as_double_array());
+  // Use box instead of mesh to avoid timeout issues
+  _add_mortar_box(this->get_parameter("mortar_top_position").as_double_array(), this->get_parameter("mortar_inner_scale").as_double_array());
 }
 
 
@@ -157,7 +157,56 @@ void PlanningSceneLoader::_add_mortar(const std::string& file_path, const std::v
   }
 }
 
+void PlanningSceneLoader::_add_mortar_box(const std::vector<double>& mortar_pos, const std::vector<double>& mortar_scale)
+{
+  // Add mortar as a box instead of mesh to avoid timeout issues
+  moveit_msgs::msg::CollisionObject mortar;
+  mortar.header.frame_id = "base_link";
+  mortar.id = "mortar";
 
+  shape_msgs::msg::SolidPrimitive mortar_primitive;
+  mortar_primitive.type = mortar_primitive.BOX;
+  mortar_primitive.dimensions.resize(3);
+  mortar_primitive.dimensions[0] = mortar_scale[0];
+  mortar_primitive.dimensions[1] = mortar_scale[1];
+  mortar_primitive.dimensions[2] = mortar_scale[2];
+
+  geometry_msgs::msg::Pose mortar_pose;
+  mortar_pose.orientation.w = 1.0;
+  mortar_pose.position.x = mortar_pos[0];
+  mortar_pose.position.y = mortar_pos[1];
+  mortar_pose.position.z = mortar_pos[2];
+
+  mortar.primitives.push_back(mortar_primitive);
+  mortar.primitive_poses.push_back(mortar_pose);
+  mortar.operation = mortar.ADD;
+
+  moveit_msgs::msg::PlanningScene planning_scene;
+  planning_scene.world.collision_objects.push_back(mortar);
+  planning_scene.is_diff = true;
+
+  auto request = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
+  request->scene = planning_scene;
+
+  auto response_future = planning_scene_diff_client_->async_send_request(request);
+  std::chrono::seconds wait_time(5);
+  if (response_future.wait_for(wait_time) == std::future_status::timeout)
+  {
+    RCLCPP_ERROR(LOGGER, "Service timed out adding mortar box.");
+  }
+  else
+  {
+    auto planning_response = response_future.get();
+    if (planning_response->success)
+    {
+      RCLCPP_INFO(LOGGER, "Service successfully added mortar box.");
+    }
+    else
+    {
+      RCLCPP_ERROR(LOGGER, "Service failed to add mortar box.");
+    }
+  }
+}
 
 // デストラクタ
 PlanningSceneLoader::~PlanningSceneLoader() {}
