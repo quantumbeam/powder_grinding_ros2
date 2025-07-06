@@ -52,9 +52,9 @@ grinding_demo_node:
         y: 0.0
       rotations: 5.0
       angle_scale: 0.3
-      yaw_twist_per_rotation_deg: 90.0 # Matches snippet's np.pi / 2
+      yaw_twist_per_rotation_deg: 0 # Matches snippet's np.pi / 2
       waypoints_per_circle: 100
-      sec_per_rotation: 0.5
+      sec_per_rotation: 1
       vel_scale: 1.0
       acc_scale: 1.0
       yaw_bias_rad: 3.1415926535
