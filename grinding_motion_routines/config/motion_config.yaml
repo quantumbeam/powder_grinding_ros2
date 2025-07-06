@@ -1,7 +1,6 @@
 grinding_demo_node:
   ros__parameters:
     # IK Solver Parameters
-    ros__parameters:
     trac_ik_solver_type: "Distance"
     trac_ik_timeout: 0.005
     trac_ik_epsilon: 1e-5
