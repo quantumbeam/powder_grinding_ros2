@@ -43,14 +43,20 @@ PlanningSceneLoader::PlanningSceneLoader(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(this->get_logger(), "Mortar Top Position: [%f, %f, %f]", mortar_top_position[0], mortar_top_position[1], mortar_top_position[2]);
   RCLCPP_INFO(this->get_logger(), "Mortar Inner Scale: [%f, %f, %f]", mortar_inner_scale[0], mortar_inner_scale[1], mortar_inner_scale[2]);
   RCLCPP_INFO(this->get_logger(), "Mortar Mesh File Name: %s", mortar_mesh_file_name.c_str());
-
-  planning_scene_diff_client_ = this->create_client<moveit_msgs::srv::ApplyPlanningScene>("apply_planning_scene");
-  planning_scene_diff_client_->wait_for_service();
   
-  // 初期化時に既存のオブジェクトを削除
-  clear_all_objects();
+  // Planning scene publisherを使用
+  planning_scene_diff_publisher_ = this->create_publisher<moveit_msgs::msg::PlanningScene>("/planning_scene", 10);
   
-  load_scene();
+  // 少し待ってからsceneを読み込む
+  timer_ = this->create_wall_timer(
+    std::chrono::milliseconds(1000),
+    [this]() {
+      // 初期化時に既存のオブジェクトを削除
+      clear_all_objects();
+      load_scene();
+      timer_->cancel();
+    }
+  );
 }
 
 void PlanningSceneLoader::clear_all_objects()
@@ -71,34 +77,15 @@ void PlanningSceneLoader::clear_all_objects()
   planning_scene.world.collision_objects.push_back(remove_mortar);
   planning_scene.is_diff = true;
 
-  auto request = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
-  request->scene = planning_scene;
-
-  auto response_future = planning_scene_diff_client_->async_send_request(request);
-  std::chrono::seconds wait_time(5);
-  if (response_future.wait_for(wait_time) == std::future_status::timeout)
-  {
-    RCLCPP_WARN(LOGGER, "Service timed out when clearing objects.");
-  }
-  else
-  {
-    auto planning_response = response_future.get();
-    if (planning_response->success)
-    {
-      RCLCPP_INFO(LOGGER, "Successfully cleared existing objects.");
-    }
-    else
-    {
-      RCLCPP_WARN(LOGGER, "Failed to clear existing objects (they may not exist).");
-    }
-  }
+  planning_scene_diff_publisher_->publish(planning_scene);
+  RCLCPP_INFO(LOGGER, "Published scene update to remove existing objects.");
 }
 
 void PlanningSceneLoader::load_scene()
 {
   _add_table(this->get_parameter("table_scale").as_double_array(), this->get_parameter("table_position").as_double_array());
   // Use box instead of mesh to avoid timeout issues
-  // _add_mortar_box(this->get_parameter("mortar_top_position").as_double_array(), this->get_parameter("mortar_inner_scale").as_double_array());
+  _add_mortar_box(this->get_parameter("mortar_top_position").as_double_array(), this->get_parameter("mortar_inner_scale").as_double_array());
 }
 
 
@@ -130,27 +117,8 @@ void PlanningSceneLoader::_add_table(const std::vector<double>& table_scale, con
   planning_scene.world.collision_objects.push_back(table);
   planning_scene.is_diff = true;
 
-  auto request = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
-  request->scene = planning_scene;
-
-  auto response_future = planning_scene_diff_client_->async_send_request(request);
-  std::chrono::seconds wait_time(5);
-  if (response_future.wait_for(wait_time) == std::future_status::timeout)
-  {
-    RCLCPP_ERROR(LOGGER, "Service timed out.");
-  }
-  else
-  {
-    auto planning_response = response_future.get();
-    if (planning_response->success)
-    {
-      RCLCPP_INFO(LOGGER, "Service successfully added table.");
-    }
-    else
-    {
-      RCLCPP_ERROR(LOGGER, "Service failed to add table.");
-    }
-  }
+  planning_scene_diff_publisher_->publish(planning_scene);
+  RCLCPP_INFO(LOGGER, "Published scene update to add table.");
 }
 
 void PlanningSceneLoader::_add_mortar(const std::string& file_path, const std::vector<double>& mortar_pos)
@@ -179,27 +147,8 @@ void PlanningSceneLoader::_add_mortar(const std::string& file_path, const std::v
   planning_scene.world.collision_objects.push_back(mortar);
   planning_scene.is_diff = true;
 
-  auto request = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
-  request->scene = planning_scene;
-
-  auto response_future = planning_scene_diff_client_->async_send_request(request);
-  std::chrono::seconds wait_time(5);
-  if (response_future.wait_for(wait_time) == std::future_status::timeout)
-  {
-    RCLCPP_ERROR(LOGGER, "Service timed out.");
-  }
-  else
-  {
-    auto planning_response = response_future.get();
-    if (planning_response->success)
-    {
-      RCLCPP_INFO(LOGGER, "Service successfully added mortar.");
-    }
-    else
-    {
-      RCLCPP_ERROR(LOGGER, "Service failed to add mortar.");
-    }
-  }
+  planning_scene_diff_publisher_->publish(planning_scene);
+  RCLCPP_INFO(LOGGER, "Published scene update to add mortar.");
 }
 
 void PlanningSceneLoader::_add_mortar_box(const std::vector<double>& mortar_pos, const std::vector<double>& mortar_scale)
@@ -230,27 +179,8 @@ void PlanningSceneLoader::_add_mortar_box(const std::vector<double>& mortar_pos,
   planning_scene.world.collision_objects.push_back(mortar);
   planning_scene.is_diff = true;
 
-  auto request = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
-  request->scene = planning_scene;
-
-  auto response_future = planning_scene_diff_client_->async_send_request(request);
-  std::chrono::seconds wait_time(5);
-  if (response_future.wait_for(wait_time) == std::future_status::timeout)
-  {
-    RCLCPP_ERROR(LOGGER, "Service timed out adding mortar box.");
-  }
-  else
-  {
-    auto planning_response = response_future.get();
-    if (planning_response->success)
-    {
-      RCLCPP_INFO(LOGGER, "Service successfully added mortar box.");
-    }
-    else
-    {
-      RCLCPP_ERROR(LOGGER, "Service failed to add mortar box.");
-    }
-  }
+  planning_scene_diff_publisher_->publish(planning_scene);
+  RCLCPP_INFO(LOGGER, "Published scene update to add mortar box.");
 }
 
 // デストラクタ
