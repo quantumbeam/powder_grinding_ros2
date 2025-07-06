@@ -14,6 +14,7 @@ def generate_launch_description():
         executable='grinding_demo.py',
         name='grinding_demo_node', 
         output='screen',
+        prefix='terminator -x',
         parameters=[motion_config,planning_scene_config],
     )
 
