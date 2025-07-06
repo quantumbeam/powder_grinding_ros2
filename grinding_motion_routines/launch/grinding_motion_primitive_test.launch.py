@@ -21,15 +21,15 @@ def generate_launch_description():
     
 
     # Motion primitive test node
-    motion_primitive_test_node = Node(
+    grinding_demo_node = Node(
         package='grinding_motion_routines',
         executable='grinding_motion_primitive.py',
-        name='motion_primitive_test_node', 
+        name='grinding_demo_node', 
         output='screen',
         prefix='xterm -e',
         parameters=[motion_config,planning_scene_config],
     )
 
     return LaunchDescription([
-        motion_primitive_test_node
+        grinding_demo_node
     ])

@@ -416,7 +416,7 @@ def main(args=None):
     angle_scale = main_node.declare_parameter("grinding.angle_scale", 0.3).value
     yaw_bias = main_node.declare_parameter("grinding.yaw_bias_rad", 3.1415926535).value
     yaw_twist_per_rotation = main_node.declare_parameter("grinding.yaw_twist_per_rotation_deg", 90.0).value * np.pi / 180.0
-    number_of_waypoints_per_circle = main_node.declare_parameter("grinding.waypoints_per_circle", 100).value
+    number_of_waypoints_per_circle = int(main_node.declare_parameter("grinding.waypoints_per_circle", 100).value)
     grinding_center_offset_x = main_node.declare_parameter("grinding.center_offset_mm.x", 0.0).value
     grinding_center_offset_y = main_node.declare_parameter("grinding.center_offset_mm.y", 0.0).value
     center_position = [grinding_center_offset_x, grinding_center_offset_y]
@@ -431,7 +431,7 @@ def main(args=None):
     gathering_radius_z = abs(main_node.declare_parameter("gathering.depth_st_mm", -35.0).value)
     gathering_rotations = main_node.declare_parameter("gathering.rotations", 5.0).value
     gathering_angle_scale = main_node.declare_parameter("gathering.angle_scale", 0.0).value
-    gathering_waypoints_per_circle = main_node.declare_parameter("gathering.waypoints_per_circle", 100).value
+    gathering_waypoints_per_circle = int(main_node.declare_parameter("gathering.waypoints_per_circle", 100).value)
     gathering_sec_per_rotation = main_node.declare_parameter("gathering.sec_per_rotation", 2.0).value
     gathering_center_offset_x = main_node.declare_parameter("gathering.center_offset_mm.x", 0.0).value
     gathering_center_offset_y = main_node.declare_parameter("gathering.center_offset_mm.y", 0.0).value
@@ -439,7 +439,7 @@ def main(args=None):
 
     # モーション実行パラメータ
     joint_difference_limit = main_node.declare_parameter("motion.joint_difference_limit_rad", 0.03).value
-    max_ik_retries = main_node.declare_parameter("motion.max_ik_retries_on_jump", 100).value
+    max_ik_retries = int(main_node.declare_parameter("motion.max_ik_retries_on_jump", 100).value)
     ik_retry_perturbation = main_node.declare_parameter("motion.ik_retry_perturbation_rad", 0.05).value
     pre_motion = main_node.declare_parameter("motion.pre_motion", True).value
     post_motion = main_node.declare_parameter("motion.post_motion", True).value
@@ -447,9 +447,61 @@ def main(args=None):
 
     motion_generator = MotionGenerator(mortar_top_position, mortar_inner_size)
 
+    # パラメータの確認表示
+    main_node.get_logger().info("=== All Parameter Values ===")
+    main_node.get_logger().info("--- Robot Configuration ---")
+    main_node.get_logger().info(f"Controller name: {controller_name}")
+    main_node.get_logger().info(f"Joint names: {joints_name}")
+    main_node.get_logger().info(f"Base link: {base_link_param}")
+    main_node.get_logger().info(f"Grinding EE link: {grinding_ee_link_param}")
+    main_node.get_logger().info(f"Gathering EE link: {gathering_ee_link_param}")
+    main_node.get_logger().info(f"URDF package: {urdf_pkg_param}")
+    main_node.get_logger().info(f"URDF file: {urdf_file_param}")
+    
+    main_node.get_logger().info("--- Mortar Configuration ---")
+    main_node.get_logger().info(f"Inner size: {mortar_inner_size}")
+    main_node.get_logger().info(f"Top position: {mortar_top_position}")
+    
+    main_node.get_logger().info("--- Initial Pose ---")
+    main_node.get_logger().info(f"Offset Z: {init_pose_offset_z}")
+    main_node.get_logger().info(f"Orientation: {init_pose_orientation}")
+    main_node.get_logger().info(f"Final init pose: {init_pose}")
+    
+    main_node.get_logger().info("--- Grinding Parameters ---")
+    main_node.get_logger().info(f"Start position (mm): {grinding_pos_beginning}")
+    main_node.get_logger().info(f"End position (mm): {grinding_pos_end}")
+    main_node.get_logger().info(f"Depth (mm): {grinding_radius_z}")
+    main_node.get_logger().info(f"Rotations: {number_of_rotations}")
+    main_node.get_logger().info(f"Angle scale: {angle_scale}")
+    main_node.get_logger().info(f"Yaw bias (rad): {yaw_bias}")
+    main_node.get_logger().info(f"Yaw twist per rotation (rad): {yaw_twist_per_rotation}")
+    main_node.get_logger().info(f"Waypoints per circle: {number_of_waypoints_per_circle}")
+    main_node.get_logger().info(f"Center position: {center_position}")
+    main_node.get_logger().info(f"Seconds per rotation: {sec_per_rotation}")
+    
+    main_node.get_logger().info("--- Gathering Parameters ---")
+    main_node.get_logger().info(f"Start position (mm): {gathering_pos_beginning}")
+    main_node.get_logger().info(f"End position (mm): {gathering_pos_end}")
+    main_node.get_logger().info(f"Depth (mm): {gathering_radius_z}")
+    main_node.get_logger().info(f"Rotations: {gathering_rotations}")
+    main_node.get_logger().info(f"Angle scale: {gathering_angle_scale}")
+    main_node.get_logger().info(f"Waypoints per circle: {gathering_waypoints_per_circle}")
+    main_node.get_logger().info(f"Center position: {gathering_center_position}")
+    main_node.get_logger().info(f"Seconds per rotation: {gathering_sec_per_rotation}")
+    
+    main_node.get_logger().info("--- Motion Execution Parameters ---")
+    main_node.get_logger().info(f"Joint difference limit (rad): {joint_difference_limit}")
+    main_node.get_logger().info(f"Max IK retries: {max_ik_retries}")
+    main_node.get_logger().info(f"IK retry perturbation (rad): {ik_retry_perturbation}")
+    main_node.get_logger().info(f"Pre motion: {pre_motion}")
+    main_node.get_logger().info(f"Post motion: {post_motion}")
+    main_node.get_logger().info(f"Wait for completion: {wait_for_completion}")
+    main_node.get_logger().info("==============================")
+
     # インタラクティブメニュー
     main_node.get_logger().info("Motion Primitive Interactive Menu")
     print("q \t= exit.")
+    print("p \t= show parameters.")
     print("g \t= grinding motion.")
     print("G \t= gathering motion.")
     
@@ -460,6 +512,56 @@ def main(args=None):
             if user_input == 'q':
                 main_node.get_logger().info("Exiting...")
                 break
+            elif user_input == 'p':
+                main_node.get_logger().info("=== Current All Parameter Values ===")
+                main_node.get_logger().info("--- Robot Configuration ---")
+                main_node.get_logger().info(f"Controller name: {controller_name}")
+                main_node.get_logger().info(f"Joint names: {joints_name}")
+                main_node.get_logger().info(f"Base link: {base_link_param}")
+                main_node.get_logger().info(f"Grinding EE link: {grinding_ee_link_param}")
+                main_node.get_logger().info(f"Gathering EE link: {gathering_ee_link_param}")
+                main_node.get_logger().info(f"URDF package: {urdf_pkg_param}")
+                main_node.get_logger().info(f"URDF file: {urdf_file_param}")
+                
+                main_node.get_logger().info("--- Mortar Configuration ---")
+                main_node.get_logger().info(f"Inner size: {mortar_inner_size}")
+                main_node.get_logger().info(f"Top position: {mortar_top_position}")
+                
+                main_node.get_logger().info("--- Initial Pose ---")
+                main_node.get_logger().info(f"Offset Z: {init_pose_offset_z}")
+                main_node.get_logger().info(f"Orientation: {init_pose_orientation}")
+                main_node.get_logger().info(f"Final init pose: {init_pose}")
+                
+                main_node.get_logger().info("--- Grinding Parameters ---")
+                main_node.get_logger().info(f"Start position (mm): {grinding_pos_beginning}")
+                main_node.get_logger().info(f"End position (mm): {grinding_pos_end}")
+                main_node.get_logger().info(f"Depth (mm): {grinding_radius_z}")
+                main_node.get_logger().info(f"Rotations: {number_of_rotations}")
+                main_node.get_logger().info(f"Angle scale: {angle_scale}")
+                main_node.get_logger().info(f"Yaw bias (rad): {yaw_bias}")
+                main_node.get_logger().info(f"Yaw twist per rotation (rad): {yaw_twist_per_rotation}")
+                main_node.get_logger().info(f"Waypoints per circle: {number_of_waypoints_per_circle}")
+                main_node.get_logger().info(f"Center position: {center_position}")
+                main_node.get_logger().info(f"Seconds per rotation: {sec_per_rotation}")
+                
+                main_node.get_logger().info("--- Gathering Parameters ---")
+                main_node.get_logger().info(f"Start position (mm): {gathering_pos_beginning}")
+                main_node.get_logger().info(f"End position (mm): {gathering_pos_end}")
+                main_node.get_logger().info(f"Depth (mm): {gathering_radius_z}")
+                main_node.get_logger().info(f"Rotations: {gathering_rotations}")
+                main_node.get_logger().info(f"Angle scale: {gathering_angle_scale}")
+                main_node.get_logger().info(f"Waypoints per circle: {gathering_waypoints_per_circle}")
+                main_node.get_logger().info(f"Center position: {gathering_center_position}")
+                main_node.get_logger().info(f"Seconds per rotation: {gathering_sec_per_rotation}")
+                
+                main_node.get_logger().info("--- Motion Execution Parameters ---")
+                main_node.get_logger().info(f"Joint difference limit (rad): {joint_difference_limit}")
+                main_node.get_logger().info(f"Max IK retries: {max_ik_retries}")
+                main_node.get_logger().info(f"IK retry perturbation (rad): {ik_retry_perturbation}")
+                main_node.get_logger().info(f"Pre motion: {pre_motion}")
+                main_node.get_logger().info(f"Post motion: {post_motion}")
+                main_node.get_logger().info(f"Wait for completion: {wait_for_completion}")
+                main_node.get_logger().info("=====================================")
             elif user_input == 'g':
                 main_node.get_logger().info("--- Executing Grinding Motion ---")
                 try:
@@ -535,6 +637,7 @@ def main(args=None):
             else:
                 print("Invalid command. Available commands:")
                 print("q \t= exit.")
+                print("p \t= show parameters.")
                 print("g \t= grinding motion.")
                 print("G \t= gathering motion.")
                 
