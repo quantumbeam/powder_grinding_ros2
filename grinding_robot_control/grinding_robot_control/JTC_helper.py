@@ -162,7 +162,7 @@ class JointTrajectoryControllerHelper(Node):
         if self._current_jnt_positions is None:
             self.get_logger().warn("Joint state not received yet.")
             return None
-        return self._current_jnt_positions.tolist()
+        return self._current_jnt_positions
 
     def _init_ik_solver(
         self, base_link: str, ee_link: str, urdf_path: str = None
@@ -462,7 +462,12 @@ class JointTrajectoryControllerHelper(Node):
                 f"Successfully calculated joint trajectory for {len(joint_trajectory)} waypoints."
             )
             self.set_joint_trajectory(
-                joint_trajectory, time_to_reach, send_immediately, wait
+                joint_trajectory=joint_trajectory,
+                time_to_reach=time_to_reach,
+                velocities=None,
+                accelerations=None,
+                send_immediately=send_immediately,
+                wait=wait
             )
         elif not joint_trajectory:
             self.get_logger().error(
@@ -591,6 +596,8 @@ class JointTrajectoryControllerHelper(Node):
                 self.set_joint_trajectory(
                     joint_trajectory=[q_best.tolist()],
                     time_to_reach=calculated_time_to_reach,
+                    velocities=None,
+                    accelerations=None,
                     send_immediately=send_immediately,
                     wait=wait,
                 )
@@ -602,6 +609,8 @@ class JointTrajectoryControllerHelper(Node):
         self,
         joint_trajectory: List[List[float]],
         time_to_reach: float,
+        velocities: Optional[List[float]] = None,
+        accelerations: Optional[List[float]] = None,
         send_immediately: bool = False,
         wait: bool = True,
     ) -> None:
@@ -624,6 +633,30 @@ class JointTrajectoryControllerHelper(Node):
         for i, goal_joints in enumerate(joint_trajectory, start=1):
             point = JointTrajectoryPoint()
             point.positions = goal_joints
+            if velocities is not None:
+                if len(velocities) == len(joint_trajectory):
+                    # velocitiesが軌道点数と同じ場合：各軌道点に対して一つの速度セット
+                    point.velocities = velocities[i - 1] if i - 1 < len(velocities) else velocities[-1]
+                elif len(velocities) == len(goal_joints):
+                    # velocitiesがジョイント数と同じ場合：全軌道点で同じ速度セット
+                    point.velocities = list(velocities)
+                else:
+                    self.get_logger().warn(f"Velocities length ({len(velocities)}) doesn't match trajectory points ({len(joint_trajectory)}) or joints ({len(goal_joints)}). Using zero velocities.")
+                    point.velocities = [0.0] * len(goal_joints)
+            else:
+                point.velocities = [0.0] * len(goal_joints)
+            if accelerations is not None:
+                if len(accelerations) == len(joint_trajectory):
+                    # accelerationsが軌道点数と同じ場合：各軌道点に対して一つの加速度セット
+                    point.accelerations = accelerations[i - 1] if i - 1 < len(accelerations) else accelerations[-1]
+                elif len(accelerations) == len(goal_joints):
+                    # accelerationsがジョイント数と同じ場合：全軌道点で同じ加速度セット
+                    point.accelerations = list(accelerations)
+                else:
+                    self.get_logger().warn(f"Accelerations length ({len(accelerations)}) doesn't match trajectory points ({len(joint_trajectory)}) or joints ({len(goal_joints)}). Using zero accelerations.")
+                    point.accelerations = [0.0] * len(goal_joints)
+            else:
+                point.accelerations = [0.0] * len(goal_joints)
             sec = int(dt * i)
             nsec = int((dt * i - sec) * 1e9)
             point.time_from_start = Duration(sec=sec, nanosec=nsec)
@@ -743,6 +776,7 @@ def main(args: Optional[List[str]] = None) -> None:
                 waypoints,
                 time_to_reach=5,
                 send_immediately=True,
+                max_joint_change_per_step=np.pi / 4,
             )
 
         elif choice == "10":
