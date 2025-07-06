@@ -28,6 +28,7 @@ private:
   rclcpp::Node::SharedPtr node_;
   rclcpp::Client<moveit_msgs::srv::ApplyPlanningScene>::SharedPtr planning_scene_diff_client_;
   static const rclcpp::Logger LOGGER;
+  void clear_all_objects();
   void _add_table(const std::vector<double>& table_scale, const std::vector<double>& table_pos);
   void _add_mortar(const std::string& file_path, const std::vector<double>& mortar_pos);
   void _add_mortar_box(const std::vector<double>& mortar_pos, const std::vector<double>& mortar_scale);

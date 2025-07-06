@@ -46,14 +46,59 @@ PlanningSceneLoader::PlanningSceneLoader(const rclcpp::NodeOptions & options)
 
   planning_scene_diff_client_ = this->create_client<moveit_msgs::srv::ApplyPlanningScene>("apply_planning_scene");
   planning_scene_diff_client_->wait_for_service();
+  
+  // 初期化時に既存のオブジェクトを削除
+  clear_all_objects();
+  
   load_scene();
+}
+
+void PlanningSceneLoader::clear_all_objects()
+{
+  // 既存のオブジェクトを削除
+  moveit_msgs::msg::CollisionObject remove_object;
+  remove_object.header.frame_id = "base_link";
+  remove_object.id = "table";
+  remove_object.operation = remove_object.REMOVE;
+
+  moveit_msgs::msg::CollisionObject remove_mortar;
+  remove_mortar.header.frame_id = "base_link";
+  remove_mortar.id = "mortar";
+  remove_mortar.operation = remove_mortar.REMOVE;
+
+  moveit_msgs::msg::PlanningScene planning_scene;
+  planning_scene.world.collision_objects.push_back(remove_object);
+  planning_scene.world.collision_objects.push_back(remove_mortar);
+  planning_scene.is_diff = true;
+
+  auto request = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
+  request->scene = planning_scene;
+
+  auto response_future = planning_scene_diff_client_->async_send_request(request);
+  std::chrono::seconds wait_time(5);
+  if (response_future.wait_for(wait_time) == std::future_status::timeout)
+  {
+    RCLCPP_WARN(LOGGER, "Service timed out when clearing objects.");
+  }
+  else
+  {
+    auto planning_response = response_future.get();
+    if (planning_response->success)
+    {
+      RCLCPP_INFO(LOGGER, "Successfully cleared existing objects.");
+    }
+    else
+    {
+      RCLCPP_WARN(LOGGER, "Failed to clear existing objects (they may not exist).");
+    }
+  }
 }
 
 void PlanningSceneLoader::load_scene()
 {
   _add_table(this->get_parameter("table_scale").as_double_array(), this->get_parameter("table_position").as_double_array());
   // Use box instead of mesh to avoid timeout issues
-  _add_mortar_box(this->get_parameter("mortar_top_position").as_double_array(), this->get_parameter("mortar_inner_scale").as_double_array());
+  // _add_mortar_box(this->get_parameter("mortar_top_position").as_double_array(), this->get_parameter("mortar_inner_scale").as_double_array());
 }
 
 
