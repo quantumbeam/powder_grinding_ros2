@@ -66,7 +66,7 @@ def launch_setup(context, *args, **kwargs):
     # This likely publishes the static scene elements (mortar, etc.) to the planning scene.
     load_planning_scene_launch = IncludeLaunchDescription(
         AnyLaunchDescriptionSource( # Use AnyLaunchDescriptionSource for XML files
-            PathJoinSubstitution([grinding_scene_description_share, 'launch', 'load_planning_scene.launch.xml'])
+            PathJoinSubstitution([grinding_scene_description_share, 'launch', 'load_planning_scene.launch.py'])
         ),
         launch_arguments={
             'planning_scene_config': planning_scene_config,
