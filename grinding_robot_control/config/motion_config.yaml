@@ -10,7 +10,7 @@ grinding_demo_node:
     grinding_ee_link: "pestle_tip"
     gathering_ee_link: "spatula_tip"
     robot_description_package: "grinding_robot_description"
-    robot_description_file: "ur5e_with_pestle"
+    robot_description_file_path: "/urdf/ur/ur5e_with_pestle.urdf"
 
     # Mortar Parameters
     mortar:
