@@ -18,27 +18,6 @@ grinding_demo_node:
     robot_description_file_path: "/urdf/ur/ur5e_with_pestle.urdf"
     ik_solver: "trac_ik"
 
-
-    # Mortar Parameters
-    mortar:
-      inner_size:
-        x: 0.04
-        y: 0.04
-        z: 0.035
-      top_position:
-        x: -0.2    # Updated from grinding demo snippet
-        y: 0.4     # Updated from grinding demo snippet
-        z: 0.3     # Updated from grinding demo snippet
-
-    # Initial Pose Parameters
-    init_pose:
-      offset_z: 0.05
-      orientation:
-        x: 0.0
-        y: 0.0
-        z: 0.0
-        w: 1.0
-
     # Grinding Parameters
     grinding:
       depth_st_mm: -35.0
