@@ -3,18 +3,14 @@
 import rclpy
 from rclpy.node import Node
 
-# tf_transformations は ROS 1/2 共通で使えることが多い
 import numpy as np
 
 from typing import List, Optional, Tuple
 
-# ROS 2 版の JTC ヘルパーをインポート
 from grinding_robot_control.JTC_helper import JointTrajectoryControllerHelper, IKType
 
-# MoveIt ヘルパーは未実装のためコメントアウト
-# from .moveit_helper_ros2 import MoveitHelper # ROS 2 MoveIt ラッパーのプレースホルダー
-
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose
+from ament_index_python.packages import get_package_share_directory
 
 
 class GrindingMotionPrimitive:
@@ -339,7 +335,7 @@ def main(args=None):
         "robot_description_package", "grinding_robot_description"
     ).value
     urdf_file_param = main_node.declare_parameter(
-        "robot_description_file", "ur/ur5e_with_pestle"
+        "robot_description_file_path", "/urdf/ur/ur5e_with_pestle.urdf"
     ).value
     
     # モルタル関連パラメータ
@@ -380,8 +376,7 @@ def main(args=None):
         joints_name=joints_name,
         tool_link=grinding_ee_link_param,  # 研削用EEリンク
         base_link=base_link_param,
-        robot_urdf_package=urdf_pkg_param,
-        robot_urdf_file_name=urdf_file_param,
+        robot_urdf_file_path=get_package_share_directory(urdf_pkg_param) + urdf_file_param,
         ik_solver=IKType.TRACK_IK,  # 例
     )
 
