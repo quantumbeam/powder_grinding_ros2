@@ -57,8 +57,7 @@ class JointTrajectoryControllerHelper(Node):
         joints_name: List[str],
         tool_link: str = "tool0",
         base_link: str = "base_link",
-        robot_urdf_package: str = "grinding_robot_description",
-        robot_urdf_file_name: str = "ur5e_with_pestle",
+        robot_urdf_file_path: str = None,
         ik_solver: IKType = IKType.TRACK_IK,
     ) -> None:
         super().__init__("arm_position_controller")
@@ -79,8 +78,30 @@ class JointTrajectoryControllerHelper(Node):
         self.ik_solver = ik_solver
         self.base_link = base_link
         self.tool_link = tool_link
-        pkg_share_dir = get_package_share_directory(robot_urdf_package)
-        self.urdf_path = f"{pkg_share_dir}/urdf/{robot_urdf_file_name}.urdf"
+        
+        # URDFファイルパスの設定
+        if robot_urdf_file_path is None:
+            # /robot_descriptionからURDFを取得
+            self.urdf_path = None
+            self.urdf_string = None
+            try:
+                # robot_descriptionパラメータの宣言と取得を試行
+                self.declare_parameter('robot_description', '')
+                urdf_param = self.get_parameter('robot_description')
+                if urdf_param.type_ == urdf_param.Type.STRING:
+                    self.urdf_string = urdf_param.get_parameter_value().string_value
+                    if self.urdf_string:
+                        self.get_logger().info("Successfully retrieved URDF from /robot_description parameter")
+                    else:
+                        self.get_logger().warn("robot_description parameter is empty")
+                else:
+                    self.get_logger().warn("robot_description parameter is not a string")
+            except Exception as e:
+                self.get_logger().warn(f"Could not retrieve robot_description parameter: {e}")
+                self.urdf_string = None
+        else:
+            self.urdf_path = robot_urdf_file_path
+            self.urdf_string = None
         self.declare_parameters(
             namespace="",
             parameters=[
@@ -102,7 +123,7 @@ class JointTrajectoryControllerHelper(Node):
             self.min_time_to_reach_for_pose = self.get_parameter(
                 "min_time_to_reach_for_pose"
             ).value
-            self._init_ik_solver(base_link, tool_link)
+            self._init_ik_solver()
         else:
             raise Exception(f"Unsupported IK solver: {self.ik_solver.name}")
 
@@ -164,28 +185,40 @@ class JointTrajectoryControllerHelper(Node):
             return None
         return self._current_jnt_positions
 
-    def _init_ik_solver(
-        self, base_link: str, ee_link: str, urdf_path: str = None
-    ) -> None:
+    def _init_ik_solver(self) -> None:
         """
         Trac-IK ソルバーの初期化
         """
-        if urdf_path is None:
-            urdf_path = self.urdf_path
+        urdf_path = self.urdf_path
         self.get_logger().info(
-            f"Initializing IK solver with base link: {base_link}, end effector link: {ee_link}"
+            f"Initializing IK solver with base link: {self.base_link}, end effector link: {self.tool_link}"
         )
-        self.get_logger().info(f"URDF path: {urdf_path}")
+        
         if self.ik_solver == IKType.TRACK_IK:
             try:
-                self.trac_ik = TRACK_IK_SOLVER(
-                    base_link_name=base_link,
-                    tip_link_name=ee_link,
-                    urdf_path=urdf_path,
-                    timeout=self.trac_ik_timeout,
-                    epsilon=self.trac_ik_epsilon,
-                    solver_type=self.trac_ik_solver_type,
-                )
+                if urdf_path is None and self.urdf_string is not None:
+                    # /robot_descriptionパラメータからURDFを使用
+                    self.get_logger().info("Using /robot_description parameter for URDF")
+                    self.trac_ik = TRACK_IK_SOLVER(
+                        base_link_name=self.base_link,
+                        tip_link_name=self.tool_link,
+                        urdf_string=self.urdf_string,
+                        timeout=self.trac_ik_timeout,
+                        epsilon=self.trac_ik_epsilon,
+                        solver_type=self.trac_ik_solver_type,
+                    )
+                elif urdf_path is not None:
+                    self.get_logger().info(f"Using URDF file: {urdf_path}")
+                    self.trac_ik = TRACK_IK_SOLVER(
+                        base_link_name=self.base_link,
+                        tip_link_name=self.tool_link,
+                        urdf_path=urdf_path,
+                        timeout=self.trac_ik_timeout,
+                        epsilon=self.trac_ik_epsilon,
+                        solver_type=self.trac_ik_solver_type,
+                    )
+                else:
+                    raise ValueError("No URDF available: neither urdf_path nor urdf_string is set")
             except Exception as e:
                 self.get_logger().error(f"Could not instantiate TRAC_IK: {e}")
         else:
@@ -197,9 +230,7 @@ class JointTrajectoryControllerHelper(Node):
         """
         self.tool_link = new_ee_link
         self.get_logger().info(f"Changing end effector link to: {new_ee_link}")
-        self._init_ik_solver(
-            base_link=self.base_link, ee_link=new_ee_link, urdf_path=self.urdf_path
-        )
+        self._init_ik_solver()
 
     def solve_fk(self, joint_positions: List[float]) -> Optional[List[float]]:
         """
@@ -737,8 +768,7 @@ def main(args: Optional[List[str]] = None) -> None:
         ],
         tool_link="pestle_tip",
         base_link="base_link",
-        robot_urdf_package="grinding_robot_description",
-        robot_urdf_file_name="ur/ur5e_with_pestle",
+        robot_urdf_file_path=get_package_share_directory("grinding_robot_description") + "/urdf/ur/ur5e_with_pestle.urdf",
         ik_solver=IKType.TRACK_IK,
     )
 
