@@ -14,8 +14,10 @@ grinding_demo_node:
     base_link: "base_link"
     grinding_ee_link: "pestle_tip"
     gathering_ee_link: "spatula_tip"
-    robot_description_package: "grinding_robot_description" # Matches JointTrajectoryControllerHelper snippet
-    robot_description_file: "ur/ur5e_with_pestle"         # Updated from JointTrajectoryControllerHelper snippet
+    robot_description_package: "grinding_robot_description"
+    robot_description_file_path: "/urdf/ur/ur5e_with_pestle.urdf"
+    ik_solver: "trac_ik"
+
 
     # Mortar Parameters
     mortar:
@@ -32,10 +34,10 @@ grinding_demo_node:
     init_pose:
       offset_z: 0.05
       orientation:
-        x: 1.0
+        x: 0.0
         y: 0.0
         z: 0.0
-        w: 0.0
+        w: 1.0
 
     # Grinding Parameters
     grinding:
