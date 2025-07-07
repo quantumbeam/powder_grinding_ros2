@@ -2,11 +2,6 @@
 
 import sys
 import os
-# Add the grinding_motion_routines package to Python path
-install_dir = os.path.dirname(os.path.dirname(__file__))
-site_packages_dir = os.path.join(install_dir, 'lib', 'python3.10', 'site-packages')
-if os.path.exists(site_packages_dir) and site_packages_dir not in sys.path:
-    sys.path.insert(0, site_packages_dir)
 import rclpy
 from rclpy.node import Node
 import time
@@ -17,6 +12,8 @@ from math import pi
 import copy
 from scipy.spatial.transform import Rotation
 import numpy as np
+from ament_index_python.packages import get_package_share_directory
+
 
 from grinding_motion_routines.grinding_motion_generator import MotionGenerator
 from grinding_motion_routines.grinding_motion_primitive import GrindingMotionPrimitive
@@ -166,6 +163,10 @@ def main():
     ])
     node.declare_parameter("base_link", "base_link")
     node.declare_parameter("robot_description_package", "grinding_robot_description")
+    node.declare_parameter(
+        "robot_description_file_path", "/urdf/ur/ur5e_with_pestle.urdf"
+    )
+    
     
     # Get parameters
     log_file_dir = node.get_parameter("log_file_dir").value
@@ -221,7 +222,7 @@ def main():
     joint_names = node.get_parameter("joint_names").value
     base_link = node.get_parameter("base_link").value
     robot_description_package = node.get_parameter("robot_description_package").value
-    robot_urdf_file_name = node.get_parameter("robot_urdf_file_name").value
+    urdf_file_path = node.get_parameter("robot_description_file_path").value
     ik_solver_name = node.get_parameter("ik_solver").value
     
     jtc_helper = JointTrajectoryControllerHelper(
@@ -229,8 +230,7 @@ def main():
         joints_name=joint_names,
         tool_link=grinding_ee_link,
         base_link=base_link,
-        robot_urdf_package=robot_description_package,
-        robot_urdf_file_name=robot_urdf_file_name,
+        robot_urdf_file_path=get_package_share_directory(robot_description_package) + urdf_file_path,
         ik_solver=IKType.TRACK_IK if ik_solver_name == "trac_ik" else IKType.BIO_IK
     )
 
