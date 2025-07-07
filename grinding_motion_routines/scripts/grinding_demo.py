@@ -109,17 +109,8 @@ def main():
     node.declare_parameter("pouse_time_list", [10.0, 20.0, 30.0])
     
     # Declare position parameters (will be overridden by YAML file)
-    node.declare_parameter("mortar_top_position.x", 0.0)
-    node.declare_parameter("mortar_top_position.y", 0.0)
-    node.declare_parameter("mortar_top_position.z", 0.0)
-    node.declare_parameter("mortar_inner_scale.x", 0.04)
-    node.declare_parameter("mortar_inner_scale.y", 0.04)
-    node.declare_parameter("mortar_inner_scale.z", 0.035)
-    node.declare_parameter("funnel_position.x", 0.0)
-    node.declare_parameter("funnel_position.y", 0.0)
-    node.declare_parameter("funnel_position.z", 0.0)
-    node.declare_parameter("pouring_hight_at_funnel", 0.1)
-    
+    node.declare_parameter("mortar_top_position", [0.0, 0.0, 0.0])
+    node.declare_parameter("mortar_inner_scale", [0.04, 0.04, 0.035])
     node.declare_parameter("move_group_name", "manipulator")
     node.declare_parameter("grinding_ee_link", "pestle_tip")
     node.declare_parameter("gathering_ee_link", "spatula_tip")
@@ -176,27 +167,23 @@ def main():
     current_experiment_time = 0
     
     ################### motion generator ###################
-    # Build dictionary parameters from individual parameter values
+    # Build dictionary parameters from array parameter values
+    mortar_top_pos_array = node.get_parameter("mortar_top_position").value
+    mortar_inner_scale_array = node.get_parameter("mortar_inner_scale").value
+    
     mortar_top_pos = {
-        "x": node.get_parameter("mortar_top_position.x").value,
-        "y": node.get_parameter("mortar_top_position.y").value,
-        "z": node.get_parameter("mortar_top_position.z").value
+        "x": mortar_top_pos_array[0],
+        "y": mortar_top_pos_array[1],
+        "z": mortar_top_pos_array[2]
     }
     mortar_inner_size = {
-        "x": node.get_parameter("mortar_inner_scale.x").value,
-        "y": node.get_parameter("mortar_inner_scale.y").value,
-        "z": node.get_parameter("mortar_inner_scale.z").value
+        "x": mortar_inner_scale_array[0],
+        "y": mortar_inner_scale_array[1],
+        "z": mortar_inner_scale_array[2]
     }
-    funnel_position = {
-        "x": node.get_parameter("funnel_position.x").value,
-        "y": node.get_parameter("funnel_position.y").value,
-        "z": node.get_parameter("funnel_position.z").value
-    }
-    pouring_hight = node.get_parameter("pouring_hight_at_funnel").value
     motion_gen = MotionGenerator(mortar_top_pos, mortar_inner_size)
 
     ################### motion executor ###################
-    move_group_name = node.get_parameter("move_group_name").value
     grinding_ee_link = node.get_parameter("grinding_ee_link").value
     gathering_ee_link = node.get_parameter("gathering_ee_link").value
     grinding_joint_difference_limit_for_motion_planning = node.get_parameter("grinding_joint_difference_limit_for_motion_planning").value
@@ -205,8 +192,6 @@ def main():
     planning_time = node.get_parameter("planning_time").value
     max_attempts = node.get_parameter("max_attempts").value
     
-    node.get_logger().info(str(grinding_joint_difference_limit_for_motion_planning))
-
     ################### init pose ###################
     init_pos = copy.deepcopy(mortar_top_pos)
     node.get_logger().info("Mortar pos: " + str(init_pos))
@@ -251,9 +236,6 @@ def main():
     debug_marker = DisplayMarker()
     debug_tf = DisplayTF()
 
-    # Initialize planning scene
-    # planning_scene = load_planning_scene.PlanningSceneLoader(moveit.move_group)
-    # planning_scene.init_planning_scene()
 
     grinding_sec = node.get_parameter("grinding_sec_per_rotation").value * node.get_parameter("grinding_number_of_rotation").value
     gathering_sec = node.get_parameter("gathering_sec_per_rotation").value * node.get_parameter("gathering_number_of_rotation").value
@@ -262,8 +244,7 @@ def main():
         while rclpy.ok():
             motion_command = input(
                 "q \t= exit.\n"
-                + "scene \t= init planning scene.\n"
-                + "pestle_calib \t= go to caliblation pose of pestle tip position.\n"
+                + "top \t= go to mortar top position.\n"
                 + "g \t= grinding demo.\n"
                 + "G \t= Gathering demo.\n"
                 + "Rg \t= Repeate Grinding  motion during the experiment time.\n"
@@ -274,11 +255,7 @@ def main():
             if motion_command == "q":
                 exit_process()
 
-            elif motion_command == "scene":
-                node.get_logger().info("Init planning scene")
-                # planning_scene.init_planning_scene()
-                
-            elif motion_command == "pestle_calib":
+            elif motion_command == "top":
                 node.get_logger().info("Go to caliblation pose of pestle tip position")
                 pos = copy.deepcopy(mortar_top_pos)
                 quat = init_pose[3:]
