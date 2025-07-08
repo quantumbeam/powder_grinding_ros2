@@ -396,6 +396,7 @@ class JointTrajectoryControllerHelper(Node):
         max_joint_change_per_step: float = np.pi/8,
         max_ik_retries_on_jump: int = 100,  # 閾値超過時のIKリトライ回数上限
         ik_retry_perturbation: float = 0.05,  # IKリトライ時のシード値の摂動量 (ラジアン)
+        strict_velocity_control: bool = False,
         send_immediately: bool = False,
         wait: bool = True,
     ) -> None:
@@ -411,6 +412,7 @@ class JointTrajectoryControllerHelper(Node):
             num_axes_to_check_per_step: ウェイポイント間の角度変化チェック対象とする軸の数。Noneの場合は全軸。
             max_ik_retries_on_jump: max_joint_change_per_step を超えた場合のIKリトライ回数上限
             ik_retry_perturbation: IKリトライ時にシード値に加える摂動の最大量 (ラジアン)
+            strict_velocity_control: 手先等速度制御を使用するかどうか
             send_immediately: すぐに軌道を送信するかどうか
             wait: 軌道実行の完了を待つかどうか
         """
@@ -519,6 +521,7 @@ class JointTrajectoryControllerHelper(Node):
                 time_to_reach=time_to_reach,
                 velocities=None,
                 accelerations=None,
+                strict_velocity_control=strict_velocity_control,
                 send_immediately=send_immediately,
                 wait=wait
             )
@@ -539,6 +542,7 @@ class JointTrajectoryControllerHelper(Node):
         target_ee_link: Optional[str] = None, # ターゲットEEリンクを指定する引数を追加
         num_axes_to_check_for_goal: Optional[int] = None, # ゴールへのチェック軸数を追加
         max_ik_retries: int = 100,
+        strict_velocity_control: bool = False,
         send_immediately: bool = False,
         wait: bool = True,
     ) -> Optional[np.ndarray]:
@@ -555,7 +559,8 @@ class JointTrajectoryControllerHelper(Node):
                                                None の場合はチェックしない。Defaults to np.pi/4.
             target_ee_link: このゴールポーズ計算に使用するエンドエフェクタリンク。Noneの場合、現在のEEリンクを使用。
             num_axes_to_check_for_goal: 角度変化チェック対象とする軸の数。Noneの場合は全軸。
-            max_attempts: IKソルバーが解を見つけるための最大試行回数。Defaults to 10.
+            max_ik_retries: IKソルバーが解を見つけるための最大試行回数。Defaults to 100.
+            strict_velocity_control: 手先等速度制御を使用するかどうか。
             send_immediately: すぐに軌道を送信するかどうか。
             wait: 軌道実行の完了を待つかどうか。
         
@@ -651,6 +656,7 @@ class JointTrajectoryControllerHelper(Node):
                     time_to_reach=calculated_time_to_reach,
                     velocities=None,
                     accelerations=None,
+                    strict_velocity_control=strict_velocity_control,
                     send_immediately=send_immediately,
                     wait=wait,
                 )
@@ -664,7 +670,7 @@ class JointTrajectoryControllerHelper(Node):
         time_to_reach: float,
         velocities: Optional[List[float]] = None,
         accelerations: Optional[List[float]] = None,
-        strict_velocity_control: bool = True,
+        strict_velocity_control: bool = False,
         send_immediately: bool = False,
         wait: bool = True,
     ) -> None:
