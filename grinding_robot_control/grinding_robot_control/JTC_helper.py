@@ -153,6 +153,10 @@ class JointTrajectoryControllerHelper(Node):
             self._current_jnt_velocities = np.array(vel)
             self._current_jnt_efforts = np.array(eff)
             self._joint_names = names
+        else:
+            self.get_logger().warn(
+                f"Received joint states do not match expected names: {set(names)} != {set(self.valid_joint_names)}"
+            )
 
     def create_joint_state_subscription(self, timeout_sec: int = 10) -> bool:
         self.subscription = self.create_subscription(
