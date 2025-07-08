@@ -27,6 +27,7 @@ from grinding_robot_control.JTC_helper import JointTrajectoryControllerHelper, I
 debug_marker = None
 debug_tf = None
 node = None
+jtc_helper = None
 
 def display_debug_waypoints(waypoints, debug_type, tf_name="debug"):
     global debug_marker, debug_tf, node
@@ -111,6 +112,27 @@ def display_grinding_parameters():
     print("============================\n")
 
 
+def display_current_joint_positions():
+    """Display current joint positions"""
+    global jtc_helper
+    if not jtc_helper:
+        print("JTC Helper not initialized")
+        return
+    
+    try:
+        current_positions = jtc_helper.get_current_joint_positions()
+        if current_positions is not None:
+            print("\n=== Current Joint Positions ===")
+            joint_names = jtc_helper.valid_joint_names
+            for i, (name, pos) in enumerate(zip(joint_names, current_positions)):
+                print(f"{name}: {pos:.4f} rad ({pos * 180.0 / 3.14159:.2f} deg)")
+            print("===============================\n")
+        else:
+            print("Failed to get current joint positions")
+    except Exception as e:
+        print(f"Error getting joint positions: {e}")
+
+
 def exit_process(msg=""):
     global node
     if msg != "":
@@ -132,7 +154,7 @@ def command_to_execute(cmd):
         return None
 
 def main():
-    global debug_marker, debug_tf, node
+    global debug_marker, debug_tf, node, jtc_helper
     
     rclpy.init(args=sys.argv)
     node = Node("mechano_grinding")
@@ -281,6 +303,7 @@ def main():
             motion_command = input(
                 "q \t= exit.\n"
                 + "p \t= display grinding parameters.\n"
+                + "j \t= display current joint positions.\n"
                 + "top \t= go to mortar top position.\n"
                 + "g \t= grinding demo.\n"
                 + "G \t= Gathering demo.\n"
@@ -293,6 +316,8 @@ def main():
                 exit_process()
             elif motion_command == "p":
                 display_grinding_parameters()
+            elif motion_command == "j":
+                display_current_joint_positions()
 
             elif motion_command == "top":
                 node.get_logger().info("Go to caliblation pose of pestle tip position")
