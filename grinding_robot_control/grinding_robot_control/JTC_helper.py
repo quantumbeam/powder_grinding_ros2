@@ -113,6 +113,23 @@ class JointTrajectoryControllerHelper(Node):
                 ("min_time_to_reach_for_pose", 1.0),   # seconds, minimum time for single pose movement
             ],
         )
+
+        # KDL Helperを初期化（ヤコビアン計算とFK用）
+        self.kdl_helper = None
+        try:
+            if self.urdf_path:
+                from .kdl_helper import KDLHelper
+                self.kdl_helper = KDLHelper(self.get_logger(), urdf_path=self.urdf_path, 
+                                            base_link=self.base_link, ee_link=self.tool_link)
+            elif self.urdf_string:
+                from .kdl_helper import KDLHelper
+                self.kdl_helper = KDLHelper(self.get_logger(), urdf_string=self.urdf_string, 
+                                            base_link=self.base_link, ee_link=self.tool_link)
+            else:
+                self.get_logger().info("No URDF available for KDL helper initialization.")
+        except Exception as e:
+            self.get_logger().warn(f"Failed to initialize KDL helper: {e}")
+            self.kdl_helper = None
         if self.ik_solver == IKType.TRACK_IK:
             self.get_logger().info("TRACK IK selected")
             self.trac_ik_timeout = self.get_parameter("trac_ik_timeout").value
@@ -647,6 +664,7 @@ class JointTrajectoryControllerHelper(Node):
         time_to_reach: float,
         velocities: Optional[List[float]] = None,
         accelerations: Optional[List[float]] = None,
+        strict_velocity_control: bool = True,
         send_immediately: bool = False,
         wait: bool = True,
     ) -> None:
@@ -661,8 +679,9 @@ class JointTrajectoryControllerHelper(Node):
         Args:
             joint_trajectory: 関節軌道のリスト
             time_to_reach: 軌道実行時間
-            velocities: 速度値（Noneの場合は設定しない）
+            velocities: 速度値（Noneの場合は設定しない、strict_velocity_controlがTrueの場合は無視される）
             accelerations: 加速度値（Noneの場合は設定しない）
+            strict_velocity_control: 手先等速度制御を使用するかどうか（Trueの場合velocitiesパラメータは無視される）
             send_immediately: 即座に送信するかどうか
             wait: 完了を待つかどうか
         """
@@ -677,6 +696,31 @@ class JointTrajectoryControllerHelper(Node):
         if len(joint_trajectory) == 0:
             self.get_logger().warn("Empty joint_trajectory provided to set_joint_trajectory. Nothing to send.")
             return
+
+        # strict_velocity_controlが有効な場合、手先等速度制御のための関節速度を計算
+        if strict_velocity_control:
+            self.get_logger().info("Using strict velocity control for end-effector constant velocity.")
+            # Forward Kinematicsで各関節位置からワールド座標系の手先姿勢を計算
+            waypoints = []
+            for joints in joint_trajectory:
+                try:
+                    pose = self.solve_fk(joints)
+                    waypoints.append(pose)
+                except Exception as e:
+                    self.get_logger().warn(f"Error calculating FK: {e}")
+                    waypoints.append([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])  # デフォルト姿勢
+
+            # 手先等速運動のための関節速度を計算（velocitiesパラメータを上書き）
+            velocities = self.generate_constant_velocity_vector(
+                waypoints,
+                joint_trajectory,
+                time_to_reach,
+            )
+            
+            # プロット機能を呼び出し（velocitiesが正常に計算された場合のみ）
+            if velocities is not None:
+                self._plot_joint_velocities_and_positions(velocities, joint_trajectory, time_to_reach)
+
         dt = time_to_reach / len(joint_trajectory)
         self.goals.clear()
         for i, goal_joints in enumerate(joint_trajectory, start=1):
@@ -765,6 +809,171 @@ class JointTrajectoryControllerHelper(Node):
         """
         self.goals.clear()
         self.get_logger().info("Cleared all points.")
+
+    def generate_constant_velocity_vector(
+        self,
+        waypoints: List[List[float]],
+        joint_trajectory: List[List[float]],
+        time_to_reach: float,
+    ) -> Optional[List[List[float]]]:
+        """
+        時間ベースでリサンプリングされた軌道に対し、手先等速運動を実現する関節速度を計算します。
+
+        軌道全体の開始・終了姿勢と所要時間から、一定の目標手先速度（並進・角）を算出します。
+        その後、軌道上の各点において、その時点でのヤコビアンと、算出した一定の目標手先速度を
+        用いて関節速度を計算します。これにより、数値微分によるノイズの増幅を防ぎます。
+
+        Args:
+            waypoints (list):
+                リサンプリングされた手先姿勢のリスト。各要素は [x, y, z, qx, qy, qz, qw]。
+                クォータニオンは [x, y, z, w] の順です。
+            joint_trajectory (list):
+                リサンプリングされた関節角度(rad)のリスト。waypointsと長さが一致している必要があります。
+            time_to_reach (float):
+                全ウェイポイントを通過するための合計目標時間（秒）。
+
+        Returns:
+            list or None:
+                各時刻における関節速度ベクトル(List[float])のリスト。
+        """
+        if not waypoints or not joint_trajectory:
+            self.get_logger().warn("ウェイポイントまたは関節軌道が空です。")
+            return None
+        
+        if time_to_reach <= 0:
+            self.get_logger().warn("time_to_reachは正の値である必要があります。")
+            return None
+
+        # KDL helperが利用可能かチェック
+        if self.kdl_helper is None:
+            self.get_logger().warn("KDL helper not available. Cannot calculate joint velocities.")
+            return None
+
+        # --- 1. 軌道全体で一定となる目標手先速度を計算 ---
+        # 軌道の開始と終了の姿勢を取得
+        start_pos = np.array(waypoints[0][0:3])
+        start_quat = np.array(waypoints[0][3:])
+        end_pos = np.array(waypoints[-1][0:3])
+        end_quat = np.array(waypoints[-1][3:])
+
+        # 目標並進速度ベクトル v = (P_end - P_start) / T_total
+        v_target = (end_pos - start_pos) / time_to_reach
+
+        # 目標角速度ベクトル ω = (AngleAxis_total) / T_total
+        rotations = R.from_quat([start_quat, end_quat])
+        relative_rotation = rotations[1] * rotations[0].inv()
+        angle_axis = relative_rotation.as_rotvec()
+        omega_target = angle_axis / time_to_reach
+
+        # 6次元の目標手先速度ベクトル（この値はループ内で不変）
+        cartesian_target_velocity = np.concatenate([v_target, omega_target])
+        self.get_logger().info(f"Constant Target Cartesian Velocity: v={v_target.round(3)}, ω={omega_target.round(3)}")
+
+        joint_velocities_list = []
+        condition_numbers = []
+
+        # --- 2. 各時刻の関節角度から関節速度を計算 ---
+        for i, joint_angles in enumerate(joint_trajectory):
+            try:
+                # 現在の関節角度におけるヤコビアンを取得
+                jacobian = self.kdl_helper.jacobian(joint_angles)
+                cond_num = np.linalg.cond(jacobian)
+                condition_numbers.append(cond_num)
+
+                # 擬似逆行列を計算
+                jacobian_inv = np.linalg.pinv(jacobian)
+                
+                #【重要】ループの外で計算した一定の目標手先速度を常に使用する
+                joint_velocities = jacobian_inv @ cartesian_target_velocity
+                joint_velocities = np.array(joint_velocities).flatten()
+
+            except np.linalg.LinAlgError:
+                self.get_logger().warn(f"警告: インデックス{i}のヤコビアン計算でエラー。速度をゼロにします。")
+                joint_velocities = np.zeros(len(joint_angles))
+            
+            joint_velocities_list.append(joint_velocities.tolist())
+
+        # --- 3. 統計情報の出力 ---
+        if joint_velocities_list:
+            all_velocities = np.array(joint_velocities_list)
+            max_velocity = np.max(np.abs(all_velocities))
+            self.get_logger().info(f"Calculated Joint Velocities - Max(abs): {max_velocity:.4f} rad/s")
+
+        if condition_numbers:
+            cond_array = np.array(condition_numbers)
+            self.get_logger().info(f"Jacobian Condition Number Stats - "
+                                  f"Max: {np.max(cond_array):.2f}, "
+                                  f"Min: {np.min(cond_array):.2f}, "
+                                  f"Avg: {np.mean(cond_array):.2f}")
+            if np.max(cond_array) > 100:
+                self.get_logger().warn("High condition number detected, indicating proximity to a singularity.")
+            
+        return joint_velocities_list
+
+    def _plot_joint_velocities_and_positions(self, velocity_list: List[List[float]], position_list: List[List[float]], time_to_reach: float) -> None:
+        """
+        関節速度と位置をプロットする。
+        
+        Args:
+            velocity_list (list): 各ポイントの関節速度のリスト
+            position_list (list): 各ポイントの関節位置のリスト
+            time_to_reach (float): 総実行時間
+        """
+        if not velocity_list or not position_list:
+            self.get_logger().warn("No velocities or positions to plot.")
+            return
+            
+        try:
+            import matplotlib.pyplot as plt
+            import numpy as np
+            
+            # 時間軸を作成
+            time_points_vel = np.linspace(0, time_to_reach, len(velocity_list))
+            time_points_pos = np.linspace(0, time_to_reach, len(position_list))
+            
+            # 関節数を取得
+            num_joints = len(velocity_list[0])
+            
+            # データを配列に変換
+            velocities = np.array(velocity_list)
+            positions = np.array(position_list)
+            
+            # プロット作成
+            plt.figure(figsize=(15, 12))
+            
+            # 速度プロット
+            for joint_idx in range(num_joints):
+                plt.subplot(2, num_joints, joint_idx + 1)
+                plt.plot(time_points_vel, velocities[:, joint_idx], 'b-', alpha=0.7, label='Line')
+                plt.scatter(time_points_vel, velocities[:, joint_idx], c='red', s=8, alpha=0.6, label='Points')
+                plt.title(f'Joint {joint_idx + 1} Velocity')
+                plt.xlabel('Time (s)')
+                plt.ylabel('Velocity (rad/s)')
+                plt.grid(True)
+                if joint_idx == 0:
+                    plt.legend()
+            
+            # 位置プロット
+            for joint_idx in range(num_joints):
+                plt.subplot(2, num_joints, num_joints + joint_idx + 1)
+                plt.plot(time_points_pos, positions[:, joint_idx], 'g-', alpha=0.7, label='Line')
+                plt.scatter(time_points_pos, positions[:, joint_idx], c='orange', s=8, alpha=0.6, label='Points')
+                plt.title(f'Joint {joint_idx + 1} Position')
+                plt.xlabel('Time (s)')
+                plt.ylabel('Position (rad)')
+                plt.grid(True)
+                if joint_idx == 0:
+                    plt.legend()
+                
+            plt.tight_layout()
+            plt.savefig('/tmp/joint_velocities_and_positions_plot.png', dpi=150, bbox_inches='tight')
+            plt.show()
+            self.get_logger().info("Joint velocity and position plot saved to /tmp/joint_velocities_and_positions_plot.png")
+            
+        except ImportError:
+            self.get_logger().warn("matplotlib not available. Skipping velocity and position plot.")
+        except Exception as e:
+            self.get_logger().error(f"Error plotting joint velocities and positions: {e}")
 
 
 def main(args: Optional[List[str]] = None) -> None:
