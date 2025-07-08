@@ -12,26 +12,6 @@ grinding_demo_node:
     robot_description_package: "grinding_robot_description"
     robot_description_file_path: "/urdf/ur/ur5e_with_pestle.urdf"
 
-    # Mortar Parameters
-    mortar:
-      inner_size:
-        x: 0.04
-        y: 0.04
-        z: 0.035
-      top_position:
-        x: -0.245
-        y: 0.372
-        z: 0.045
-
-    # Initial Pose Parameters
-    init_pose:
-      offset_z: 0.05
-      orientation:
-        x: 1.0
-        y: 0.0
-        z: 0.0
-        w: 0.0
-
     # Grinding Parameters
     grinding:
       depth_mm: -10.0
