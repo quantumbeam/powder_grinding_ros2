@@ -46,15 +46,15 @@ def display_debug_waypoints(waypoints, debug_type, tf_name="debug"):
 def compute_grinding_waypoints(motion_generator, debug_type=False):
     global node
     waypoints = motion_generator.create_circular_waypoints(
-        beginning_position=node.get_parameter("grinding_pos_beginning").value,
-        end_position=node.get_parameter("grinding_pos_end").value,
-        beginning_radius_z=node.get_parameter("grinding_rz_beginning").value,
-        end_radius_z=node.get_parameter("grinding_rz_end").value,
+        beginning_position=node.get_parameter("grinding_pos_beginning_mm").value,
+        end_position=node.get_parameter("grinding_pos_end_mm").value,
+        beginning_radius_z=node.get_parameter("grinding_rz_beginning_mm").value,
+        end_radius_z=node.get_parameter("grinding_rz_end_mm").value,
         angle_scale=node.get_parameter("grinding_angle_scale").value,
         yaw_bias=node.get_parameter("grinding_yaw_bias").value,
-        number_of_rotations=node.get_parameter("grinding_number_of_rotation").value,
-        number_of_waypoints_per_circle=node.get_parameter("grinding_number_of_waypoints_per_circle").value,
-        center_position=node.get_parameter("grinding_center_pos").value,
+        number_of_rotations=int(node.get_parameter("grinding_number_of_rotation").value),
+        number_of_waypoints_per_circle=int(node.get_parameter("grinding_number_of_waypoints_per_circle").value),
+        center_position=node.get_parameter("grinding_center_pos_mm").value,
     )
     if debug_type != False:
         display_debug_waypoints(waypoints, debug_type)
@@ -63,18 +63,52 @@ def compute_grinding_waypoints(motion_generator, debug_type=False):
 def compute_gathering_waypoints(motion_generator, debug_type=False):
     global node
     waypoints = motion_generator.create_circular_waypoints(
-        beginning_position=node.get_parameter("gathering_pos_beginning").value,
-        end_position=node.get_parameter("gathering_pos_end").value,
-        beginning_radius_z=node.get_parameter("gathering_rz_beginning").value,
-        end_radius_z=node.get_parameter("gathering_rz_end").value,
+        beginning_position=node.get_parameter("gathering_pos_beginning_mm").value,
+        end_position=node.get_parameter("gathering_pos_end_mm").value,
+        beginning_radius_z=node.get_parameter("gathering_rz_beginning_mm").value,
+        end_radius_z=node.get_parameter("gathering_rz_end_mm").value,
         angle_scale=node.get_parameter("gathering_angle_scale").value,
         yaw_bias=node.get_parameter("gathering_yaw_bias").value,
-        number_of_rotations=node.get_parameter("gathering_number_of_rotation").value,
-        number_of_waypoints_per_circle=node.get_parameter("gathering_number_of_waypoints_per_circle").value,
+        number_of_rotations=int(node.get_parameter("gathering_number_of_rotation").value),
+        number_of_waypoints_per_circle=int(node.get_parameter("gathering_number_of_waypoints_per_circle").value),
+        center_position=node.get_parameter("gathering_center_pos_mm").value,
     )
     if debug_type != False:
         display_debug_waypoints(waypoints, debug_type)
     return waypoints
+
+
+def display_grinding_parameters():
+    """Display grinding parameters"""
+    global node
+    if not node:
+        return
+    
+    print("\n=== Grinding Parameters ===")
+    print("--- Position Parameters (in mm) ---")
+    print(f"Beginning position (grinding_pos_beginning_mm): {node.get_parameter('grinding_pos_beginning_mm').value}")
+    print(f"End position (grinding_pos_end_mm): {node.get_parameter('grinding_pos_end_mm').value}")
+    print(f"Center position (grinding_center_pos_mm): {node.get_parameter('grinding_center_pos_mm').value}")
+    print(f"Beginning radius Z (grinding_rz_beginning_mm): {node.get_parameter('grinding_rz_beginning_mm').value}")
+    print(f"End radius Z (grinding_rz_end_mm): {node.get_parameter('grinding_rz_end_mm').value}")
+    
+    print("\n--- Motion Parameters ---")
+    print(f"Number of rotations (grinding_number_of_rotation): {node.get_parameter('grinding_number_of_rotation').value}")
+    print(f"Waypoints per circle (grinding_number_of_waypoints_per_circle): {node.get_parameter('grinding_number_of_waypoints_per_circle').value}")
+    print(f"Time per rotation (grinding_sec_per_rotation): {node.get_parameter('grinding_sec_per_rotation').value}")
+    
+    print("\n--- Orientation Parameters ---")
+    print(f"Angle scale (grinding_angle_scale): {node.get_parameter('grinding_angle_scale').value}")
+    print(f"Yaw bias (grinding_yaw_bias): {node.get_parameter('grinding_yaw_bias').value}")
+    
+    print("\n--- Mortar Information ---")
+    print(f"Mortar top position (mortar_top_position): {node.get_parameter('mortar_top_position').value}")
+    print(f"Mortar inner scale (mortar_inner_scale): {node.get_parameter('mortar_inner_scale').value}")
+    
+    print("\n--- Other Parameters ---")
+    print(f"End effector link (grinding_ee_link): {node.get_parameter('grinding_ee_link').value}")
+    print(f"Joint difference limit (grinding_joint_difference_limit_for_motion_planning): {node.get_parameter('grinding_joint_difference_limit_for_motion_planning').value}")
+    print("============================\n")
 
 
 def exit_process(msg=""):
@@ -120,27 +154,28 @@ def main():
     node.declare_parameter("planning_time", 20.0)
     node.declare_parameter("max_attempts", 5)
     
-    # Grinding parameters
-    node.declare_parameter("grinding_pos_beginning", [0.0, 0.0])
-    node.declare_parameter("grinding_pos_end", [0.0, 0.0])
-    node.declare_parameter("grinding_rz_beginning", -0.035)
-    node.declare_parameter("grinding_rz_end", -0.035)
+    # Grinding parameters (positions in mm)
+    node.declare_parameter("grinding_pos_beginning_mm", [-8.0, 0.0])
+    node.declare_parameter("grinding_pos_end_mm", [-8.0, 0.0001])
+    node.declare_parameter("grinding_rz_beginning_mm", 35.0)
+    node.declare_parameter("grinding_rz_end_mm", 35.0)
     node.declare_parameter("grinding_angle_scale", 0.3)
     node.declare_parameter("grinding_yaw_bias", pi)
     node.declare_parameter("grinding_number_of_rotation", 10.0)
-    node.declare_parameter("grinding_number_of_waypoints_per_circle", 10.0)
-    node.declare_parameter("grinding_center_pos", [0.0, 0.0])
+    node.declare_parameter("grinding_number_of_waypoints_per_circle", 100)
+    node.declare_parameter("grinding_center_pos_mm", [0.0, 0.0])
     node.declare_parameter("grinding_sec_per_rotation", 0.5)
     
-    # Gathering parameters
-    node.declare_parameter("gathering_pos_beginning", [0.0, 0.0])
-    node.declare_parameter("gathering_pos_end", [0.0, 0.0])
-    node.declare_parameter("gathering_rz_beginning", -0.035)
-    node.declare_parameter("gathering_rz_end", -0.035)
+    # Gathering parameters (positions in mm)
+    node.declare_parameter("gathering_pos_beginning_mm", [30.0, 0.0])
+    node.declare_parameter("gathering_pos_end_mm", [-22.0, 0.0001])
+    node.declare_parameter("gathering_rz_beginning_mm", 35.0)
+    node.declare_parameter("gathering_rz_end_mm", 35.0)
     node.declare_parameter("gathering_angle_scale", 0.0)
     node.declare_parameter("gathering_yaw_bias", pi)
     node.declare_parameter("gathering_number_of_rotation", 5.0)
-    node.declare_parameter("gathering_number_of_waypoints_per_circle", 20.0)
+    node.declare_parameter("gathering_number_of_waypoints_per_circle", 100)
+    node.declare_parameter("gathering_center_pos_mm", [0.0, 0.0])
     node.declare_parameter("gathering_sec_per_rotation", 2.0)
     
     # Robot parameters
@@ -245,6 +280,7 @@ def main():
         while rclpy.ok():
             motion_command = input(
                 "q \t= exit.\n"
+                + "p \t= display grinding parameters.\n"
                 + "top \t= go to mortar top position.\n"
                 + "g \t= grinding demo.\n"
                 + "G \t= Gathering demo.\n"
@@ -255,6 +291,8 @@ def main():
 
             if motion_command == "q":
                 exit_process()
+            elif motion_command == "p":
+                display_grinding_parameters()
 
             elif motion_command == "top":
                 node.get_logger().info("Go to caliblation pose of pestle tip position")
