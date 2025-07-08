@@ -652,6 +652,19 @@ class JointTrajectoryControllerHelper(Node):
     ) -> None:
         """
         生成済みの joint trajectory をアクションクライアントに送信する
+        
+        補間方法:
+        - position only (velocities=None, accelerations=None): 1次補間（線形補間）
+        - position + velocity (accelerations=None): 3次補間（3次多項式補間, 位置と速度が滑らか）
+        - position + velocity + acceleration: 5次補間（5次多項式補間, 位置と速度と動き出しの加速度が滑らか）
+        
+        Args:
+            joint_trajectory: 関節軌道のリスト
+            time_to_reach: 軌道実行時間
+            velocities: 速度値（Noneの場合は設定しない）
+            accelerations: 加速度値（Noneの場合は設定しない）
+            send_immediately: 即座に送信するかどうか
+            wait: 完了を待つかどうか
         """
         if not joint_trajectory or len(joint_trajectory[0]) != len(
             self.valid_joint_names
@@ -679,8 +692,7 @@ class JointTrajectoryControllerHelper(Node):
                 else:
                     self.get_logger().warn(f"Velocities length ({len(velocities)}) doesn't match trajectory points ({len(joint_trajectory)}) or joints ({len(goal_joints)}). Using zero velocities.")
                     point.velocities = [0.0] * len(goal_joints)
-            else:
-                point.velocities = [0.0] * len(goal_joints)
+            # velocitiesがNoneの場合は速度を設定しない（空のリストのままにする）
             if accelerations is not None:
                 if len(accelerations) == len(joint_trajectory):
                     # accelerationsが軌道点数と同じ場合：各軌道点に対して一つの加速度セット
@@ -691,8 +703,7 @@ class JointTrajectoryControllerHelper(Node):
                 else:
                     self.get_logger().warn(f"Accelerations length ({len(accelerations)}) doesn't match trajectory points ({len(joint_trajectory)}) or joints ({len(goal_joints)}). Using zero accelerations.")
                     point.accelerations = [0.0] * len(goal_joints)
-            else:
-                point.accelerations = [0.0] * len(goal_joints)
+            # accelerationsがNoneの場合は加速度を設定しない（空のリストのままにする）
             sec = int(dt * i)
             nsec = int((dt * i - sec) * 1e9)
             point.time_from_start = Duration(sec=sec, nanosec=nsec)
