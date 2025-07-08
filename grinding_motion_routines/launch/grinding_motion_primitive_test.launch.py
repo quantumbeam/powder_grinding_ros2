@@ -26,7 +26,7 @@ def generate_launch_description():
         executable='grinding_motion_primitive.py',
         name='grinding_demo_node', 
         output='screen',
-        prefix='xterm -e',
+        prefix='xterm -hold -e',
         parameters=[motion_config,planning_scene_config],
     )
 
