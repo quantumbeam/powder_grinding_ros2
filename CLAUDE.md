@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a ROS2 Humble workspace for a powder grinding robot system. The project uses Docker for containerized development and supports multiple Universal Robot (UR) models.
 
+## Build Environment
+python環境の関係で、ament_pythonは使わない(=setup.pyを使わない)でください。
+必ず、ament_cmakeでパッケージを構築してください。
+本パッケージはvenv環境でのpython環境を想定していますが、ament_pythonを使った場合にシステムのpythonが使われるのでトラブルの元になります。
+
+
 ## Build Commands
 
 ### Docker Environment Setup
