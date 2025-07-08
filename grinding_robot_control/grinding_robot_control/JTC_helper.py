@@ -74,6 +74,9 @@ class JointTrajectoryControllerHelper(Node):
         action_topic = f"/{self.controller_name}/follow_joint_trajectory"
         self.action_client = ActionClient(self, FollowJointTrajectory, action_topic)
         self.goals: List[JointTrajectoryPoint] = []
+        
+        self.get_logger().info(f"Initializing JTC Helper with controller: {self.controller_name}")
+        self.get_logger().info(f"Action topic: {action_topic}")
 
         # IK ソルバー設定
         self.ik_solver = ik_solver
@@ -155,6 +158,9 @@ class JointTrajectoryControllerHelper(Node):
         self._current_jnt_positions = None
         self.first_joint_state_received = Future()
         self.create_joint_state_subscription()
+        
+        # アクションクライアントの接続確認
+        self._check_action_client_connection()
 
     def _joint_states_cb(self, msg: JointState) -> None:
         """
@@ -200,6 +206,19 @@ class JointTrajectoryControllerHelper(Node):
                 "Failed to create joint state subscription within timeout."
             )
             self.destroy_subscription(self.subscription)
+            return False
+
+    def _check_action_client_connection(self, timeout_sec: float = 5.0) -> bool:
+        """
+        アクションクライアントの接続を確認する
+        """
+        self.get_logger().info(f"Checking connection to controller: {self.controller_name}")
+        if self.action_client.wait_for_server(timeout_sec=timeout_sec):
+            self.get_logger().info(f"✅ Successfully connected to controller: {self.controller_name}")
+            return True
+        else:
+            self.get_logger().warn(f"⚠️ Could not connect to controller: {self.controller_name} within {timeout_sec}s")
+            self.get_logger().warn("Controller may not be running. Please check robot bringup.")
             return False
 
     def get_joint_names(self) -> List[str]:
