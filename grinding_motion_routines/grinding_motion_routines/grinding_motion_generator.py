@@ -154,7 +154,6 @@ class MotionGenerator:
         return x, y
 
     def _lerp_in_polar(self, st, ed, points, number_of_rotations, r_max):
-        points = int(points)  # Ensure points is an integer
         st_r, st_theta = self._cartesian_to_polar(st[0], st[1])
         ed_r, ed_theta = self._cartesian_to_polar(ed[0], ed[1])
 
@@ -217,7 +216,7 @@ class MotionGenerator:
         beginning_radius_z = float(beginning_radius_z) * 0.001
         end_radius_z = float(end_radius_z) * 0.001
         circular_center_position = np.array(center_position).astype(np.float64) * 0.001
-        total_number_of_waypoints = int(number_of_rotations * number_of_waypoints_per_circle)
+        total_number_of_waypoints = number_of_rotations * number_of_waypoints_per_circle
 
         if number_of_rotations < 1:
             raise ValueError(
