@@ -59,8 +59,9 @@ class JointTrajectoryControllerHelper(Node):
         base_link: str = "base_link",
         robot_urdf_file_path: str = None,
         ik_solver: IKType = IKType.TRACK_IK,
+        node_name: str = "arm_position_controller",
     ) -> None:
-        super().__init__("arm_position_controller")
+        super().__init__(node_name)
 
         self.controller_name = controller_name
         self.valid_joint_names = joints_name

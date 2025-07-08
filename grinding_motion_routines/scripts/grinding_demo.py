@@ -216,7 +216,8 @@ def main():
         tool_link=grinding_ee_link,
         base_link=base_link,
         robot_urdf_file_path=get_package_share_directory(robot_description_package) + urdf_file_path,
-        ik_solver=IKType.TRACK_IK if ik_solver_name == "trac_ik" else IKType.BIO_IK
+        ik_solver=IKType.TRACK_IK if ik_solver_name == "trac_ik" else IKType.BIO_IK,
+        node_name="grinding_jtc_helper"
     )
 
     # Initialize motion primitive
@@ -232,9 +233,9 @@ def main():
     primitive.go_to_init_pose()
     node.get_logger().info("Goto init pose")
 
-    # Initialize debug tools
-    debug_marker = DisplayMarker()
-    debug_tf = DisplayTF()
+    # Initialize debug tools with unique node names
+    debug_marker = DisplayMarker(node_name="grinding_marker_display")
+    debug_tf = DisplayTF(node_name="grinding_tf_publisher")
 
 
     grinding_sec = node.get_parameter("grinding_sec_per_rotation").value * node.get_parameter("grinding_number_of_rotation").value

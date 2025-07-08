@@ -11,8 +11,8 @@ import numpy as np
 import time
 
 class DisplayMarker(Node):
-    def __init__(self, marker_publisher_name="debug_marker"):
-        super().__init__("marker_display")
+    def __init__(self, marker_publisher_name="debug_marker", node_name="marker_display"):
+        super().__init__(node_name)
         self.publisher = self.create_publisher(MarkerArray, marker_publisher_name, 1)
         self.index = 0
         
