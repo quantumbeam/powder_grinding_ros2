@@ -54,6 +54,7 @@ ament_python_install_package(${PROJECT_NAME})
 # This is necessary to install the Python scripts with ament_cmake
 install(PROGRAMS
   ${PROJECT_NAME}/JTC_helper.py
+  ${PROJECT_NAME}/kdl_helper.py
   ${PROJECT_NAME}/moveit_helper.py
   scripts/test_trac_ik.py
   scripts/test_pinocchio.py
