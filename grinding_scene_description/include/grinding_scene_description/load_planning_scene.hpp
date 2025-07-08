@@ -28,6 +28,7 @@ private:
   rclcpp::Node::SharedPtr node_;
   rclcpp::Publisher<moveit_msgs::msg::PlanningScene>::SharedPtr planning_scene_diff_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::TimerBase::SharedPtr shutdown_timer_;
   static const rclcpp::Logger LOGGER;
   void clear_all_objects();
   void _add_table(const std::vector<double>& table_scale, const std::vector<double>& table_pos);

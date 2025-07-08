@@ -55,6 +55,15 @@ PlanningSceneLoader::PlanningSceneLoader(const rclcpp::NodeOptions & options)
       clear_all_objects();
       load_scene();
       timer_->cancel();
+      
+      // シーンロード完了後、少し待ってからノードを終了
+      shutdown_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(500),
+        [this]() {
+          RCLCPP_INFO(LOGGER, "Planning scene loaded successfully. Shutting down node.");
+          rclcpp::shutdown();
+        }
+      );
     }
   );
 }
