@@ -5,13 +5,30 @@ from rclpy.node import Node
 import numpy as np
 import os
 from ament_index_python.packages import get_package_share_directory
-# pyKDL is instakked in system Python, so we need to add the path
+# pyKDL is installed in system Python, so we need to add the path
 import sys
 sys.path.append('/usr/lib/python3/dist-packages')
 import PyKDL
-# Add kdl_parser_py from third_party
-sys.path.append(get_package_share_directory('kdl_parser')+ '/kdl_parser_py')
-from kdl_parser_py.urdf import treeFromString
+# Use kdl_parser_py from powder_grinding_ros2
+try:
+    # Try relative path first (for development)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    kdl_parser_path = os.path.join(current_dir, '../../kdl_parser/kdl_parser_py')
+    if os.path.exists(kdl_parser_path):
+        sys.path.append(kdl_parser_path)
+    else:
+        # Fallback to workspace-based path for ros2 run
+        workspace_paths = [
+            '/home/ros/onolab_ros2/ros2_ws/src/powder_grinding_ros2/kdl_parser/kdl_parser_py',
+            # Add more fallback paths if needed
+        ]
+        for path in workspace_paths:
+            if os.path.exists(path):
+                sys.path.append(path)
+                break
+    from kdl_parser_py.urdf import treeFromFile, treeFromString 
+except ImportError:
+    raise ImportError("kdl_parser_py is not available. Please install it or check your environment.")
 # 補助関数 (変更なし)
 def frame_to_list(frame):
     pos = frame.p
@@ -31,16 +48,28 @@ def quaternion_matrix(quaternion):
         [    q[0, 2]-q[1, 3],     q[1, 2]+q[0, 3], 1.0-q[0, 0]-q[1, 1], 0.0],
         [                0.0,                 0.0,                 0.0, 1.0]])
 
+
 class KDLHelper:
     """
     URDFからロードされた任意のロボットの運動学をPyKDLで計算するための汎用クラス。
-    ROS2の作法に合わせて、URDFの文字列から直接初期化する。
+    URDFファイルパスまたは文字列から初期化する。
     """
-    def __init__(self, logger, urdf_string, base_link, ee_link):
+    def __init__(self, logger, urdf_path=None, urdf_string=None, base_link="base_link", ee_link="tool0"):
         self.logger = logger
-        ok, self._kdl_tree = treeFromString(urdf_string)
+        
+        # URDFファイルパスが指定されている場合はtreeFromFileを使用
+        if urdf_path is not None:
+            self.logger.info(f"Loading URDF from file: {urdf_path}")
+            ok, self._kdl_tree = treeFromFile(urdf_path)
+        elif urdf_string is not None:
+            self.logger.info("Loading URDF from string")
+            ok, self._kdl_tree = treeFromString(urdf_string)
+        else:
+            self.logger.error("Either urdf_path or urdf_string must be provided.")
+            raise ValueError("Either urdf_path or urdf_string must be provided.")
+            
         if not ok:
-            self.logger.error("Failed to parse URDF string to KDL tree.")
+            self.logger.error("Failed to parse URDF to KDL tree.")
             raise ValueError("Failed to parse URDF.")
 
         self._base_link = base_link
@@ -53,7 +82,7 @@ class KDLHelper:
         self.joint_names = []
         for i in range(self._arm_chain.getNrOfSegments()):
             joint = self._arm_chain.getSegment(i).getJoint()
-            if joint.getType() != 0:  # 0 means PyKDL.Joint.None
+            if joint.getType() != PyKDL.Joint.Fixed:  # Fixed joints are not movable
                 self.joint_names.append(joint.getName())
         
         self._num_jnts = len(self.joint_names)
@@ -146,16 +175,12 @@ class KDLHelper:
 class KdlExampleNode(Node):
     def __init__(self):
         super().__init__('kdl_helper_example_node')
-        
-        # パラメータを宣言（launchファイルから設定可能）
-        self.declare_parameter('urdf_path', '')
-        self.declare_parameter('base_link', 'base_link')
-        self.declare_parameter('ee_link', 'tool0')
+
         
         # パラメータを取得
-        urdf_path = self.get_parameter('urdf_path').get_parameter_value().string_value
-        base_link = self.get_parameter('base_link').get_parameter_value().string_value
-        ee_link = self.get_parameter('ee_link').get_parameter_value().string_value
+        urdf_path = get_package_share_directory('grinding_robot_control') + '/config/ur5e.urdf'
+        base_link = "base_link"
+        ee_link = "tool0"
         
         if not urdf_path or not os.path.exists(urdf_path):
             self.get_logger().fatal(f"URDF file not found at path: {urdf_path}")
@@ -164,9 +189,7 @@ class KdlExampleNode(Node):
         self.get_logger().info(f"Loading URDF from: {urdf_path}")
         
         try:
-            with open(urdf_path, 'r') as f:
-                urdf_string = f.read()
-            self.kin = KDLHelper(self.get_logger(), urdf_string, base_link, ee_link)
+            self.kin = KDLHelper(self.get_logger(), urdf_path=urdf_path, base_link=base_link, ee_link=ee_link)
             self.run_tests()
         except Exception as e:
             self.get_logger().error(f"Failed to initialize KDLHelper or run tests: {e}")
