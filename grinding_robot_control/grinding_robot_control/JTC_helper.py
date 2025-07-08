@@ -118,11 +118,17 @@ class JointTrajectoryControllerHelper(Node):
         self.kdl_helper = None
         try:
             if self.urdf_path:
-                from .kdl_helper import KDLHelper
+                try:
+                    from .kdl_helper import KDLHelper
+                except ImportError:
+                    from kdl_helper import KDLHelper
                 self.kdl_helper = KDLHelper(self.get_logger(), urdf_path=self.urdf_path, 
                                             base_link=self.base_link, ee_link=self.tool_link)
             elif self.urdf_string:
-                from .kdl_helper import KDLHelper
+                try:
+                    from .kdl_helper import KDLHelper
+                except ImportError:
+                    from kdl_helper import KDLHelper
                 self.kdl_helper = KDLHelper(self.get_logger(), urdf_string=self.urdf_string, 
                                             base_link=self.base_link, ee_link=self.tool_link)
             else:
@@ -651,11 +657,16 @@ class JointTrajectoryControllerHelper(Node):
                 self.get_logger().info(
                     "Joint change is within limit. Sending trajectory to goal pose."
                 )
+                # デフォルト動作として速度と加速度を0にセット（静止状態からの開始・終了）
+                num_joints = len(q_best)
+                zero_velocities = [0.0] * num_joints
+                zero_accelerations = [0.0] * num_joints
+                
                 self.set_joint_trajectory(
                     joint_trajectory=[q_best.tolist()],
                     time_to_reach=calculated_time_to_reach,
-                    velocities=None,
-                    accelerations=None,
+                    velocities=[zero_velocities],  # 速度を0にセット
+                    accelerations=[zero_accelerations],  # 加速度を0にセット
                     strict_velocity_control=strict_velocity_control,
                     send_immediately=send_immediately,
                     wait=wait,
