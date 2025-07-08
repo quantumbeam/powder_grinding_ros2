@@ -4,9 +4,11 @@ import sys
 import os
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
 import time
 import csv
 from inputimeout import inputimeout, TimeoutOccurred
+import threading
 
 from math import pi
 import copy
@@ -28,6 +30,8 @@ debug_marker = None
 debug_tf = None
 node = None
 jtc_helper = None
+jtc_executor = None
+jtc_thread = None
 
 def display_debug_waypoints(waypoints, debug_type, tf_name="debug"):
     global debug_marker, debug_tf, node
@@ -110,6 +114,38 @@ def display_grinding_parameters():
     print(f"End effector link (grinding_ee_link): {node.get_parameter('grinding_ee_link').value}")
     print(f"Joint difference limit (grinding_joint_difference_limit_for_motion_planning): {node.get_parameter('grinding_joint_difference_limit_for_motion_planning').value}")
     print("============================\n")
+
+
+def start_jtc_executor():
+    """JTC Helperを別スレッドのエクゼキューターで実行"""
+    global jtc_helper, jtc_executor, jtc_thread
+    
+    def run_executor():
+        global jtc_executor
+        try:
+            jtc_executor.spin()
+        except Exception as e:
+            print(f"JTC Executor error: {e}")
+    
+    if jtc_helper:
+        jtc_executor = MultiThreadedExecutor()
+        jtc_executor.add_node(jtc_helper)
+        jtc_thread = threading.Thread(target=run_executor, daemon=True)
+        jtc_thread.start()
+        print("JTC Helper executor started in separate thread")
+
+
+def stop_jtc_executor():
+    """JTC Helperのエクゼキューターを停止"""
+    global jtc_executor, jtc_thread
+    
+    if jtc_executor:
+        jtc_executor.shutdown()
+        jtc_executor = None
+    
+    if jtc_thread:
+        jtc_thread.join(timeout=1.0)
+        jtc_thread = None
 
 
 def display_current_joint_positions():
@@ -294,6 +330,8 @@ def main():
     debug_marker = DisplayMarker(node_name="grinding_marker_display")
     debug_tf = DisplayTF(node_name="grinding_tf_publisher")
 
+    # Start JTC Helper executor in separate thread
+    start_jtc_executor()
 
     grinding_sec = node.get_parameter("grinding_sec_per_rotation").value * node.get_parameter("grinding_number_of_rotation").value
     gathering_sec = node.get_parameter("gathering_sec_per_rotation").value * node.get_parameter("gathering_number_of_rotation").value
@@ -475,6 +513,9 @@ def main():
     except Exception as err:
         exit_process(str(err))
     finally:
+        # Stop JTC Helper executor
+        stop_jtc_executor()
+        
         if debug_marker:
             debug_marker.destroy_node()
         if debug_tf:
