@@ -30,19 +30,25 @@ locale
 # 3. ROS 2 ソースのセットアップ
 # ---------------------------------------------------
 echo "### 3. Setting up ROS 2 sources ###"
-# Ubuntu Universe リポジトリを有効にする
+
+# 既存のros2.listを削除（再実行時の競合防止）
+sudo rm -f /etc/apt/sources.list.d/ros2.list
+
+# Ubuntu Universeリポジトリを有効にする
 echo "Enabling Ubuntu Universe repository..."
 sudo apt install software-properties-common -y
 sudo add-apt-repository universe -y
 
-# ROS 2 GPG キーを追加
+# ROS 2 GPGキーを追加（curlがなければインストール）
 echo "Adding ROS 2 GPG key..."
-sudo sudo apt install curl -y
+sudo apt install curl -y
 sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
 
-# ROS 2 リポジトリをソースリストに追加
+# ROS 2リポジトリをソースリストに追加
 echo "Adding ROS 2 repository to sources list..."
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(source /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+echo "Setup complete. Run 'sudo apt update' to refresh sources."
 
 # ---------------------------------------------------
 # 4. ROS 2 パッケージのインストール
