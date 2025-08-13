@@ -57,7 +57,7 @@ cd ./env && ./BUILD-DOCKER-IMAGE.sh
 ## Demo
 Launch UR5e Simulation
 ```bash
-ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.py
+ros2 launch grinding_robot_bringup ur5e_with_pestle_bringup.launch.py mock_sensor_commands:=true mock_sensor_commands:=true
 ```
 
 Launch Real UR5e
