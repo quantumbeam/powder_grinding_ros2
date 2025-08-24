@@ -65,6 +65,8 @@ def launch_setup(context, *args, **kwargs):
     use_sim_time = LaunchConfiguration("use_sim_time")
     launch_rviz = LaunchConfiguration("launch_rviz")
     launch_servo = LaunchConfiguration("launch_servo")
+    # Rviz configuration file
+    rviz_config_file = LaunchConfiguration("rviz_config_file")
 
     joint_limit_params = PathJoinSubstitution(
         [FindPackageShare(description_package), "config", ur_type, "joint_limits.yaml"]
@@ -229,9 +231,6 @@ def launch_setup(context, *args, **kwargs):
     )
 
     # rviz with moveit configuration
-    rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare(moveit_config_package), "rviz", "view_robot.rviz"]
-    )
     rviz_node = Node(
         package="rviz2",
         condition=IfCondition(launch_rviz),
@@ -389,6 +388,20 @@ def generate_launch_description():
     )
     declared_arguments.append(
         DeclareLaunchArgument("launch_servo", default_value="true", description="Launch Servo?")
+    )
+    # Add an argument for the RVIZ config file
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rviz_config_file",
+            default_value=PathJoinSubstitution(
+                [
+                    FindPackageShare(LaunchConfiguration("moveit_config_package")),
+                    "rviz",
+                    "view_robot.rviz",
+                ]
+            ),
+            description="Full path to the RVIZ config file to use",
+        )
     )
 
     return LaunchDescription(declared_arguments + [OpaqueFunction(function=launch_setup)])
