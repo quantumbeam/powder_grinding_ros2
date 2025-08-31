@@ -60,9 +60,9 @@ private:
 /**
  * @brief ROS 2ノード本体
  */
-class FTFilterNode : public rclcpp::Node { // NOLINT (misc-misplaced-const)
+class WrenchFilter : public rclcpp::Node { // NOLINT (misc-misplaced-const)
 public:
-    explicit FTFilterNode(const rclcpp::NodeOptions & options)
+    explicit WrenchFilter(const rclcpp::NodeOptions & options)
     : Node("wrench_filter", options) {
         // ROSパラメータの宣言
         this->declare_parameter<std::string>("input_topic", "/wrench_raw");
@@ -97,18 +97,18 @@ public:
 
         // ROS通信の設定
         subscription_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-            input_topic, 10, std::bind(&FTFilterNode::wrench_callback, this, std::placeholders::_1));
+            input_topic, 10, std::bind(&WrenchFilter::wrench_callback, this, std::placeholders::_1));
 
         publisher_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>(output_topic, 10);
         
         zero_service_ = this->create_service<std_srvs::srv::Empty>(
             output_topic + "/zero_ftsensor",
-            std::bind(&FTFilterNode::handle_zero, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&WrenchFilter::handle_zero, this, std::placeholders::_1, std::placeholders::_2));
 
         // 自動ゼロ初期化タイマー
         if (initial_zero_) {
             zero_initialized_ = false;
-            timer_ = this->create_wall_timer(1s, std::bind(&FTFilterNode::check_and_zero_init, this));
+            timer_ = this->create_wall_timer(1s, std::bind(&WrenchFilter::check_and_zero_init, this));
         } else {
             zero_initialized_ = true;
         }
@@ -205,4 +205,4 @@ private:
 
 } // namespace grinding_force_torque
 
-RCLCPP_COMPONENTS_REGISTER_NODE(grinding_force_torque::FTFilterNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(grinding_force_torque::WrenchFilter)

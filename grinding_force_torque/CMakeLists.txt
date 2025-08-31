@@ -22,16 +22,36 @@ find_package(Eigen3 REQUIRED)
 # Find package from package.xml
 ament_auto_find_build_dependencies()
 
-# --- Install C++ package ---
-# The shared library load_planning_scene is created from the source file load_planning_scene.cpp
-ament_auto_add_library(wrench_filter_node SHARED src/wrench_filter_node.cpp)
-# The shared library load_planning_scene in 
-rclcpp_components_register_nodes(wrench_filter_node "grinding_force_torque::WrenchConverter")
-
-# Add dependencies
+# --- WrenchFilter Component ---
+add_library(wrench_filter_component SHARED src/wrench_filter_node.cpp)
 ament_target_dependencies(
- wrench_filter_node
- rclcpp_components
+  wrench_filter_component
+  rclcpp
+  rclcpp_components
+  geometry_msgs
+  std_srvs
+  Eigen3
+)
+rclcpp_components_register_nodes(wrench_filter_component "grinding_force_torque::WrenchFilter")
+install(
+  TARGETS wrench_filter_component
+  DESTINATION lib
+)
+
+# --- WrenchConverter Component ---
+add_library(wrench_converter_component SHARED src/wrench_converter_node.cpp)
+ament_target_dependencies(
+  wrench_converter_component
+  rclcpp
+  rclcpp_components
+  geometry_msgs
+  tf2_ros
+  tf2_geometry_msgs
+)
+rclcpp_components_register_nodes(wrench_converter_component "grinding_force_torque::WrenchConverter")
+install(
+  TARGETS wrench_converter_component
+  DESTINATION lib
 )
 
 # --- Interface generation ---
@@ -47,7 +67,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 # This is necessary to install the Python scripts with ament_cmake
 install(
   PROGRAMS
-    ${PROJECT_NAME}/wrench_filter.py
     ${PROJECT_NAME}/wrench_statistics.py
     scripts/noisy_wrench_pub.py
   DESTINATION lib/${PROJECT_NAME}
