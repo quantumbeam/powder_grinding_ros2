@@ -77,22 +77,11 @@ def launch_setup(context, *args, **kwargs):
 
 
 
-    # --- Launch wrench_filter node ---
-    wrench_filter_node = Node(
-        package='grinding_force_torque',
-        executable='wrench_filter.py',
-        name='wrench_filter',
-        output='screen',
-        parameters=[
-            {'input_topic': '/wrench_raw'},
-            {'output_topic': '/wrench_filtered'},
-            {'sampling_frequency': 500.0},
-            {'cutoff_frequency': 2.5},
-            {'filter_order': 3},
-            {'data_window': 100},
-            {'initial_zero': True},
-            {'disable_filtering': False}
-        ]
+    # --- Include wrench_filter launch file ---
+    wrench_filter_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([get_package_share_directory('grinding_force_torque'), 'launch', 'wrench_filter.launch.py'])
+        )
     )
 
     # --- List of actions to execute ---
@@ -100,7 +89,7 @@ def launch_setup(context, *args, **kwargs):
         ur_control_launch,
         ur_moveit_launch,
         load_planning_scene_launch,
-        wrench_filter_node
+        wrench_filter_launch
     ]
 
     return actions_to_start
