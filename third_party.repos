@@ -7,3 +7,7 @@ repositories:
     type: git
     url: https://github.com/YusakuNakajima/quik.git
     version: main
+  kdl_parser:
+    type: git
+    url: https://github.com/YusakuNakajima/kdl_parser.git
+    version: humble
