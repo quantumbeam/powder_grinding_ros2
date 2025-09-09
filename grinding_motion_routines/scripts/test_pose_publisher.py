@@ -2,7 +2,7 @@
 import rclpy
 import numpy as np
 # display_tf.py から DisplayTF クラスをインポート
-from grinding_motion_routines.display_tf import DisplayTF
+from grinding_motion_routines.pose_publisher import PosePublisher
 
 
 def generate_spiral_waypoints(num_points):
@@ -36,7 +36,7 @@ def main(args=None):
 
     # DisplayTFノードのインスタンスを作成
     # DisplayTFは内部で "tf_publisher_node" という名前のノードを作成する
-    tf_broadcaster_node = DisplayTF(parent_link="world", child_link="spiral_point_")
+    pose_publisher_node = PosePublisher(topic_name="spiral_poses", frame_id="world")
                                     # parent_link と child_link のプレフィックスを指定
 
     waypoints_data = generate_spiral_waypoints(20) # ポイント数を調整可能
@@ -46,24 +46,24 @@ def main(args=None):
     # TFは通常、最新の状態を継続的に発行するものですが、このデモでは
     # 各ウェイポイントに対応する静的なTFフレームを一度発行し、
     # RVizなどで表示され続けることを想定しています。
-    tf_broadcaster_node.broadcast_tf_with_waypoints(waypoints_data)
-    tf_broadcaster_node.get_logger().info(
-        f"Broadcasted {len(waypoints_data)} TFs with child prefix 'spiral_point_'. Spinning to keep them visible."
+    pose_publisher_node.publish_poses_from_waypoints(waypoints_data)
+    pose_publisher_node.get_logger().info(
+        f"Published PoseArray with {len(waypoints_data)} poses to topic 'spiral_poses'."
     )
-    tf_broadcaster_node.get_logger().info(
-        "In RViz, you might need to set a long 'TF Decay Time' in the TF display properties if the TFs disappear."
+    pose_publisher_node.get_logger().info(
+        "In RViz, add PoseArray display and set topic to 'spiral_poses' to visualize."
     )
 
     try:
         # ノードをスピンさせてTFが(RVizなどで)表示され続けるようにする
         # (実際にはsendTransformは上記の呼び出しで一度実行されるだけですが、
         #  ノードがアクティブである必要があります)
-        rclpy.spin(tf_broadcaster_node)
+        rclpy.spin(pose_publisher_node)
     except KeyboardInterrupt:
-        tf_broadcaster_node.get_logger().info('Keyboard interrupt, shutting down.')
+        pose_publisher_node.get_logger().info('Keyboard interrupt, shutting down.')
     finally:
         # ノードを破棄
-        tf_broadcaster_node.destroy_node()
+        pose_publisher_node.destroy_node()
         # rclpyをシャットダウン
         if rclpy.ok():
             rclpy.shutdown()

@@ -5,7 +5,7 @@ from geometry_msgs.msg import Pose
 import numpy as np
 
 # grinding_motion_routines パッケージの DisplayMarker をインポート
-from grinding_motion_routines.display_marker import DisplayMarker
+from grinding_motion_routines.marker_publisher import MarkerPublisher
 
 
 def generate_spiral_waypoints(num_points):
@@ -34,7 +34,7 @@ def main(args=None):
     rclpy.init(args=args)
     waypoints = generate_spiral_waypoints(100)
     # DisplayMarkerノードは内部で "marker_display" という名前で初期化されます
-    marker_display = DisplayMarker()
+    marker_display = MarkerPublisher()
     
     # display_waypoints は内部で wait_for_connection を呼び出し、
     # RVizなどのサブスクライバが接続するのを待ってからマーカーをパブリッシュします。

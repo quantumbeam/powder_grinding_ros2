@@ -42,11 +42,12 @@ ament_python_install_package(${PROJECT_NAME})
 # This is necessary to install the Python scripts with ament_cmake
 install(
   PROGRAMS
-  ${PROJECT_NAME}/display_marker.py
-  ${PROJECT_NAME}/display_tf.py
+  ${PROJECT_NAME}/marker_publisher.py
+  ${PROJECT_NAME}/tf_publisher.py
+  ${PROJECT_NAME}/pose_publisher.py
   ${PROJECT_NAME}/grinding_motion_generator.py
   ${PROJECT_NAME}/grinding_motion_primitive.py
-  scripts/test_display_tf.py
+  scripts/test_pose_publisher.py
   scripts/test_display_marker.py
   scripts/grinding_demo.py
   DESTINATION lib/${PROJECT_NAME}

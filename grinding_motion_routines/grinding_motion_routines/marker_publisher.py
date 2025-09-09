@@ -10,7 +10,7 @@ from builtin_interfaces.msg import Duration
 import numpy as np
 import time
 
-class DisplayMarker(Node):
+class MarkerPublisher(Node):
     def __init__(self, marker_publisher_name="debug_marker", node_name="marker_display"):
         super().__init__(node_name)
         self.publisher = self.create_publisher(MarkerArray, marker_publisher_name, 1)
@@ -25,8 +25,19 @@ class DisplayMarker(Node):
 
 
         
-    def display_waypoints(self, waypoints, scale=0.002, type=None):
+    def display_waypoints(self, waypoints, scale=0.002, type=None, clear=False):
         marker_array = MarkerArray()
+        
+        # clearパラメータが指定された場合、すべてのマーカーを削除
+        if clear:
+            delete_marker = Marker()
+            delete_marker.header.frame_id = "world"
+            delete_marker.header.stamp = self.get_clock().now().to_msg()
+            delete_marker.ns = "waypoints"
+            delete_marker.action = Marker.DELETEALL
+            marker_array.markers.append(delete_marker)
+            self.publisher.publish(marker_array)
+            return
 
         if type is None:
             type = Marker.SPHERE

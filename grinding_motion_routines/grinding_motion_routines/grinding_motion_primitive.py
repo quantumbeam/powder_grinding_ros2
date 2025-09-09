@@ -383,11 +383,11 @@ def main(args=None):
     # GrindingMotionPrimitive を初期化
     try:
         from grinding_motion_routines.grinding_motion_generator import MotionGenerator
-        from grinding_motion_routines.display_marker import DisplayMarker
+        from grinding_motion_routines.marker_publisher import MarkerPublisher
     except ImportError as e:
         print(f"ImportError: {e}")
         main_node.get_logger().error(
-            "Failed to import MotionGenerator or DisplayMarker."
+            "Failed to import MotionGenerator or MarkerPublisher."
         )
         rclpy.shutdown()
         return

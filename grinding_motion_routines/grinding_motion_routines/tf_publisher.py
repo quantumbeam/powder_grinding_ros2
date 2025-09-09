@@ -8,7 +8,7 @@ from rclpy.node import Node
 # Pose, Quaternion, Vector3 は直接使われていません
 
 
-class DisplayTF(Node):
+class TfPublisher(Node):
     def __init__(self, node_name="tf_publisher_node", parent_link="base_link", child_link="debug_tf_") -> None:
         super().__init__(node_name)
         self.broadcaster = tf2_ros.TransformBroadcaster(self)

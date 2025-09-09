@@ -19,34 +19,32 @@ from ament_index_python.packages import get_package_share_directory
 
 from grinding_motion_routines.grinding_motion_generator import MotionGenerator
 from grinding_motion_routines.grinding_motion_primitive import GrindingMotionPrimitive
-from grinding_motion_routines.display_marker import DisplayMarker
-from grinding_motion_routines.display_tf import DisplayTF
+from grinding_motion_routines.marker_publisher import MarkerPublisher
+from grinding_motion_routines.pose_publisher import PosePublisher
 from grinding_robot_control.JTC_helper import JointTrajectoryControllerHelper, IKType
 
 ################### Fixed params ###################
 
 # Global variables
 debug_marker = None
-debug_tf = None
+debug_pose = None
 node = None
 jtc_helper = None
 jtc_executor = None
 jtc_thread = None
 
 def display_debug_waypoints(waypoints, debug_type, tf_name="debug"):
-    global debug_marker, debug_tf, node
+    global debug_marker, debug_pose, node
     if debug_type == "mk":
         if node:
             node.get_logger().info("Display waypoints marker")
         if debug_marker:
             debug_marker.display_waypoints(waypoints, clear=True)
-    elif debug_type == "tf":
+    elif debug_type == "pose":
         if node:
-            node.get_logger().info("Display waypoints tf")
-        if debug_tf:
-            debug_tf.broadcast_tf_with_waypoints(
-                waypoints, parent_link="base_link", child_link=tf_name + "_waypoints"
-            )
+            node.get_logger().info("Display waypoints poses")
+        if debug_pose:
+            debug_pose.publish_poses_from_waypoints(waypoints)
 
 def compute_grinding_waypoints(motion_generator, debug_type=False):
     global node
@@ -184,13 +182,13 @@ def command_to_execute(cmd):
         return True
     elif cmd == "mk":
         return False
-    elif cmd == "tf":
+    elif cmd == "pose":
         return False
     else:
         return None
 
 def main():
-    global debug_marker, debug_tf, node, jtc_helper
+    global debug_marker, debug_pose, node, jtc_helper
     
     rclpy.init(args=sys.argv)
     node = Node("mechano_grinding")
@@ -327,8 +325,8 @@ def main():
     node.get_logger().info("Goto init pose")
 
     # Initialize debug tools with unique node names
-    debug_marker = DisplayMarker(node_name="grinding_marker_display")
-    debug_tf = DisplayTF(node_name="grinding_tf_publisher")
+    debug_marker = MarkerPublisher(node_name="grinding_marker_display")
+    debug_pose = PosePublisher(node_name="grinding_pose_publisher")
 
     # Start JTC Helper executor in separate thread
     start_jtc_executor()
@@ -366,7 +364,7 @@ def main():
 
             elif motion_command == "g":
                 key = input(
-                    "Start grinding demo.\n execute = 'y', show waypoints marker = 'mk', show waypoints tf = 'tf', canncel = other\n"
+                    "Start grinding demo.\n execute = 'y', show waypoints marker = 'mk', show waypoints poses = 'pose', canncel = other\n"
                 )
                 exec_result = command_to_execute(key)
                 if exec_result:
@@ -384,7 +382,7 @@ def main():
                     
             elif motion_command == "G":
                 key = input(
-                    "Start circular gathering demo.\n execute = 'y', show waypoints marker = 'mk', show waypoints tf = 'tf', canncel = other\n"
+                    "Start circular gathering demo.\n execute = 'y', show waypoints marker = 'mk', show waypoints poses = 'pose', canncel = other\n"
                 )
                 exec_result = command_to_execute(key)
                 if exec_result:
@@ -518,8 +516,8 @@ def main():
         
         if debug_marker:
             debug_marker.destroy_node()
-        if debug_tf:
-            debug_tf.destroy_node()
+        if debug_pose:
+            debug_pose.destroy_node()
         if jtc_helper:
             jtc_helper.destroy_node()
         if node:
