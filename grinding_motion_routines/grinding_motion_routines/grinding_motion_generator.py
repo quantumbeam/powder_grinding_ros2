@@ -24,86 +24,103 @@ class MotionGenerator:
     def _calc_quaternion_of_mortar_inner_wall(
         self, position, angle_scale, yaw_bias, yaw_twist, fixed_quaternion=False
     ):
-        quats = []
+        """
+        乳鉢の内壁に沿った姿勢（クォータニオン）を計算する。
+        """
+        num_points = position.shape[1]
+        t = np.clip(abs(angle_scale), 0.0, 1.0)
 
-        pos_x = np.array(position[0])
-        pos_y = np.array(position[1])
-        pos_z = np.array(position[2])
-
-        #################### calculate orientation
-        # angle param < 0  use inverse x,y, mean using inverse slope
-        if angle_scale < 0:
-            pos_x *= -1
-            pos_y *= -1
-
-        # normalized position
-        norm = np.sqrt(pos_x**2 + pos_y**2 + pos_z**2)
-        # 0で割るのを防ぐ
-        norm[norm == 0] = 1.0
-
-        normalized_pos_x = pos_x / norm
-        normalized_pos_y = pos_y / norm
-        normalized_pos_z = pos_z / norm
-
-        # calc yaw angle
-        yaw_std = np.arctan2(
+        # ----------------------------------------------------------------
+        # 1. 基準となるヨー角と、それに基づくワールド座標系での「基準方向」を定義
+        # ----------------------------------------------------------------
+        base_yaw = np.arctan2(
             self.mortar_top_center_position["y"],
             self.mortar_top_center_position["x"],
-        )
+        ) + yaw_bias
+        
+        # このベクトルが、全ての姿勢計算におけるXY平面の向きの基準となる
+        ref_x_direction = np.tile([np.cos(base_yaw), np.sin(base_yaw), 0.0], (num_points, 1))
+
+        # ----------------------------------------------------------------
+        # 2. 「垂直姿勢」を、基準方向を用いて計算
+        # ----------------------------------------------------------------
+        z_axis_vert = np.tile([0.0, 0.0, -1.0], (num_points, 1))
+        # Y軸 = Z軸 × 基準X方向
+        y_axis_vert = np.cross(z_axis_vert, ref_x_direction)
+        # X軸 = Y軸 × Z軸 (正規直交系を維持)
+        x_axis_vert = np.cross(y_axis_vert, z_axis_vert)
+        
+        rotations_vertical = Rotation.from_matrix(np.stack([x_axis_vert, y_axis_vert, z_axis_vert], axis=2))
+
+        # ----------------------------------------------------------------
+        # 3. 「法線姿勢」を、全く同じロジックで計算
+        # ----------------------------------------------------------------
+        pos_x, pos_y, pos_z = position[0], position[1], position[2]
+        rx2 = (self.mortar_inner_size["x"]) ** 2
+        ry2 = (self.mortar_inner_size["y"]) ** 2
+        rz2 = (self.mortar_inner_size["z"]) ** 2
+
+        normal_vec = np.stack([
+            2 * pos_x / rx2 if rx2 > 0 else np.zeros(num_points),
+            2 * pos_y / ry2 if ry2 > 0 else np.zeros(num_points),
+            2 * pos_z / rz2 if rz2 > 0 else np.full(num_points, -1.0)
+        ], axis=1)
+        
+        z_axis_normal = normal_vec
+        norm = np.linalg.norm(z_axis_normal, axis=1, keepdims=True)
+        z_axis_normal = np.divide(z_axis_normal, norm, out=np.zeros_like(z_axis_normal), where=norm!=0)
+        z_axis_normal[norm.flatten() == 0] = [0.0, 0.0, -1.0]
+        
+        # Y軸 = Z軸 × 基準X方向
+        y_axis_normal = np.cross(z_axis_normal, ref_x_direction)
+        # Z軸と基準X方向が平行になる特異点への対応
+        norm = np.linalg.norm(y_axis_normal, axis=1, keepdims=True)
+        parallel_indices = (norm < 1e-6).flatten()
+        if np.any(parallel_indices):
+            # 基準方向をYに変えて再計算
+            ref_y_direction = np.tile([-np.sin(base_yaw), np.cos(base_yaw), 0.0], (num_points, 1))
+            y_axis_normal[parallel_indices] = np.cross(z_axis_normal[parallel_indices], ref_y_direction[parallel_indices])
+            norm = np.linalg.norm(y_axis_normal, axis=1, keepdims=True)
+
+        y_axis_normal = np.divide(y_axis_normal, norm, out=np.zeros_like(y_axis_normal), where=norm!=0)
+        
+        # X軸 = Y軸 × Z軸
+        x_axis_normal = np.cross(y_axis_normal, z_axis_normal)
+        
+        base_rotations_normal = Rotation.from_matrix(np.stack([x_axis_normal, y_axis_normal, z_axis_normal], axis=2))
+
+        # ----------------------------------------------------------------
+        # 4. 意図した追加のねじり（yaw_twist）を適用
+        # ----------------------------------------------------------------
         if yaw_twist != 0:
-            if abs(yaw_twist) > self.max_yaw_twist:
-                raise ValueError(
-                    "yaw_twist is bigger than max_yaw_twist: ", self.max_yaw_twist
-                )
-            if yaw_twist < 0:
-                yaw = np.linspace(0, abs(yaw_twist), len(pos_x))
-            else:
-                yaw = np.linspace(abs(yaw_twist), 0, len(pos_x))
-            yaw += yaw_std
+            twist_angles = np.linspace(0, yaw_twist, num_points)
+            twist_vectors = z_axis_normal * twist_angles[:, np.newaxis]
+            twist_rotation = Rotation.from_rotvec(twist_vectors)
+            rotations_normal = twist_rotation * base_rotations_normal
         else:
-            yaw = yaw_std + yaw_bias
-
-            # rotate xy by the amount of yaw angle
-            r, theta = self._cartesian_to_polar(normalized_pos_x, normalized_pos_y)
-            normalized_pos_x, normalized_pos_y = self._polar_to_cartesian(
-                r, theta + yaw
-            )
-        # calc euler of the normal and the verticle to the ground
-        roll_of_the_normal = -np.arctan2(normalized_pos_y, normalized_pos_z)
-        pitch_of_the_normal = -np.arctan2(
-            normalized_pos_x,
-            np.sqrt(normalized_pos_y**2 + normalized_pos_z**2),
-        )
-        yaw_of_the_normal = np.full_like(pos_z, yaw)
-
-        roll_of_the_vertical = np.full_like(pos_x, pi)
-        pitch_of_the_vertical = np.full_like(pos_y, 0)
-        yaw_of_the_vertical = np.full_like(pos_z, yaw)
-
-        for r_normal, p_normal, y_normal, r_vertical, p_vertical, y_vertical in zip(
-            roll_of_the_normal,
-            pitch_of_the_normal,
-            yaw_of_the_normal,
-            roll_of_the_vertical,
-            pitch_of_the_vertical,
-            yaw_of_the_vertical,
-        ):
-            rotation_normal = Rotation.from_euler("xyz", [r_normal, p_normal, y_normal])
-            rotation_vertical = Rotation.from_euler(
-                "xyz", [r_vertical, p_vertical, y_vertical]
-            )
-            rotations = Rotation.from_quat(
-                [rotation_vertical.as_quat(), rotation_normal.as_quat()]
-            )
-
-            slerp = Slerp([0, 1], rotations)
-            slerp_quat = slerp(angle_scale).as_quat()
+            rotations_normal = base_rotations_normal
+            
+        # ----------------------------------------------------------------
+        # 5. Slerpで2つの姿勢を補間
+        # ----------------------------------------------------------------
+        quats = []
+        for i in range(num_points):
+            rot_v = rotations_vertical[i]
+            rot_n = rotations_normal[i]
+            
+            key_rotations = Rotation.from_quat([rot_v.as_quat(), rot_n.as_quat()])
+            slerp = Slerp([0, 1], key_rotations)
+            slerp_quat = slerp(t).as_quat()
             quats.append(slerp_quat)
-
+            
         quats = np.array(quats)
 
-        if fixed_quaternion:
-            quats = np.full_like(quats, quats[0])
+        # ----------------------------------------------------------------
+        # 6. オプション処理とリターン
+        # ----------------------------------------------------------------
+        if fixed_quaternion and len(quats) > 0:
+            first_quat = quats[0]
+            quats = np.tile(first_quat, (len(quats), 1))
 
         return quats
 
@@ -606,10 +623,10 @@ class MotionGenerator:
             radius_mm (float): The scale radius in millimeters, defined as R + 2r.
             ratio_R_r (float): The ratio R/r of the fixed circle radius to the rolling circle radius.
             ratio_d_r (float, optional): The ratio d/r of the tracing point distance to the rolling circle radius.
-                                         d=r (ratio_d_r=1.0) gives a standard epicycloid.
-                                         d<r (ratio_d_r<1.0) gives a curtate epicycloid.
-                                         d>r (ratio_d_r>1.0) gives a prolate epicycloid.
-                                         Default is 1.0.
+                                          d=r (ratio_d_r=1.0) gives a standard epicycloid.
+                                          d<r (ratio_d_r<1.0) gives a curtate epicycloid.
+                                          d>r (ratio_d_r>1.0) gives a prolate epicycloid.
+                                          Default is 1.0.
             waypoints_step_mm (float, optional): Step size between waypoints in millimeters. Default is 1.0.
             angle_scale (float, optional): Parameter for orientation calculation.
             yaw_bias (float, optional): Yaw bias to be used in orientation calculation.
