@@ -24,37 +24,44 @@ class MotionGenerator:
     def _calc_quaternion_of_mortar_inner_wall(
         self, position, angle_scale, yaw_bias, yaw_twist, fixed_quaternion=False
     ):
-        """
-        乳鉢の内壁に沿った姿勢（クォータニオン）を計算する。
+        """乳鉢の内壁に沿ったツールの姿勢（クォータニオン）を計算します。
+
+        このメソッドは、垂直な姿勢（angle_scale=0）と壁面に対して垂直な姿勢（angle_scale=1）の間を
+        球面線形補間（Slerp）します。
+        
+        主な特徴:
+        - 垂直姿勢と法線姿勢の計算ロジックを統一し、ヨー角のズレ（ねじれ）が発生しないように設計されています。
+          これにより、angle_scaleを変化させても滑らかな傾斜（チルト）動作のみが行われます。
+        - `yaw_twist`引数により、意図したツールZ軸周りの回転を追加できます。
+
+        Args:
+            position (np.ndarray): 乳鉢のローカル座標系におけるツール先端位置の配列。形状は (3, N)。
+            angle_scale (float): 垂直姿勢(0.0)と法線姿勢(1.0)の間の補間係数。
+            yaw_bias (float): 全体に適用される固定のヨー角オフセット（ラジアン）。
+            yaw_twist (float): 軌道全体でツールZ軸周りに追加するねじり回転の合計量（ラジアン）。
+            fixed_quaternion (bool): Trueの場合、全ての出力姿勢を軌道開始点の姿勢に統一します。
+
+        Returns:
+            np.ndarray: 計算された各点における姿勢のクォータニオン配列。形状は (N, 4)。
         """
         num_points = position.shape[1]
         t = np.clip(abs(angle_scale), 0.0, 1.0)
 
-        # ----------------------------------------------------------------
-        # 1. 基準となるヨー角と、それに基づくワールド座標系での「基準方向」を定義
-        # ----------------------------------------------------------------
+        # 基準となるヨー角と、それに基づくワールド座標系での「基準方向」を定義
         base_yaw = np.arctan2(
             self.mortar_top_center_position["y"],
             self.mortar_top_center_position["x"],
         ) + yaw_bias
         
-        # このベクトルが、全ての姿勢計算におけるXY平面の向きの基準となる
         ref_x_direction = np.tile([np.cos(base_yaw), np.sin(base_yaw), 0.0], (num_points, 1))
 
-        # ----------------------------------------------------------------
-        # 2. 「垂直姿勢」を、基準方向を用いて計算
-        # ----------------------------------------------------------------
+        # --- 垂直姿勢（Vertical Pose）を、基準方向を用いて計算 ---
         z_axis_vert = np.tile([0.0, 0.0, -1.0], (num_points, 1))
-        # Y軸 = Z軸 × 基準X方向
         y_axis_vert = np.cross(z_axis_vert, ref_x_direction)
-        # X軸 = Y軸 × Z軸 (正規直交系を維持)
         x_axis_vert = np.cross(y_axis_vert, z_axis_vert)
-        
         rotations_vertical = Rotation.from_matrix(np.stack([x_axis_vert, y_axis_vert, z_axis_vert], axis=2))
 
-        # ----------------------------------------------------------------
-        # 3. 「法線姿勢」を、全く同じロジックで計算
-        # ----------------------------------------------------------------
+        # --- 法線姿勢（Normal Pose）を、全く同じロジックで計算 ---
         pos_x, pos_y, pos_z = position[0], position[1], position[2]
         rx2 = (self.mortar_inner_size["x"]) ** 2
         ry2 = (self.mortar_inner_size["y"]) ** 2
@@ -71,27 +78,21 @@ class MotionGenerator:
         z_axis_normal = np.divide(z_axis_normal, norm, out=np.zeros_like(z_axis_normal), where=norm!=0)
         z_axis_normal[norm.flatten() == 0] = [0.0, 0.0, -1.0]
         
-        # Y軸 = Z軸 × 基準X方向
         y_axis_normal = np.cross(z_axis_normal, ref_x_direction)
-        # Z軸と基準X方向が平行になる特異点への対応
         norm = np.linalg.norm(y_axis_normal, axis=1, keepdims=True)
+        # Z軸と基準X方向が平行になる特異点への対応
         parallel_indices = (norm < 1e-6).flatten()
         if np.any(parallel_indices):
-            # 基準方向をYに変えて再計算
             ref_y_direction = np.tile([-np.sin(base_yaw), np.cos(base_yaw), 0.0], (num_points, 1))
             y_axis_normal[parallel_indices] = np.cross(z_axis_normal[parallel_indices], ref_y_direction[parallel_indices])
             norm = np.linalg.norm(y_axis_normal, axis=1, keepdims=True)
 
         y_axis_normal = np.divide(y_axis_normal, norm, out=np.zeros_like(y_axis_normal), where=norm!=0)
         
-        # X軸 = Y軸 × Z軸
         x_axis_normal = np.cross(y_axis_normal, z_axis_normal)
-        
         base_rotations_normal = Rotation.from_matrix(np.stack([x_axis_normal, y_axis_normal, z_axis_normal], axis=2))
 
-        # ----------------------------------------------------------------
-        # 4. 意図した追加のねじり（yaw_twist）を適用
-        # ----------------------------------------------------------------
+        # 意図した追加のねじり（yaw_twist）を適用
         if yaw_twist != 0:
             twist_angles = np.linspace(0, yaw_twist, num_points)
             twist_vectors = z_axis_normal * twist_angles[:, np.newaxis]
@@ -100,9 +101,7 @@ class MotionGenerator:
         else:
             rotations_normal = base_rotations_normal
             
-        # ----------------------------------------------------------------
-        # 5. Slerpで2つの姿勢を補間
-        # ----------------------------------------------------------------
+        # Slerpで2つの姿勢を補間
         quats = []
         for i in range(num_points):
             rot_v = rotations_vertical[i]
@@ -115,9 +114,7 @@ class MotionGenerator:
             
         quats = np.array(quats)
 
-        # ----------------------------------------------------------------
-        # 6. オプション処理とリターン
-        # ----------------------------------------------------------------
+        # オプションに応じて出力を調整
         if fixed_quaternion and len(quats) > 0:
             first_quat = quats[0]
             quats = np.tile(first_quat, (len(quats), 1))
