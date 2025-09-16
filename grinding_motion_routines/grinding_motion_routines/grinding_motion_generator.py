@@ -30,7 +30,7 @@ class MotionGenerator:
         球面線形補間（Slerp）します。
         
         主な特徴:
-        - 垂直姿勢と法線姿勢の計算ロジックを統一し、ヨー角のズレ（ねじれ）が発生しないように設計されています。
+        - グラム・シュミットの正規直交化法に基づき、傾きに関わらずヨー角が常に一定に保たれます。
           これにより、angle_scaleを変化させても滑らかな傾斜（チルト）動作のみが行われます。
         - `yaw_twist`引数により、意図したツールZ軸周りの回転を追加できます。
 
@@ -47,7 +47,7 @@ class MotionGenerator:
         num_points = position.shape[1]
         t = np.clip(abs(angle_scale), 0.0, 1.0)
 
-        # 基準となるヨー角と、それに基づくワールド座標系での「基準方向」を定義
+        # --- 基準となるヨー角と、それに基づくワールド座標系での「基準X方向」を定義 ---
         base_yaw = np.arctan2(
             self.mortar_top_center_position["y"],
             self.mortar_top_center_position["x"],
@@ -55,17 +55,40 @@ class MotionGenerator:
         
         ref_x_direction = np.tile([np.cos(base_yaw), np.sin(base_yaw), 0.0], (num_points, 1))
 
-        # --- 垂直姿勢（Vertical Pose）を、基準方向を用いて計算 ---
-        z_axis_vert = np.tile([0.0, 0.0, -1.0], (num_points, 1))
-        y_axis_vert = np.cross(z_axis_vert, ref_x_direction)
-        x_axis_vert = np.cross(y_axis_vert, z_axis_vert)
-        rotations_vertical = Rotation.from_matrix(np.stack([x_axis_vert, y_axis_vert, z_axis_vert], axis=2))
+        # --- 座標系を構築する共通関数を定義 ---
+        def build_frame(z_axis, ref_x):
+            # グラム・シュミットの正規直交化法を用いて、ヨーのねじれを防ぐ
+            # 1. 基準X方向からZ軸と平行な成分を引く
+            dot_product = np.sum(ref_x * z_axis, axis=1, keepdims=True)
+            x_axis = ref_x - dot_product * z_axis
+            
+            # 2. 正規化して最終的なX軸を決定
+            norm = np.linalg.norm(x_axis, axis=1, keepdims=True)
+            # 特異点（Z軸と基準Xが平行）の場合のフォールバック
+            parallel_indices = (norm < 1e-6).flatten()
+            if np.any(parallel_indices):
+                # Y方向を基準に再計算
+                ref_y = np.tile([-np.sin(base_yaw), np.cos(base_yaw), 0.0], (num_points, 1))
+                y_axis_fallback = np.cross(z_axis[parallel_indices], ref_y[parallel_indices])
+                x_axis[parallel_indices] = np.cross(y_axis_fallback, z_axis[parallel_indices])
+                norm = np.linalg.norm(x_axis, axis=1, keepdims=True)
 
-        # --- 法線姿勢（Normal Pose）を、全く同じロジックで計算 ---
+            x_axis = np.divide(x_axis, norm, out=np.zeros_like(x_axis), where=norm!=0)
+            
+            # 3. Z軸とX軸からY軸を計算
+            y_axis = np.cross(z_axis, x_axis)
+            
+            return Rotation.from_matrix(np.stack([x_axis, y_axis, z_axis], axis=2))
+
+        # --- 垂直姿勢（Vertical Pose）を計算 ---
+        z_axis_vert = np.tile([0.0, 0.0, -1.0], (num_points, 1))
+        rotations_vertical = build_frame(z_axis_vert, ref_x_direction)
+
+        # --- 法線姿勢（Normal Pose）を計算 ---
         pos_x, pos_y, pos_z = position[0], position[1], position[2]
-        rx2 = (self.mortar_inner_size["x"]) ** 2
-        ry2 = (self.mortar_inner_size["y"]) ** 2
-        rz2 = (self.mortar_inner_size["z"]) ** 2
+        rx2 = self.mortar_inner_size["x"] ** 2
+        ry2 = self.mortar_inner_size["y"] ** 2
+        rz2 = self.mortar_inner_size["z"] ** 2
 
         normal_vec = np.stack([
             2 * pos_x / rx2 if rx2 > 0 else np.zeros(num_points),
@@ -78,26 +101,13 @@ class MotionGenerator:
         z_axis_normal = np.divide(z_axis_normal, norm, out=np.zeros_like(z_axis_normal), where=norm!=0)
         z_axis_normal[norm.flatten() == 0] = [0.0, 0.0, -1.0]
         
-        y_axis_normal = np.cross(z_axis_normal, ref_x_direction)
-        norm = np.linalg.norm(y_axis_normal, axis=1, keepdims=True)
-        # Z軸と基準X方向が平行になる特異点への対応
-        parallel_indices = (norm < 1e-6).flatten()
-        if np.any(parallel_indices):
-            ref_y_direction = np.tile([-np.sin(base_yaw), np.cos(base_yaw), 0.0], (num_points, 1))
-            y_axis_normal[parallel_indices] = np.cross(z_axis_normal[parallel_indices], ref_y_direction[parallel_indices])
-            norm = np.linalg.norm(y_axis_normal, axis=1, keepdims=True)
-
-        y_axis_normal = np.divide(y_axis_normal, norm, out=np.zeros_like(y_axis_normal), where=norm!=0)
-        
-        x_axis_normal = np.cross(y_axis_normal, z_axis_normal)
-        base_rotations_normal = Rotation.from_matrix(np.stack([x_axis_normal, y_axis_normal, z_axis_normal], axis=2))
+        base_rotations_normal = build_frame(z_axis_normal, ref_x_direction)
 
         # 意図した追加のねじり（yaw_twist）を適用
         if yaw_twist != 0:
             twist_angles = np.linspace(0, yaw_twist, num_points)
-            twist_vectors = z_axis_normal * twist_angles[:, np.newaxis]
-            twist_rotation = Rotation.from_rotvec(twist_vectors)
-            rotations_normal = twist_rotation * base_rotations_normal
+            local_twist_rotation = Rotation.from_euler('z', twist_angles)
+            rotations_normal = base_rotations_normal * local_twist_rotation
         else:
             rotations_normal = base_rotations_normal
             
