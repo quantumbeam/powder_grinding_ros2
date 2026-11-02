@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=COBOTTA grinding demo (ROS2)
+Comment=Start the COBOTTA grinding demo GUI in the powder_grinding_ros2 Docker container
+Exec=gnome-terminal -- bash -c '@ENV_DIR@/RUN-DOCKER-CONTAINER.sh grinding_motion_routines cobotta_grinding_demo.launch.py; exec bash'
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Application;

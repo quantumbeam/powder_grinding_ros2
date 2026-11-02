@@ -1,0 +1,8 @@
+# Initial joint positions for mock hardware [rad]
+# (joint_states observed after the ROS1 cobotta_grinding_demo moved to its init pose)
+joint_1: 0.964
+joint_2: 0.428
+joint_3: 1.289
+joint_4: 0.0
+joint_5: 1.424
+joint_6: -2.178

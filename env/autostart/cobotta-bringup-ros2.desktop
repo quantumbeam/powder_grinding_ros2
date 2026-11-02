@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=COBOTTA bringup (ROS2)
+Comment=Start the COBOTTA driver in the powder_grinding_ros2 Docker container
+Exec=gnome-terminal -- bash -c '@ENV_DIR@/RUN-DOCKER-CONTAINER.sh grinding_robot_bringup cobotta_with_pestle_bringup.launch.py use_mock_hardware:=false; exec bash'
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Application;

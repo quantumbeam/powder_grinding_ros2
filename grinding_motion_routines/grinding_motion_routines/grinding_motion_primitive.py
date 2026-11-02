@@ -27,6 +27,9 @@ class GrindingMotionPrimitive:
         init_pose: List[float] = [0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0],  # デフォルト値
         grinding_ee_link: str = "pestle_tip",  # デフォルト値
         gathering_ee_link: str = "spatula_tip",  # デフォルト値
+        gathering_init_pose: Optional[List[float]] = None,  # None の場合は init_pose を使用
+        ee_change_to_gathering_sec: float = 3.0,  # 収集用初期姿勢への移動時間 (秒)
+        ee_change_to_grinding_sec: float = 2.0,  # 収集後に研削用初期姿勢へ戻る移動時間 (秒)
     ):
         """
         GrindingMotionPrimitive を初期化する。
@@ -38,6 +41,10 @@ class GrindingMotionPrimitive:
             init_pose: 初期姿勢 [x, y, z, qx, qy, qz, qw]。
             grinding_ee_link: 研削時のエンドエフェクタリンク名。
             gathering_ee_link: 収集時のエンドエフェクタリンク名。
+            gathering_init_pose: 収集時の初期姿勢 [x, y, z, qx, qy, qz, qw]。None の場合は init_pose。
+            ee_change_to_gathering_sec: 研削用から収集用の初期姿勢へ移動する時間 (秒)。
+            ee_change_to_grinding_sec: 収集用から研削用の初期姿勢へ戻る時間 (秒)。
+                関節速度制限の低いロボット (COBOTTA など) では長めに設定する。
         """
         self.node = node
         self.logger = node.get_logger()
@@ -47,6 +54,13 @@ class GrindingMotionPrimitive:
         if len(init_pose) != 7:
             raise ValueError("init_pose must be [x, y, z, qx, qy, qz, qw]")
         self.init_pose = init_pose
+        if gathering_init_pose is None:
+            gathering_init_pose = init_pose
+        if len(gathering_init_pose) != 7:
+            raise ValueError("gathering_init_pose must be [x, y, z, qx, qy, qz, qw]")
+        self.gathering_init_pose = gathering_init_pose
+        self.ee_change_to_gathering_sec = ee_change_to_gathering_sec
+        self.ee_change_to_grinding_sec = ee_change_to_grinding_sec
         # JTCヘルパーが使用するEEリンクを確認 (デバッグ用)
         self.logger.info(
             f"JTC Helper initialized with tool_link: {self.jtc_helper.tool_link}"
@@ -237,17 +251,17 @@ class GrindingMotionPrimitive:
             f"Moving to initial pose for gathering (EE: {self.gathering_ee_link})..."
         )
         self.jtc_helper.set_goal_pose(
-            goal_pose=self.init_pose,
+            goal_pose=self.gathering_init_pose,
             num_axes_to_check_for_goal=self.jtc_helper.num_joints - 3,
             send_immediately=True,
             wait=True,
             target_ee_link=self.gathering_ee_link,
-            time_to_reach=3
+            time_to_reach=self.ee_change_to_gathering_sec
         )
         self.logger.info("Moved to initial pose for gathering.")
 
         # 2. 収集パスの開始点へ移動
-        if waypoints.shape[0] == 0:
+        if len(waypoints) == 0:
             self.logger.error("No waypoints provided for gathering.")
             return False
 
@@ -282,7 +296,7 @@ class GrindingMotionPrimitive:
 
         # 4. Post-motion: 初期姿勢へ戻る
         self.jtc_helper.set_goal_pose(
-            goal_pose=self.init_pose,
+            goal_pose=self.gathering_init_pose,
             num_axes_to_check_for_goal=self.jtc_helper.num_joints,
             send_immediately=True,
             wait=True,
@@ -296,7 +310,7 @@ class GrindingMotionPrimitive:
             send_immediately=True,
             wait=True,
             target_ee_link=self.grinding_ee_link,
-            time_to_reach=2
+            time_to_reach=self.ee_change_to_grinding_sec
         )
         self.logger.info("Returned to initial pose.")
 
