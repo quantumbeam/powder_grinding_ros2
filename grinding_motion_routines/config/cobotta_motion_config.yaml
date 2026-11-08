@@ -29,7 +29,7 @@ cobotta_grinding_demo:
     grinding_yaw_bias: -1.5707963268
     grinding_number_of_waypoints_per_circle: 100
     # Peak joint velocity / URDF limit (J4 is the bottleneck): 5.0s: 15%, 1.5s: 49%, 1.0s: 73%, min 0.73s
-    grinding_sec_per_rotation: 1.5
+    grinding_sec_per_rotation: 1.0
     grinding_joint_difference_limit_for_motion_planning: 0.03
 
     # Gathering Parameters (positions in mm, will be converted to meters internally)
@@ -42,14 +42,17 @@ cobotta_grinding_demo:
     gathering_angle_scale: 0.0
     gathering_yaw_bias: 0.0
     gathering_number_of_waypoints_per_circle: 50
-    # Peak joint velocity / URDF limit (J3 is the bottleneck): 5.0s: 48%, 3.0s: 80%, min 2.4s
-    gathering_sec_per_rotation: 5.0
+    # Peak joint velocity / URDF limit (J3 is the bottleneck): 5.0s: 48%, 3.5s: 69%, 3.0s: 80%, min 2.4s
+    # Without cobotta_jtc_helper/waypoint_ramp_time, 3.0s stopped the robot by the COBOTTA
+    # collision detection (J1) right after the start (full speed from rest).
+    gathering_sec_per_rotation: 3.5
     gathering_joint_difference_limit_for_motion_planning: 0.1
 
     # Switching between pestle and spatula rotates J4 by ~1.4 rad.
-    # Keep it slow because of the COBOTTA joint velocity limit (J4: ~0.70 rad/s).
-    ee_change_to_gathering_sec: 8.0
-    ee_change_to_grinding_sec: 8.0
+    # 0.0: the time is decided from the joint limits (cobotta_jtc_helper/joint_speed_scaling_for_pose).
+    # A positive value is used as it is, but extended if it is too short for the joint limits.
+    ee_change_to_gathering_sec: 0.0
+    ee_change_to_grinding_sec: 0.0
 
     max_attempts: 100
 
@@ -61,7 +64,16 @@ cobotta_jtc_helper:
     trac_ik_solver_type: "Speed"
     trac_ik_timeout: 0.005
     trac_ik_epsilon: 1e-5
-    # COBOTTA has low joint velocity limits (J1: ~0.38 rad/s, J6: ~1.05 rad/s),
-    # so keep single pose movements slow enough even for pure re-orientation.
-    default_cartesian_speed_for_pose: 0.03
-    min_time_to_reach_for_pose: 3.0
+    # Time of a single pose movement = max(cartesian distance / default_cartesian_speed_for_pose,
+    #   min_time_to_reach_for_pose, the shortest time within joint_speed_scaling_for_pose x joint limits).
+    # COBOTTA has low joint velocity limits (J1: ~0.38 rad/s, J6: ~1.05 rad/s), so pure re-orientation
+    # is limited by the joints, not by the cartesian speed.
+    default_cartesian_speed_for_pose: 0.1
+    min_time_to_reach_for_pose: 1.0
+    # Peak joint velocity / acceleration = this fraction of the limits (velocity: URDF)
+    joint_speed_scaling_for_pose: 0.8
+    # [rad/s^2], same as grinding_moveit_config/config/cobotta_joint_limits.yaml
+    # Grinding / gathering trajectories accelerate from rest during this time [s] and decelerate to rest
+    # at the end (the total time grows by this value). Avoids the COBOTTA collision detection at the start.
+    waypoint_ramp_time: 1.0
+    joint_acceleration_limits_for_pose: [1.98967534727354, 1.98967534727354, 3.31612557878923, 4.47676953136546, 4.47676953136546, 6.63225115757845]
