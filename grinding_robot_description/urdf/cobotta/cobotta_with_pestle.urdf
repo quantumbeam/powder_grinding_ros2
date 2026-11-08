@@ -196,6 +196,11 @@
         <mesh filename="package://grinding_robot_description/meshes/cobotta/jig_spatula.stl"/>
       </geometry>
     </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://grinding_robot_description/meshes/cobotta/jig_spatula.stl"/>
+      </geometry>
+    </collision>
   </link>
   <joint name="joint_spatula" type="fixed">
     <!-- 実際はグリッパの厚みでzが-0.036されるので注意 -->
@@ -223,6 +228,11 @@
         <mesh filename="package://grinding_robot_description/meshes/cobotta/jig_pestle_140.stl"/>
       </geometry>
     </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://grinding_robot_description/meshes/cobotta/jig_pestle_140.stl"/>
+      </geometry>
+    </collision>
   </link>
   <joint name="joint_pestle" type="fixed">
     <origin rpy="0 0 0" xyz="0 0 0"/>

@@ -5,9 +5,12 @@
 # robot_state_publisher and RViz for COBOTTA with pestle and spatula.
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import (
+    Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution, PythonExpression
+)
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
@@ -72,6 +75,12 @@ def generate_launch_description():
         description='Whether to launch RViz.'
     ))
     declared_arguments.append(DeclareLaunchArgument(
+        'launch_moveit',
+        default_value='true',
+        description='Whether to launch MoveIt (move_group, planning scene and RViz with MotionPlanning). '
+                    'When true, the RViz of MoveIt is used instead of the plain one.'
+    ))
+    declared_arguments.append(DeclareLaunchArgument(
         'description_file',
         default_value=PathJoinSubstitution([
             FindPackageShare('grinding_robot_description'), 'urdf', 'cobotta', 'cobotta_with_pestle.urdf.xacro'
@@ -103,6 +112,7 @@ def generate_launch_description():
     verbose = LaunchConfiguration('verbose')
     initial_joint_controller = LaunchConfiguration('initial_joint_controller')
     launch_rviz = LaunchConfiguration('launch_rviz')
+    launch_moveit = LaunchConfiguration('launch_moveit')
     description_file = LaunchConfiguration('description_file')
     controllers_file = LaunchConfiguration('controllers_file')
     rviz_config_file = LaunchConfiguration('rviz_config_file')
@@ -155,7 +165,19 @@ def generate_launch_description():
         name='rviz2',
         output='log',
         arguments=['-d', rviz_config_file],
-        condition=IfCondition(launch_rviz),
+        condition=IfCondition(PythonExpression([
+            "'", launch_rviz, "' == 'true' and '", launch_moveit, "' != 'true'"
+        ])),
+    )
+    moveit_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(PathJoinSubstitution([
+            FindPackageShare('grinding_moveit_config'), 'launch', 'cobotta_moveit.launch.py'
+        ])),
+        launch_arguments={
+            'description_file': description_file,
+            'launch_rviz': launch_rviz,
+        }.items(),
+        condition=IfCondition(launch_moveit),
     )
 
     nodes_to_start = [
@@ -164,6 +186,7 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,
         robot_controller_spawner,
         rviz_node,
+        moveit_launch,
     ]
 
     return LaunchDescription(declared_arguments + nodes_to_start)

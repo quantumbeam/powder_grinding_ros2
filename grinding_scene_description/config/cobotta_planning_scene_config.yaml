@@ -1,0 +1,14 @@
+# Planning scene for COBOTTA (frame: base_link)
+# Mortar values are the same as grinding_motion_routines/config/cobotta_motion_config.yaml.
+/**:
+  ros__parameters:
+    move_group_name: "arm"
+
+    table_position: [0.0, 0.0, 0.0]
+    table_scale: [0.9, 0.84, 0.1]
+
+    mortar_mesh_file_name: "asone_agate_mortar_80x100x36.stl"
+    # Mesh origin is the center of the mortar top, so mortar_top_position is used as it is.
+    use_mortar_mesh: true
+    mortar_top_position: [0.25, 0.0, 0.022]
+    mortar_inner_scale: [0.04, 0.04, 0.036]  # used only when use_mortar_mesh is false

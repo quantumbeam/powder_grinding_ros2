@@ -19,6 +19,9 @@ PlanningSceneLoader::PlanningSceneLoader(const rclcpp::NodeOptions & options)
   this->declare_parameter<std::vector<double>>("mortar_top_position", {0.0, 0.0, 0.0});
   this->declare_parameter<std::vector<double>>("mortar_inner_scale", {1.0, 1.0, 1.0});
   this->declare_parameter<std::string>("mortar_mesh_file_name", "asone_agate_mortar_80x100x36.stl");
+  // true: add the mortar mesh (origin at the center of the mortar top),
+  // false: add a box of the inner size of the mortar
+  this->declare_parameter<bool>("use_mortar_mesh", false);
 
   // Get parameters
   std::string move_group_name;
@@ -93,8 +96,17 @@ void PlanningSceneLoader::clear_all_objects()
 void PlanningSceneLoader::load_scene()
 {
   _add_table(this->get_parameter("table_scale").as_double_array(), this->get_parameter("table_position").as_double_array());
-  // Use box instead of mesh to avoid timeout issues
-  _add_mortar_box(this->get_parameter("mortar_top_position").as_double_array(), this->get_parameter("mortar_inner_scale").as_double_array());
+  if (this->get_parameter("use_mortar_mesh").as_bool())
+  {
+    _add_mortar(
+      "package://grinding_scene_description/meshes/" + this->get_parameter("mortar_mesh_file_name").as_string(),
+      this->get_parameter("mortar_top_position").as_double_array());
+  }
+  else
+  {
+    // Use box instead of mesh to avoid timeout issues
+    _add_mortar_box(this->get_parameter("mortar_top_position").as_double_array(), this->get_parameter("mortar_inner_scale").as_double_array());
+  }
 }
 
 
@@ -139,11 +151,18 @@ void PlanningSceneLoader::_add_mortar(const std::string& file_path, const std::v
 
   shape_msgs::msg::Mesh mortar_mesh;
   shapes::Mesh* m = shapes::createMeshFromResource(file_path);
+  if (m == nullptr)
+  {
+    RCLCPP_ERROR(LOGGER, "Failed to load the mortar mesh: %s", file_path.c_str());
+    return;
+  }
   shapes::ShapeMsg mesh_msg;
   shapes::constructMsgFromShape(m, mesh_msg);
+  delete m;
   mortar_mesh = boost::get<shape_msgs::msg::Mesh>(mesh_msg);
 
   geometry_msgs::msg::Pose mortar_pose;
+  mortar_pose.orientation.w = 1.0;
   mortar_pose.position.x = mortar_pos[0];
   mortar_pose.position.y = mortar_pos[1];
   mortar_pose.position.z = mortar_pos[2];
@@ -157,7 +176,7 @@ void PlanningSceneLoader::_add_mortar(const std::string& file_path, const std::v
   planning_scene.is_diff = true;
 
   planning_scene_diff_publisher_->publish(planning_scene);
-  RCLCPP_INFO(LOGGER, "Published scene update to add mortar.");
+  RCLCPP_INFO(LOGGER, "Published scene update to add mortar mesh (%s).", file_path.c_str());
 }
 
 void PlanningSceneLoader::_add_mortar_box(const std::vector<double>& mortar_pos, const std::vector<double>& mortar_scale)
