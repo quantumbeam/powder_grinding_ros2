@@ -1,9 +1,10 @@
 #!/bin/bash
 
 ################################################################################
-# Install autostart entries which open two terminals at login and start
+# Install autostart entries which open three terminals at login and start
 #   1. grinding_robot_bringup/cobotta_with_pestle_bringup.launch.py (real robot)
 #   2. grinding_motion_routines/cobotta_grinding_demo.launch.py
+#   3. grinding_robot_bringup/rqt_joint_trajectory_controller.launch.py (joint jogging)
 # in the powder_grinding_ros2 Docker container.
 #
 # The old ROS1 entries (onolab_ros1) are disabled by renaming them to *.disabled.
@@ -13,7 +14,7 @@
 ENV_DIR=$(cd "$(dirname "$0")" && pwd)
 AUTOSTART_DIR=~/.config/autostart
 ROS1_ENTRIES="cobotta-brinngup.desktop cobotta-grinding-demo.desktop"
-ROS2_ENTRIES="cobotta-bringup-ros2.desktop cobotta-grinding-demo-ros2.desktop"
+ROS2_ENTRIES="cobotta-bringup-ros2.desktop cobotta-grinding-demo-ros2.desktop cobotta-rqt-jtc-ros2.desktop"
 
 mkdir -p ${AUTOSTART_DIR}
 
