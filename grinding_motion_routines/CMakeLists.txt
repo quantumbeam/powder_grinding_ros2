@@ -50,6 +50,7 @@ install(
   scripts/test_pose_publisher.py
   scripts/test_display_marker.py
   scripts/grinding_demo.py
+  scripts/cobotta_grinding_demo.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

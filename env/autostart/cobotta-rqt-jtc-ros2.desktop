@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=COBOTTA rqt joint trajectory controller (ROS2)
+Comment=Start rqt_joint_trajectory_controller in the powder_grinding_ros2 Docker container
+Exec=gnome-terminal -- bash -c '@ENV_DIR@/RUN-DOCKER-CONTAINER.sh grinding_robot_bringup rqt_joint_trajectory_controller.launch.py; exec bash'
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Application;

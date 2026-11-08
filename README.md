@@ -5,9 +5,9 @@
 ## 対応ロボット
 - 実装済み
   - UR5e (Universal Robot社)
+  - Cobotta (DENSOWAVE社)
 - 今後実装予定
    - UR3e (Universal Robot社)
-   - Cobotta (DENSOWAVE社)
    - Cobotta PRO 900 (DENSOWAVE社)
    - FR3 (FAIRINO 社)
 
@@ -70,6 +70,34 @@ Test scaled_joint_trajectory_controller
 ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
 ```
 
+### COBOTTA
+ドライバには[denso_robot_ros2](https://github.com/DENSORobot/denso_robot_ros2) (humble) のb-CAP Slaveモードを使用します(`third_party.repos`で取得)。
+実機を使う場合は、ROS1版と同様にCOBOTTA側でb-CAP Slaveライセンスの有効化と、Executable Token(Ethernet)にPCのIPを設定しておく必要があります。
+
+Launch COBOTTA Simulation (mock hardware)
+```bash
+ros2 launch grinding_robot_bringup cobotta_with_pestle_bringup.launch.py
+```
+
+Launch Real COBOTTA (default IP: 192.168.56.11)
+```bash
+ros2 launch grinding_robot_bringup cobotta_with_pestle_bringup.launch.py use_mock_hardware:=false robot_ip:=192.168.56.11
+```
+
+Grinding demo (Tkinter GUI: Grinding / Gathering / Grinding & Gathering / Exit demo)
+```bash
+ros2 launch grinding_motion_routines cobotta_grinding_demo.launch.py
+```
+- パラメータは`grinding_motion_routines/config/cobotta_motion_config.yaml`(ROS1の`cobotta_grinding_demo/*.yaml`から移植)
+
+### COBOTTAデモの自動起動
+ログイン時に2つのターミナルを開き、Dockerコンテナ内でbringup(実機)とデモをプロンプト付き(`r`で実行、`c`でシェル、`q`で終了)で起動します。
+```bash
+cd ./env && ./INSTALL-COBOTTA-AUTOSTART.sh              # インストール(ROS1版のautostartは*.disabledにリネームして無効化)
+cd ./env && ./INSTALL-COBOTTA-AUTOSTART.sh --uninstall  # 元に戻す
+```
+- 手動で同じことをする場合: `./env/RUN-DOCKER-CONTAINER.sh <package> <launch_file> [launch args...]`
+
 ## 開発予定のパッケージ
 - grinding_robot_bringup
   - ロボットの起動(モデル表示やMoveItの起動を含む)
@@ -98,14 +126,14 @@ ros2 launch ur_robot_driver test_scaled_joint_trajectory_controller.launch.py
   - [x] UR5e
   - [ ] UR3e
   - [ ] FR3
-  - [ ] Cobotta
+  - [x] Cobotta
   - [ ] Cobotta PRO 900
   - [ ] UFACTORY 850
 - [ ] grinding_robot_description
   - [x] UR5e
   - [ ] UR3e
   - [ ] FR3
-  - [ ] Cobotta
+  - [x] Cobotta
   - [ ] Cobotta PRO 900
   - [ ] UFACTORY 850
 - [ ] grinding_moveit_config

@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="cobotta">
+
+  <!-- ros2_control related parameters -->
+  <xacro:arg name="use_mock_hardware" default="false"/>
+  <xacro:arg name="ip_address" default="192.168.56.11"/>
+  <xacro:arg name="robot_name" default="CVR038A1-NV6-NN"/>
+  <xacro:arg name="controller_type" default="8"/>
+  <xacro:arg name="send_format" default="0"/>
+  <xacro:arg name="recv_format" default="2"/>
+  <xacro:arg name="verbose" default="false"/>
+  <!-- initial position for mock hardware -->
+  <xacro:arg name="initial_positions_file" default="$(find grinding_robot_description)/config/cobotta/initial_positions.yaml"/>
+
+  <!-- Kinematics, meshes and end effectors (pestle / spatula) -->
+  <xacro:include filename="$(find grinding_robot_description)/urdf/cobotta/cobotta_with_pestle.urdf"/>
+
+  <xacro:include filename="$(find grinding_robot_description)/urdf/cobotta/cobotta.ros2_control.xacro"/>
+  <xacro:cobotta_ros2_control
+    name="cobotta"
+    use_mock_hardware="$(arg use_mock_hardware)"
+    ip_address="$(arg ip_address)"
+    robot_name="$(arg robot_name)"
+    controller_type="$(arg controller_type)"
+    send_format="$(arg send_format)"
+    recv_format="$(arg recv_format)"
+    verbose="$(arg verbose)"
+    initial_positions="${xacro.load_yaml('$(arg initial_positions_file)')}"/>
+
+</robot>

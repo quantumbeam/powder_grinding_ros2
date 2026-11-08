@@ -2,6 +2,7 @@
 
 import sys
 import time
+import xml.etree.ElementTree as ET
 from enum import Enum, auto
 from typing import List, Optional, Union
 
@@ -11,6 +12,7 @@ from tqdm import tqdm
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.task import Future
 from builtin_interfaces.msg import Duration
 from control_msgs.action import FollowJointTrajectory
@@ -114,8 +116,19 @@ class JointTrajectoryControllerHelper(Node):
                 ("trac_ik_solver_type", "Distance"),
                 ("default_cartesian_speed_for_pose", 0.03), # m/s, for single pose movement time calculation
                 ("min_time_to_reach_for_pose", 1.0),   # seconds, minimum time for single pose movement
+                # > 0: a single pose movement takes at least the time in which every joint stays within
+                # this fraction of its URDF velocity limit (and of joint_acceleration_limits_for_pose).
+                # 0: disabled (time from the cartesian speed only).
+                ("joint_speed_scaling_for_pose", 0.0),
+                # > 0: a multi point position-only trajectory (set_waypoints) accelerates from rest
+                # during this time [s] and decelerates to rest during the same time at the end.
+                # The speed in between is kept, so the total time grows by this value.
+                # 0: disabled (equal time steps, i.e. full speed from the first point).
+                ("waypoint_ramp_time", 0.0),
             ],
         )
+        # Joint acceleration limits [rad/s^2] in the order of joints_name (URDF has none). Unset: not used.
+        self.declare_parameter("joint_acceleration_limits_for_pose", Parameter.Type.DOUBLE_ARRAY)
 
         # KDL Helperを初期化（ヤコビアン計算とFK用）
         self.kdl_helper = None
@@ -150,6 +163,15 @@ class JointTrajectoryControllerHelper(Node):
             self.min_time_to_reach_for_pose = self.get_parameter(
                 "min_time_to_reach_for_pose"
             ).value
+            self.joint_speed_scaling_for_pose = self.get_parameter(
+                "joint_speed_scaling_for_pose"
+            ).value
+            # get_parameter raises for a declared but unset parameter (no default value)
+            self.joint_acceleration_limits_for_pose = self.get_parameter_or(
+                "joint_acceleration_limits_for_pose", Parameter("joint_acceleration_limits_for_pose", value=None)
+            ).value
+            self.joint_velocity_limits = self._load_joint_velocity_limits()
+            self.waypoint_ramp_time = self.get_parameter("waypoint_ramp_time").value
             self._init_ik_solver()
         else:
             raise Exception(f"Unsupported IK solver: {self.ik_solver.name}")
@@ -161,6 +183,73 @@ class JointTrajectoryControllerHelper(Node):
         
         # アクションクライアントの接続確認
         self._check_action_client_connection()
+
+    def _load_joint_velocity_limits(self) -> Optional[np.ndarray]:
+        """URDF の <limit velocity> を joints_name の順で返す。取得できなければ None。"""
+        try:
+            if self.urdf_path is not None:
+                root = ET.parse(self.urdf_path).getroot()
+            elif self.urdf_string:
+                root = ET.fromstring(self.urdf_string)
+            else:
+                return None
+            limits = {}
+            for joint in root.iter("joint"):
+                limit = joint.find("limit")
+                if limit is not None and limit.get("velocity") is not None:
+                    limits[joint.get("name")] = float(limit.get("velocity"))
+            velocity_limits = np.array([limits[name] for name in self.valid_joint_names])
+            self.get_logger().info(f"Joint velocity limits from URDF: {np.round(velocity_limits, 3).tolist()}")
+            return velocity_limits
+        except Exception as e:
+            self.get_logger().warn(f"Could not read joint velocity limits from URDF: {e}")
+            return None
+
+    def min_time_for_joint_limits(self, q_start: np.ndarray, q_goal: np.ndarray) -> Optional[float]:
+        """
+        静止から静止まで (速度・加速度0の1点軌道 = JTC の5次補間) で動くときに、
+        全関節が joint_speed_scaling_for_pose x 上限 に収まる最短時間 [s] を返す。
+        無効 (joint_speed_scaling_for_pose <= 0 または速度上限が不明) なら None。
+
+        5次の静止-静止補間では ピーク速度 = 1.875 d/T, ピーク加速度 = 10/sqrt(3) d/T^2。
+        """
+        scaling = self.joint_speed_scaling_for_pose
+        if scaling is None or scaling <= 0.0 or self.joint_velocity_limits is None:
+            return None
+        distance = np.abs(np.asarray(q_goal, dtype=float) - np.asarray(q_start, dtype=float))
+        min_time = float(np.max(1.875 * distance / (scaling * self.joint_velocity_limits)))
+        acc_limits = self.joint_acceleration_limits_for_pose
+        if acc_limits is not None and len(acc_limits) == self.num_joints:
+            acc_time = float(np.max(np.sqrt(10.0 / np.sqrt(3.0) * distance / (scaling * np.asarray(acc_limits)))))
+            min_time = max(min_time, acc_time)
+        return min_time
+
+    @staticmethod
+    def ramped_times(num_points: int, cruise_time: float, ramp_time: float) -> List[float]:
+        """
+        等間隔の num_points 点を cruise_time [s] で進む速度を保ったまま、最初の ramp_time [s] で
+        静止から加速し、最後の ramp_time [s] で静止まで減速する各点の time_from_start を返す。
+        合計時間は cruise_time + ramp_time。
+
+        距離を「等速で進んだ場合の時間」d で表すと (速度1, 加速度 1/ramp_time):
+          加速中 d < ramp_time/2:            t = sqrt(2 ramp_time d)
+          等速中:                            t = d + ramp_time/2
+          減速中 d > cruise_time - ramp_time/2: 加速の対称
+        ramp_time > cruise_time のときは cruise_time に切り詰める (三角形の速度プロファイル)。
+        """
+        ramp = min(ramp_time, cruise_time)
+        total = cruise_time + ramp
+        times = []
+        for i in range(1, num_points + 1):
+            d = cruise_time * i / num_points
+            if d < ramp / 2.0:
+                t = np.sqrt(2.0 * ramp * d)
+            elif d > cruise_time - ramp / 2.0:
+                t = total - np.sqrt(2.0 * ramp * (cruise_time - d))
+            else:
+                t = d + ramp / 2.0
+            times.append(float(t))
+        return times
 
     def _joint_states_cb(self, msg: JointState) -> None:
         """
@@ -578,7 +667,9 @@ class JointTrajectoryControllerHelper(Node):
 
         Args:
             goal_pose: 単一の目標姿勢 [x,y,z,qx,qy,qz,qw]。
-            time_to_reach: 目標到達時間 (秒)。Noneの場合、デカルト距離と速度から自動計算。
+            time_to_reach: 目標到達時間 (秒)。None または 0 以下の場合、デカルト距離と速度から自動計算。
+                           joint_speed_scaling_for_pose > 0 のときは、関節の速度・加速度上限から決まる
+                           最短時間より短くならないように延ばす (指定した場合も同じ)。
             max_joint_change_limit: 現在の関節角度から目標姿勢への移動時に許容される
                                                各関節の最大角度変化量 (ラジアン)。
                                                None の場合はチェックしない。Defaults to np.pi/4.
@@ -646,13 +737,14 @@ class JointTrajectoryControllerHelper(Node):
 
             if is_within_limit:
                 calculated_time_to_reach = time_to_reach
+                if calculated_time_to_reach is not None and calculated_time_to_reach <= 0.0:
+                    calculated_time_to_reach = None
+                joint_limit_time = self.min_time_for_joint_limits(q_prev, q_best)
                 if calculated_time_to_reach is None:
-                    if pre_tool_link is not None:
-                        self.change_ee_link(pre_tool_link)
-                        current_ee_pose_list = self.solve_fk(q_prev)
-                        self.change_ee_link(self.tool_link)
-                    else:
-                        current_ee_pose_list = self.solve_fk(q_prev)
+                    # Distance of the target EE link (self.tool_link, already switched above) from the
+                    # current joints to the goal. Do not switch the EE link here: switching back with
+                    # self.tool_link after change_ee_link(pre_tool_link) would leave the old link active.
+                    current_ee_pose_list = self.solve_fk(q_prev)
                     if current_ee_pose_list is None or len(current_ee_pose_list) < 3:
                         self.get_logger().warn("Could not get current EE pose via FK. Using min_time_to_reach.")
                         calculated_time = self.min_time_to_reach_for_pose
@@ -671,7 +763,18 @@ class JointTrajectoryControllerHelper(Node):
                             f"Calculated time based on speed: {calculated_time:.2f}s."
                         )
                     calculated_time_to_reach = max(calculated_time, self.min_time_to_reach_for_pose)
+                    if joint_limit_time is not None and joint_limit_time > calculated_time_to_reach:
+                        self.get_logger().info(
+                            f"Joint limits need {joint_limit_time:.2f}s (scaling {self.joint_speed_scaling_for_pose})."
+                        )
+                        calculated_time_to_reach = joint_limit_time
                     self.get_logger().info(f"Using calculated time_to_reach: {calculated_time_to_reach:.2f}s")
+                elif joint_limit_time is not None and joint_limit_time > calculated_time_to_reach:
+                    self.get_logger().warn(
+                        f"time_to_reach {calculated_time_to_reach:.2f}s is too short for the joint limits. "
+                        f"Using {joint_limit_time:.2f}s instead."
+                    )
+                    calculated_time_to_reach = joint_limit_time
 
                 self.get_logger().info(
                     "Joint change is within limit. Sending trajectory to goal pose."
@@ -758,6 +861,14 @@ class JointTrajectoryControllerHelper(Node):
                 self._plot_joint_velocities_and_positions(velocities, joint_trajectory, time_to_reach)
 
         dt = time_to_reach / len(joint_trajectory)
+        point_times = [dt * i for i in range(1, len(joint_trajectory) + 1)]
+        ramp_time = getattr(self, "waypoint_ramp_time", 0.0) or 0.0
+        if ramp_time > 0.0 and velocities is None and accelerations is None and len(joint_trajectory) > 1:
+            point_times = self.ramped_times(len(joint_trajectory), time_to_reach, ramp_time)
+            self.get_logger().info(
+                f"Ramped waypoint timing: {time_to_reach:.2f}s at speed + ramp {min(ramp_time, time_to_reach):.2f}s "
+                f"-> total {point_times[-1]:.2f}s"
+            )
         self.goals.clear()
         for i, goal_joints in enumerate(joint_trajectory, start=1):
             point = JointTrajectoryPoint()
@@ -784,8 +895,9 @@ class JointTrajectoryControllerHelper(Node):
                     self.get_logger().warn(f"Accelerations length ({len(accelerations)}) doesn't match trajectory points ({len(joint_trajectory)}) or joints ({len(goal_joints)}). Using zero accelerations.")
                     point.accelerations = [0.0] * len(goal_joints)
             # accelerationsがNoneの場合は加速度を設定しない（空のリストのままにする）
-            sec = int(dt * i)
-            nsec = int((dt * i - sec) * 1e9)
+            t_point = point_times[i - 1]
+            sec = int(t_point)
+            nsec = int((t_point - sec) * 1e9)
             point.time_from_start = Duration(sec=sec, nanosec=nsec)
             self.goals.append(point)
         self.get_logger().debug(f"All joint trajectory: {self.goals}")

@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro">
+
+  <!--
+    ros2_control description for COBOTTA.
+    - use_mock_hardware:=true  -> mock_components/GenericSystem (no robot required)
+    - use_mock_hardware:=false -> denso_robot_control/DensoRobotHW (b-CAP slave mode, denso_robot_ros2)
+  -->
+  <xacro:macro name="cobotta_ros2_control" params="
+    name
+    use_mock_hardware:=false
+    ip_address
+    model:=cobotta
+    robot_name:=CVR038A1-NV6-NN
+    controller_type:=8
+    send_format:=0
+    recv_format:=2
+    verbose:=false
+    initial_positions"
+  >
+    <ros2_control name="${name}" type="system">
+      <hardware>
+        <xacro:if value="${use_mock_hardware}">
+          <plugin>mock_components/GenericSystem</plugin>
+        </xacro:if>
+        <xacro:unless value="${use_mock_hardware}">
+          <plugin>denso_robot_control/DensoRobotHW</plugin>
+          <param name="ip_address">${ip_address}</param>
+          <!-- "robot_name" must be consistent with the @TYPE_NAME variable of the real robot -->
+          <param name="robot_name">${robot_name}</param>
+          <param name="node_name">denso_robot_control</param>
+          <param name="node_namespace">${model}</param>
+          <param name="robot_joints">6</param>
+          <param name="joint_1">1</param>
+          <param name="joint_2">1</param>
+          <param name="joint_3">1</param>
+          <param name="joint_4">1</param>
+          <param name="joint_5">1</param>
+          <param name="joint_6">1</param>
+          <param name="arm_group">0</param>
+          <!-- COBOTTA without I/O configuration: send_format=0, recv_format=2 -->
+          <param name="send_format">${send_format}</param>
+          <param name="recv_format">${recv_format}</param>
+          <!-- 8 = RC8, 9 = RC9 -->
+          <param name="controller_type">${controller_type}</param>
+          <param name="verbose">${verbose}</param>
+        </xacro:unless>
+      </hardware>
+
+      <!-- DensoRobotHW requires exactly these interfaces in this order:
+           command: position, velocity (velocity is not used) / state: position, velocity, effort -->
+      <xacro:macro name="cobotta_joint" params="joint_name">
+        <joint name="${joint_name}">
+          <command_interface name="position"/>
+          <command_interface name="velocity"/>
+          <state_interface name="position">
+            <param name="initial_value">${initial_positions[joint_name]}</param>
+          </state_interface>
+          <state_interface name="velocity">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+          <state_interface name="effort">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+        </joint>
+      </xacro:macro>
+
+      <xacro:cobotta_joint joint_name="joint_1"/>
+      <xacro:cobotta_joint joint_name="joint_2"/>
+      <xacro:cobotta_joint joint_name="joint_3"/>
+      <xacro:cobotta_joint joint_name="joint_4"/>
+      <xacro:cobotta_joint joint_name="joint_5"/>
+      <xacro:cobotta_joint joint_name="joint_6"/>
+    </ros2_control>
+  </xacro:macro>
+
+</robot>
